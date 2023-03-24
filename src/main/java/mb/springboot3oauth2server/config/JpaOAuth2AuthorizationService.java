@@ -1,11 +1,10 @@
 package mb.springboot3oauth2server.config;
 
-import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.function.Consumer;
-
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.Module;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import mb.springboot3oauth2server.data.entity.Authorization;
+import mb.springboot3oauth2server.data.repository.AuthorizationRepository;
 import org.springframework.dao.DataRetrievalFailureException;
 import org.springframework.security.jackson2.SecurityJackson2Modules;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
@@ -25,12 +24,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.Module;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import mb.springboot3oauth2server.data.entity.Authorization;
-import mb.springboot3oauth2server.data.repository.AuthorizationRepository;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Consumer;
 
 @Service
 public class JpaOAuth2AuthorizationService implements OAuth2AuthorizationService {
@@ -49,6 +47,17 @@ public class JpaOAuth2AuthorizationService implements OAuth2AuthorizationService
         List<Module> securityModules = SecurityJackson2Modules.getModules(classLoader);
         this.objectMapper.registerModules(securityModules);
         this.objectMapper.registerModule(new OAuth2AuthorizationServerJackson2Module());
+    }
+
+    private static AuthorizationGrantType resolveAuthorizationGrantType(String authorizationGrantType) {
+        if (AuthorizationGrantType.AUTHORIZATION_CODE.getValue().equals(authorizationGrantType)) {
+            return AuthorizationGrantType.AUTHORIZATION_CODE;
+        } else if (AuthorizationGrantType.CLIENT_CREDENTIALS.getValue().equals(authorizationGrantType)) {
+            return AuthorizationGrantType.CLIENT_CREDENTIALS;
+        } else if (AuthorizationGrantType.REFRESH_TOKEN.getValue().equals(authorizationGrantType)) {
+            return AuthorizationGrantType.REFRESH_TOKEN;
+        }
+        return new AuthorizationGrantType(authorizationGrantType);              // Custom authorization grant type
     }
 
     @Override
@@ -235,16 +244,5 @@ public class JpaOAuth2AuthorizationService implements OAuth2AuthorizationService
         } catch (Exception ex) {
             throw new IllegalArgumentException(ex.getMessage(), ex);
         }
-    }
-
-    private static AuthorizationGrantType resolveAuthorizationGrantType(String authorizationGrantType) {
-        if (AuthorizationGrantType.AUTHORIZATION_CODE.getValue().equals(authorizationGrantType)) {
-            return AuthorizationGrantType.AUTHORIZATION_CODE;
-        } else if (AuthorizationGrantType.CLIENT_CREDENTIALS.getValue().equals(authorizationGrantType)) {
-            return AuthorizationGrantType.CLIENT_CREDENTIALS;
-        } else if (AuthorizationGrantType.REFRESH_TOKEN.getValue().equals(authorizationGrantType)) {
-            return AuthorizationGrantType.REFRESH_TOKEN;
-        }
-        return new AuthorizationGrantType(authorizationGrantType);              // Custom authorization grant type
     }
 }

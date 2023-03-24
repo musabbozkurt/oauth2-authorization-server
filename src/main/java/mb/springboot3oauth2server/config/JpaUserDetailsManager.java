@@ -1,8 +1,8 @@
 package mb.springboot3oauth2server.config;
 
-import java.util.Collection;
-import java.util.HashSet;
-
+import lombok.RequiredArgsConstructor;
+import mb.springboot3oauth2server.data.entity.SecurityUser;
+import mb.springboot3oauth2server.data.repository.UserRepository;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
@@ -11,9 +11,8 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.provisioning.UserDetailsManager;
 import org.springframework.stereotype.Service;
 
-import lombok.RequiredArgsConstructor;
-import mb.springboot3oauth2server.data.entity.SecurityUser;
-import mb.springboot3oauth2server.data.repository.UserRepository;
+import java.util.Collection;
+import java.util.HashSet;
 
 @RequiredArgsConstructor
 @Service
@@ -52,10 +51,7 @@ public class JpaUserDetailsManager implements UserDetailsManager {
     @Override
     public boolean userExists(String username) {
         SecurityUser user = userRepository.findByUsername(username);
-        if (user.getUsername().equals(username)) {
-            return true;
-        }
-        return false;
+        return user.getUsername().equals(username);
     }
 
 }

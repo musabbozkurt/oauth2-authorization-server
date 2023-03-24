@@ -1,8 +1,7 @@
 package mb.springboot3oauth2server.data.repository;
 
-import org.springframework.data.jpa.repository.JpaRepository;
-
 import mb.springboot3oauth2server.data.entity.SecurityUser;
+import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface UserRepository extends JpaRepository<SecurityUser, Integer> {
 

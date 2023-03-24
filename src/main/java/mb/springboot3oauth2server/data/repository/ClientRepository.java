@@ -1,10 +1,9 @@
 package mb.springboot3oauth2server.data.repository;
 
-import java.util.Optional;
-
+import mb.springboot3oauth2server.data.entity.Client;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import mb.springboot3oauth2server.data.entity.Client;
+import java.util.Optional;
 
 public interface ClientRepository extends JpaRepository<Client, String> {
 

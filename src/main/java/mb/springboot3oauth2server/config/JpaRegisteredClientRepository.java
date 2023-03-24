@@ -1,14 +1,10 @@
 package mb.springboot3oauth2server.config;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
+import mb.springboot3oauth2server.data.entity.Client;
+import mb.springboot3oauth2server.data.repository.ClientRepository;
 import org.springframework.security.jackson2.SecurityJackson2Modules;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
@@ -21,8 +17,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
-import mb.springboot3oauth2server.data.entity.Client;
-import mb.springboot3oauth2server.data.repository.ClientRepository;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 public class JpaRegisteredClientRepository implements RegisteredClientRepository {
@@ -38,6 +36,28 @@ public class JpaRegisteredClientRepository implements RegisteredClientRepository
         List<Module> securityModules = SecurityJackson2Modules.getModules(classLoader);
         this.objectMapper.registerModules(securityModules);
         this.objectMapper.registerModule(new OAuth2AuthorizationServerJackson2Module());
+    }
+
+    private static AuthorizationGrantType resolveAuthorizationGrantType(String authorizationGrantType) {
+        if (AuthorizationGrantType.AUTHORIZATION_CODE.getValue().equals(authorizationGrantType)) {
+            return AuthorizationGrantType.AUTHORIZATION_CODE;
+        } else if (AuthorizationGrantType.CLIENT_CREDENTIALS.getValue().equals(authorizationGrantType)) {
+            return AuthorizationGrantType.CLIENT_CREDENTIALS;
+        } else if (AuthorizationGrantType.REFRESH_TOKEN.getValue().equals(authorizationGrantType)) {
+            return AuthorizationGrantType.REFRESH_TOKEN;
+        }
+        return new AuthorizationGrantType(authorizationGrantType);              // Custom authorization grant type
+    }
+
+    private static ClientAuthenticationMethod resolveClientAuthenticationMethod(String clientAuthenticationMethod) {
+        if (ClientAuthenticationMethod.CLIENT_SECRET_BASIC.getValue().equals(clientAuthenticationMethod)) {
+            return ClientAuthenticationMethod.CLIENT_SECRET_BASIC;
+        } else if (ClientAuthenticationMethod.CLIENT_SECRET_POST.getValue().equals(clientAuthenticationMethod)) {
+            return ClientAuthenticationMethod.CLIENT_SECRET_POST;
+        } else if (ClientAuthenticationMethod.NONE.getValue().equals(clientAuthenticationMethod)) {
+            return ClientAuthenticationMethod.NONE;
+        }
+        return new ClientAuthenticationMethod(clientAuthenticationMethod);      // Custom client authentication method
     }
 
     @Override
@@ -77,11 +97,11 @@ public class JpaRegisteredClientRepository implements RegisteredClientRepository
                 .clientAuthenticationMethods(authenticationMethods ->
                         clientAuthenticationMethods.forEach(authenticationMethod ->
                                 authenticationMethods.add(resolveClientAuthenticationMethod(authenticationMethod))))
-                .authorizationGrantTypes((grantTypes) ->
+                .authorizationGrantTypes(grantTypes ->
                         authorizationGrantTypes.forEach(grantType ->
                                 grantTypes.add(resolveAuthorizationGrantType(grantType))))
-                .redirectUris((uris) -> uris.addAll(redirectUris))
-                .scopes((scopes) -> scopes.addAll(clientScopes));
+                .redirectUris(uris -> uris.addAll(redirectUris))
+                .scopes(scopes -> scopes.addAll(clientScopes));
 
         Map<String, Object> clientSettingsMap = parseMap(client.getClientSettings());
         builder.clientSettings(ClientSettings.withSettings(clientSettingsMap).build());
@@ -133,27 +153,5 @@ public class JpaRegisteredClientRepository implements RegisteredClientRepository
         } catch (Exception ex) {
             throw new IllegalArgumentException(ex.getMessage(), ex);
         }
-    }
-
-    private static AuthorizationGrantType resolveAuthorizationGrantType(String authorizationGrantType) {
-        if (AuthorizationGrantType.AUTHORIZATION_CODE.getValue().equals(authorizationGrantType)) {
-            return AuthorizationGrantType.AUTHORIZATION_CODE;
-        } else if (AuthorizationGrantType.CLIENT_CREDENTIALS.getValue().equals(authorizationGrantType)) {
-            return AuthorizationGrantType.CLIENT_CREDENTIALS;
-        } else if (AuthorizationGrantType.REFRESH_TOKEN.getValue().equals(authorizationGrantType)) {
-            return AuthorizationGrantType.REFRESH_TOKEN;
-        }
-        return new AuthorizationGrantType(authorizationGrantType);              // Custom authorization grant type
-    }
-
-    private static ClientAuthenticationMethod resolveClientAuthenticationMethod(String clientAuthenticationMethod) {
-        if (ClientAuthenticationMethod.CLIENT_SECRET_BASIC.getValue().equals(clientAuthenticationMethod)) {
-            return ClientAuthenticationMethod.CLIENT_SECRET_BASIC;
-        } else if (ClientAuthenticationMethod.CLIENT_SECRET_POST.getValue().equals(clientAuthenticationMethod)) {
-            return ClientAuthenticationMethod.CLIENT_SECRET_POST;
-        } else if (ClientAuthenticationMethod.NONE.getValue().equals(clientAuthenticationMethod)) {
-            return ClientAuthenticationMethod.NONE;
-        }
-        return new ClientAuthenticationMethod(clientAuthenticationMethod);      // Custom client authentication method
     }
 }
