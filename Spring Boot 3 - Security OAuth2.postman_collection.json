@@ -1,0 +1,68 @@
+{
+  "info": {
+    "_postman_id": "aa150e2e-e99d-4e71-a29e-3f1e0e798f80",
+    "name": "Spring Boot 3 - Security OAuth2",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "25797942"
+  },
+  "item": [
+    {
+      "name": "Authorization Code",
+      "request": {
+        "auth": {
+          "type": "oauth2",
+          "oauth2": [
+            {
+              "key": "accessTokenUrl",
+              "value": "http://localhost:9000/oauth2/token",
+              "type": "string"
+            },
+            {
+              "key": "authUrl",
+              "value": "http://localhost:9000/oauth2/authorize",
+              "type": "string"
+            },
+            {
+              "key": "redirect_uri",
+              "value": "http://127.0.0.1:8080/login/oauth2/code/client",
+              "type": "string"
+            },
+            {
+              "key": "scope",
+              "value": "openid read",
+              "type": "string"
+            },
+            {
+              "key": "clientSecret",
+              "value": "secret",
+              "type": "string"
+            },
+            {
+              "key": "clientId",
+              "value": "client",
+              "type": "string"
+            },
+            {
+              "key": "grant_type",
+              "value": "authorization_code_with_pkce",
+              "type": "string"
+            },
+            {
+              "key": "tokenName",
+              "value": "Bearer",
+              "type": "string"
+            },
+            {
+              "key": "addTokenTo",
+              "value": "header",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": []
+      },
+      "response": []
+    }
+  ]
+}
