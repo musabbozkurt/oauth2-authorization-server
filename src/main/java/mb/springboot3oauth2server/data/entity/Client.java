@@ -1,4 +1,4 @@
-package mb.springboot3oauth2server.entity;
+package mb.springboot3oauth2server.data.entity;
 
 import java.time.Instant;
 
@@ -10,11 +10,11 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-@Entity
-@Table(name = "client")
 @Data
-@AllArgsConstructor
+@Entity
 @NoArgsConstructor
+@AllArgsConstructor
+@Table(name = "client")
 public class Client {
 
     @Id

@@ -29,8 +29,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import mb.springboot3oauth2server.entity.Authorization;
-import mb.springboot3oauth2server.repository.AuthorizationRepository;
+import mb.springboot3oauth2server.data.entity.Authorization;
+import mb.springboot3oauth2server.data.repository.AuthorizationRepository;
 
 @Service
 public class JpaOAuth2AuthorizationService implements OAuth2AuthorizationService {

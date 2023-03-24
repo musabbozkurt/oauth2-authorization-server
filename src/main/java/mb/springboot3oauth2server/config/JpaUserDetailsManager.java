@@ -12,8 +12,8 @@ import org.springframework.security.provisioning.UserDetailsManager;
 import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
-import mb.springboot3oauth2server.entity.SecurityUser;
-import mb.springboot3oauth2server.repository.UserRepository;
+import mb.springboot3oauth2server.data.entity.SecurityUser;
+import mb.springboot3oauth2server.data.repository.UserRepository;
 
 @RequiredArgsConstructor
 @Service

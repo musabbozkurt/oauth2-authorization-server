@@ -1,4 +1,4 @@
-package mb.springboot3oauth2server.entity;
+package mb.springboot3oauth2server.data.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -11,11 +11,11 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
 
-@Entity
-@Table(name = "authorities")
 @Data
-@AllArgsConstructor
+@Entity
 @NoArgsConstructor
+@AllArgsConstructor
+@Table(name = "authorities")
 public class Authority {
 
     @Id

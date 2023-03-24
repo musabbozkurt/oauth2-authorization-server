@@ -1,4 +1,4 @@
-package mb.springboot3oauth2server.entity;
+package mb.springboot3oauth2server.data.entity;
 
 import java.util.Set;
 
@@ -18,11 +18,11 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
 
-@Entity
-@Table(name = "users")
 @Data
-@AllArgsConstructor
+@Entity
 @NoArgsConstructor
+@AllArgsConstructor
+@Table(name = "users")
 public class SecurityUser {
 
     @Id

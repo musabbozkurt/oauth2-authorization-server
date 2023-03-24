@@ -21,8 +21,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
-import mb.springboot3oauth2server.entity.Client;
-import mb.springboot3oauth2server.repository.ClientRepository;
+import mb.springboot3oauth2server.data.entity.Client;
+import mb.springboot3oauth2server.data.repository.ClientRepository;
 
 @Service
 public class JpaRegisteredClientRepository implements RegisteredClientRepository {

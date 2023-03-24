@@ -7,7 +7,6 @@ create table if not exists springbootoauth2server.authorities
     primary key (id)
 );
 
-
 create table if not exists springbootoauth2server.authorization
 (
     id                            varchar(255) not null,
@@ -39,7 +38,6 @@ create table if not exists springbootoauth2server.authorization
     primary key (id)
 );
 
-
 create table if not exists springbootoauth2server.client
 (
     id                            varchar(255) not null,
@@ -57,7 +55,6 @@ create table if not exists springbootoauth2server.client
     primary key (id)
 );
 
-
 create table if not exists springbootoauth2server.users
 (
     id                      integer not null auto_increment,
@@ -70,14 +67,12 @@ create table if not exists springbootoauth2server.users
     primary key (id)
 );
 
-
 create table if not exists springbootoauth2server.users_authorities
 (
     users_id       integer not null,
     authorities_id integer not null,
     primary key (users_id, authorities_id)
 );
-
 
 alter table springbootoauth2server.authorities
     drop index if exists UK_q0u5f2cdlshec8tlh6818bhbk;
