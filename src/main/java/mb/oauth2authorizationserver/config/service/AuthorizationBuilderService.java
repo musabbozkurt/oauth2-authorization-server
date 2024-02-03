@@ -6,11 +6,6 @@ import org.springframework.security.oauth2.server.authorization.OAuth2Authorizat
 
 public interface AuthorizationBuilderService extends GenericBuilderService<OAuth2Authorization, Authorization> {
 
-    OAuth2Authorization toObject(Authorization entity);
-
-
-    Authorization toEntity(OAuth2Authorization authorization);
-
     static AuthorizationGrantType resolveAuthorizationGrantType(String authorizationGrantType) {
         if (AuthorizationGrantType.AUTHORIZATION_CODE.getValue().equals(authorizationGrantType)) {
             return AuthorizationGrantType.AUTHORIZATION_CODE;
@@ -21,4 +16,8 @@ public interface AuthorizationBuilderService extends GenericBuilderService<OAuth
         }
         return new AuthorizationGrantType(authorizationGrantType); // Custom authorization grant type
     }
+
+    OAuth2Authorization toObject(Authorization entity);
+
+    Authorization toEntity(OAuth2Authorization authorization);
 }

@@ -6,11 +6,6 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 
 public interface RegisteredClientBuilderService extends GenericBuilderService<RegisteredClient, Client> {
 
-    RegisteredClient toObject(Client client);
-
-
-    Client toEntity(RegisteredClient registeredClient);
-
     static ClientAuthenticationMethod resolveClientAuthenticationMethod(String clientAuthenticationMethod) {
         if (ClientAuthenticationMethod.CLIENT_SECRET_BASIC.getValue().equals(clientAuthenticationMethod)) {
             return ClientAuthenticationMethod.CLIENT_SECRET_BASIC;
@@ -21,4 +16,8 @@ public interface RegisteredClientBuilderService extends GenericBuilderService<Re
         }
         return new ClientAuthenticationMethod(clientAuthenticationMethod);      // Custom client authentication method
     }
+
+    RegisteredClient toObject(Client client);
+
+    Client toEntity(RegisteredClient registeredClient);
 }
