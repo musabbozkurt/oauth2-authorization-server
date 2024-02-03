@@ -1,4 +1,4 @@
-package mb.oauth2authorizationserver.config.model;
+package mb.oauth2authorizationserver.config.security.model;
 
 import org.springframework.security.core.GrantedAuthority;
 

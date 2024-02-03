@@ -1,4 +1,4 @@
-package mb.oauth2authorizationserver.config;
+package mb.oauth2authorizationserver.config.security;
 
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientAuthenticationToken;

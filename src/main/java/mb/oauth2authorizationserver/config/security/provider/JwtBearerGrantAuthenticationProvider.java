@@ -1,5 +1,6 @@
-package mb.oauth2authorizationserver.config;
+package mb.oauth2authorizationserver.config.security.provider;
 
+import mb.oauth2authorizationserver.config.security.JwtBearerGrantAuthenticationToken;
 import mb.oauth2authorizationserver.utils.SecurityUtil;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.core.Authentication;

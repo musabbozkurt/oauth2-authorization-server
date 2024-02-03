@@ -1,4 +1,4 @@
-package mb.oauth2authorizationserver.config;
+package mb.oauth2authorizationserver.config.security;
 
 import lombok.Getter;
 import org.springframework.lang.Nullable;

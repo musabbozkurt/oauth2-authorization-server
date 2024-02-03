@@ -1,10 +1,11 @@
-package mb.oauth2authorizationserver.config.service.impl;
+package mb.oauth2authorizationserver.config.security.builder.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import mb.oauth2authorizationserver.config.service.AuthorizationBuilderService;
-import mb.oauth2authorizationserver.config.service.RegisteredClientBuilderService;
+import mb.oauth2authorizationserver.config.security.builder.AuthorizationBuilderService;
+import mb.oauth2authorizationserver.config.security.builder.RegisteredClientBuilderService;
+import mb.oauth2authorizationserver.config.security.service.impl.RegisteredClientRepositoryImpl;
 import mb.oauth2authorizationserver.data.entity.Client;
 import org.springframework.security.jackson2.SecurityJackson2Modules;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;

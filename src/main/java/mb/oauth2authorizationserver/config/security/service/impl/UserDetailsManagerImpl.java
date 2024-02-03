@@ -1,4 +1,4 @@
-package mb.oauth2authorizationserver.config.service.impl;
+package mb.oauth2authorizationserver.config.security.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import mb.oauth2authorizationserver.data.entity.SecurityUser;

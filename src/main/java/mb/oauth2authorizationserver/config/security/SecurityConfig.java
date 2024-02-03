@@ -1,4 +1,4 @@
-package mb.oauth2authorizationserver.config;
+package mb.oauth2authorizationserver.config.security;
 
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
@@ -6,10 +6,14 @@ import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import mb.oauth2authorizationserver.config.model.CustomPasswordUser;
-import mb.oauth2authorizationserver.config.service.AuthorizationBuilderService;
-import mb.oauth2authorizationserver.config.service.impl.OAuth2AuthorizationServiceImpl;
-import mb.oauth2authorizationserver.config.service.impl.UserDetailsManagerImpl;
+import mb.oauth2authorizationserver.config.security.builder.AuthorizationBuilderService;
+import mb.oauth2authorizationserver.config.security.converter.CustomPasswordAuthenticationConverter;
+import mb.oauth2authorizationserver.config.security.converter.JwtBearerGrantAuthenticationConverter;
+import mb.oauth2authorizationserver.config.security.model.CustomPasswordUser;
+import mb.oauth2authorizationserver.config.security.provider.CustomPasswordAuthenticationProvider;
+import mb.oauth2authorizationserver.config.security.provider.JwtBearerGrantAuthenticationProvider;
+import mb.oauth2authorizationserver.config.security.service.impl.OAuth2AuthorizationServiceImpl;
+import mb.oauth2authorizationserver.config.security.service.impl.UserDetailsManagerImpl;
 import mb.oauth2authorizationserver.data.repository.AuthorizationRepository;
 import mb.oauth2authorizationserver.data.repository.UserRepository;
 import mb.oauth2authorizationserver.utils.SecurityUtil;
@@ -31,6 +35,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.authorization.InMemoryOAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
+import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
@@ -63,7 +68,7 @@ public class SecurityConfig {
     @Order(1)
     SecurityFilterChain asSecurityFilterChain(HttpSecurity httpSecurity) throws Exception {
         OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(httpSecurity);
-        OAuth2AuthorizationServiceImpl oAuth2AuthorizationService = new OAuth2AuthorizationServiceImpl(authorizationRepository, authorizationBuilderService);
+        OAuth2AuthorizationService oAuth2AuthorizationService = new OAuth2AuthorizationServiceImpl(authorizationRepository, authorizationBuilderService);
 
         return httpSecurity
                 .cors(AbstractHttpConfigurer::disable)

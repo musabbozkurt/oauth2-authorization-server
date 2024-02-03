@@ -1,6 +1,6 @@
-package mb.oauth2authorizationserver.config.service.impl;
+package mb.oauth2authorizationserver.config.security.service.impl;
 
-import mb.oauth2authorizationserver.config.service.AuthorizationBuilderService;
+import mb.oauth2authorizationserver.config.security.builder.AuthorizationBuilderService;
 import mb.oauth2authorizationserver.data.entity.Authorization;
 import mb.oauth2authorizationserver.data.repository.AuthorizationRepository;
 import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;

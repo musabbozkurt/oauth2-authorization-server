@@ -1,4 +1,4 @@
-package mb.oauth2authorizationserver.config.service;
+package mb.oauth2authorizationserver.config.security.builder;
 
 public interface GenericBuilderService<T, E> {
 

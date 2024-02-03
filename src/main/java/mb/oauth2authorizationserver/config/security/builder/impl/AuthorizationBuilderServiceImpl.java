@@ -1,9 +1,10 @@
-package mb.oauth2authorizationserver.config.service.impl;
+package mb.oauth2authorizationserver.config.security.builder.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import mb.oauth2authorizationserver.config.service.AuthorizationBuilderService;
+import mb.oauth2authorizationserver.config.security.builder.AuthorizationBuilderService;
+import mb.oauth2authorizationserver.config.security.service.impl.OAuth2AuthorizationServiceImpl;
 import mb.oauth2authorizationserver.data.entity.Authorization;
 import org.springframework.dao.DataRetrievalFailureException;
 import org.springframework.security.jackson2.SecurityJackson2Modules;

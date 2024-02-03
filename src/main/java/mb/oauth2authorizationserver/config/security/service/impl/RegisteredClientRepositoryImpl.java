@@ -1,6 +1,6 @@
-package mb.oauth2authorizationserver.config.service.impl;
+package mb.oauth2authorizationserver.config.security.service.impl;
 
-import mb.oauth2authorizationserver.config.service.RegisteredClientBuilderService;
+import mb.oauth2authorizationserver.config.security.builder.RegisteredClientBuilderService;
 import mb.oauth2authorizationserver.data.repository.ClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;

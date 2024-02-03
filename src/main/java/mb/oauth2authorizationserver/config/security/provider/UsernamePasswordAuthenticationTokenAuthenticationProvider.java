@@ -1,4 +1,4 @@
-package mb.oauth2authorizationserver.config;
+package mb.oauth2authorizationserver.config.security.provider;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationProvider;
