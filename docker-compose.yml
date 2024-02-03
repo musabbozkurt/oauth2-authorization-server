@@ -1,15 +1,17 @@
 version: '3.9'
-volumes:
-  data:
+
 services:
   db:
     image: mariadb
     environment:
       MYSQL_ROOT_PASSWORD: password
-      MYSQL_DATABASE: springbootoauth2server
-      MYSQL_USER: willy
-      MYSQL_PASSWORD: 'mO6/DHN[ry'
+      MYSQL_DATABASE: oauth2_authorization_server
+      MYSQL_USER: mb_test
+      MYSQL_PASSWORD: 'test'
     volumes:
       - data:/var/lib/mysql
     ports:
       - "3306:3306"
+
+volumes:
+  data:

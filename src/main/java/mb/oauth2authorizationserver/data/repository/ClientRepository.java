@@ -1,6 +1,6 @@
-package mb.springboot3oauth2server.data.repository;
+package mb.oauth2authorizationserver.data.repository;
 
-import mb.springboot3oauth2server.data.entity.Client;
+import mb.oauth2authorizationserver.data.entity.Client;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;

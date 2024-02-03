@@ -1,13 +1,13 @@
-create schema if not exists springbootoauth2server;
+create schema if not exists oauth2_authorization_server;
 
-create table if not exists springbootoauth2server.authorities
+create table if not exists oauth2_authorization_server.authorities
 (
     id        integer not null auto_increment,
     authority varchar(255),
     primary key (id)
 );
 
-create table if not exists springbootoauth2server.authorization
+create table if not exists oauth2_authorization_server.authorization
 (
     id                            varchar(255) not null,
     access_token_expires_at       datetime(6),
@@ -38,7 +38,7 @@ create table if not exists springbootoauth2server.authorization
     primary key (id)
 );
 
-create table if not exists springbootoauth2server.client
+create table if not exists oauth2_authorization_server.client
 (
     id                            varchar(255) not null,
     authorization_grant_types     varchar(1000),
@@ -55,7 +55,7 @@ create table if not exists springbootoauth2server.client
     primary key (id)
 );
 
-create table if not exists springbootoauth2server.users
+create table if not exists oauth2_authorization_server.users
 (
     id                      integer not null auto_increment,
     account_non_expired     bit,
@@ -67,77 +67,85 @@ create table if not exists springbootoauth2server.users
     primary key (id)
 );
 
-create table if not exists springbootoauth2server.users_authorities
+create table if not exists oauth2_authorization_server.users_authorities
 (
     users_id       integer not null,
     authorities_id integer not null,
     primary key (users_id, authorities_id)
 );
 
-alter table springbootoauth2server.authorities
+alter table oauth2_authorization_server.authorities
     drop index if exists UK_q0u5f2cdlshec8tlh6818bhbk;
 
 
-alter table springbootoauth2server.authorities
+alter table oauth2_authorization_server.authorities
     add constraint UK_q0u5f2cdlshec8tlh6818bhbk unique (authority);
 
 
-alter table springbootoauth2server.users
+alter table oauth2_authorization_server.users
     drop index if exists UK_r43af9ap4edm43mmtq01oddj6;
 
 
-alter table springbootoauth2server.users
+alter table oauth2_authorization_server.users
     add constraint UK_r43af9ap4edm43mmtq01oddj6 unique (username);
 
 
-alter table springbootoauth2server.users_authorities
+alter table oauth2_authorization_server.users_authorities
     add constraint FKmfxncv8ke1jjgna64c8kclry5
         foreign key (authorities_id)
             references authorities (id);
 
 
-alter table springbootoauth2server.users_authorities
+alter table oauth2_authorization_server.users_authorities
     add constraint FK2cmfwo8tbjcpmltse0rh5ir0t
         foreign key (users_id)
             references users (id);
 
-
-INSERT INTO springbootoauth2server.authorities(authority)
+INSERT INTO oauth2_authorization_server.authorities(authority)
 VALUES ('ROLE_USER');
-INSERT INTO springbootoauth2server.authorities(authority)
+
+INSERT INTO oauth2_authorization_server.authorities(authority)
 VALUES ('ROLE_ADMIN');
-INSERT INTO springbootoauth2server.authorities(authority)
+
+INSERT INTO oauth2_authorization_server.authorities(authority)
 VALUES ('ROLE_DEVELOPER');
 
-INSERT INTO springbootoauth2server.users(username, password, account_non_expired, account_non_locked,
-                                         credentials_non_expired, enabled)
-VALUES ('Developer', '$2a$12$2yOChyhSuJm/naTBUjGZb.6d6mu1NsXS8XWRFousQfRTwzy0ZQtWW', true, true, true, true);
-INSERT INTO springbootoauth2server.users(username, password, account_non_expired, account_non_locked,
-                                         credentials_non_expired, enabled)
-VALUES ('Admin', '$2a$12$2yOChyhSuJm/naTBUjGZb.6d6mu1NsXS8XWRFousQfRTwzy0ZQtWW', true, true, true, true);
-INSERT INTO springbootoauth2server.users(username, password, account_non_expired, account_non_locked,
-                                         credentials_non_expired, enabled)
-VALUES ('User', '$2a$12$2yOChyhSuJm/naTBUjGZb.6d6mu1NsXS8XWRFousQfRTwzy0ZQtWW', true, true, true, true);
+INSERT INTO oauth2_authorization_server.users(username, password, account_non_expired, account_non_locked,
+                                              credentials_non_expired, enabled)
+VALUES ('Developer', '$2a$10$Vs0szjjJRXdIIdik/Kpg/eE7eXo97vA.vHW0PF9bLaGvEyyO2IuY6', true, true, true, true);
 
-INSERT INTO springbootoauth2server.users_authorities(users_id, authorities_id)
+INSERT INTO oauth2_authorization_server.users(username, password, account_non_expired, account_non_locked,
+                                              credentials_non_expired, enabled)
+VALUES ('Admin', '$2a$10$Vs0szjjJRXdIIdik/Kpg/eE7eXo97vA.vHW0PF9bLaGvEyyO2IuY6', true, true, true, true);
+
+INSERT INTO oauth2_authorization_server.users(username, password, account_non_expired, account_non_locked,
+                                              credentials_non_expired, enabled)
+VALUES ('User', '$2a$10$Vs0szjjJRXdIIdik/Kpg/eE7eXo97vA.vHW0PF9bLaGvEyyO2IuY6', true, true, true, true);
+
+INSERT INTO oauth2_authorization_server.users_authorities(users_id, authorities_id)
 VALUES (1, 1);
-INSERT INTO springbootoauth2server.users_authorities(users_id, authorities_id)
+
+INSERT INTO oauth2_authorization_server.users_authorities(users_id, authorities_id)
 VALUES (1, 2);
-INSERT INTO springbootoauth2server.users_authorities(users_id, authorities_id)
+
+INSERT INTO oauth2_authorization_server.users_authorities(users_id, authorities_id)
 VALUES (1, 3);
-INSERT INTO springbootoauth2server.users_authorities(users_id, authorities_id)
+
+INSERT INTO oauth2_authorization_server.users_authorities(users_id, authorities_id)
 VALUES (2, 1);
-INSERT INTO springbootoauth2server.users_authorities(users_id, authorities_id)
+
+INSERT INTO oauth2_authorization_server.users_authorities(users_id, authorities_id)
 VALUES (2, 2);
-INSERT INTO springbootoauth2server.users_authorities(users_id, authorities_id)
+
+INSERT INTO oauth2_authorization_server.users_authorities(users_id, authorities_id)
 VALUES (3, 1);
 
-INSERT INTO springbootoauth2server.client(id, authorization_grant_types, client_authentication_methods, client_id,
-                                          client_id_issued_at, client_name, client_secret, client_secret_expires_at,
-                                          client_settings, redirect_uris, scopes, token_settings)
+INSERT INTO oauth2_authorization_server.client(id, authorization_grant_types, client_authentication_methods, client_id,
+                                               client_id_issued_at, client_name, client_secret,
+                                               client_secret_expires_at,
+                                               client_settings, redirect_uris, scopes, token_settings)
 VALUES ('abbc70f1-fb59-4b42-b1e4-c52fa0080bea', 'refresh_token,client_credentials,authorization_code',
-        'client_secret_basic',
-        'client', null, 'abbc70f1-fb59-4b42-b1e4-c52fa0080bea',
+        'client_secret_basic', 'client', null, 'abbc70f1-fb59-4b42-b1e4-c52fa0080bea',
         '$2a$10$lcGI9Fp6GLfk7wjyOK0VqORQqMtsQRoC3J7i/V023SgQv9JZLZ01K', null,
         '{"@class":"java.util.Collections$UnmodifiableMap","settings.client.require-proof-key":true,"settings.client.require-authorization-consent":true}',
         'http://insomnia,http://127.0.0.1:8080/login/oauth2/code/client', 'read,openid,profile',

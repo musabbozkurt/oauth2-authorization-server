@@ -1,10 +1,9 @@
-package mb.springboot3oauth2server.data.entity;
+package mb.oauth2authorizationserver.data.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.NonNull;
 
 import java.util.Set;
 
@@ -19,11 +18,10 @@ public class SecurityUser {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @NonNull
-    @Column(unique = true)
+    @Column(unique = true, nullable = false)
     private String username;
 
-    @NonNull
+    @Column(nullable = false)
     private String password;
 
     @ManyToMany(cascade = CascadeType.MERGE, fetch = FetchType.EAGER)
@@ -36,5 +34,4 @@ public class SecurityUser {
     private Boolean accountNonLocked;
     private Boolean credentialsNonExpired;
     private Boolean enabled;
-
 }

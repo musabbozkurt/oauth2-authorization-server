@@ -1,8 +1,8 @@
-package mb.springboot3oauth2server.config;
+package mb.oauth2authorizationserver.config.service.impl;
 
 import lombok.RequiredArgsConstructor;
-import mb.springboot3oauth2server.data.entity.SecurityUser;
-import mb.springboot3oauth2server.data.repository.UserRepository;
+import mb.oauth2authorizationserver.data.entity.SecurityUser;
+import mb.oauth2authorizationserver.data.repository.UserRepository;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
@@ -14,9 +14,9 @@ import org.springframework.stereotype.Service;
 import java.util.Collection;
 import java.util.HashSet;
 
-@RequiredArgsConstructor
 @Service
-public class JpaUserDetailsManager implements UserDetailsManager {
+@RequiredArgsConstructor
+public class UserDetailsManagerImpl implements UserDetailsManager {
 
     private final UserRepository userRepository;
 
@@ -26,10 +26,10 @@ public class JpaUserDetailsManager implements UserDetailsManager {
         if (!user.getUsername().equals(username)) {
             throw new UsernameNotFoundException("Access Denied");
         }
-        Collection<GrantedAuthority> authoriies = new HashSet<>();
-        user.getAuthorities().forEach(auth -> authoriies.add(new SimpleGrantedAuthority(auth.getAuthority())));
+        Collection<GrantedAuthority> authorities = new HashSet<>();
+        user.getAuthorities().forEach(auth -> authorities.add(new SimpleGrantedAuthority(auth.getAuthority())));
         return new User(user.getUsername(), user.getPassword(), user.getEnabled(), user.getAccountNonExpired(),
-                user.getCredentialsNonExpired(), user.getAccountNonLocked(), authoriies);
+                user.getCredentialsNonExpired(), user.getAccountNonLocked(), authorities);
     }
 
     @Override
@@ -53,5 +53,4 @@ public class JpaUserDetailsManager implements UserDetailsManager {
         SecurityUser user = userRepository.findByUsername(username);
         return user.getUsername().equals(username);
     }
-
 }

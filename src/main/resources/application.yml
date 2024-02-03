@@ -1,34 +1,46 @@
 server:
   port: '9000'
-  # logging:
-  level:
-    org:
-      springframework:
-        security: TRACE
+
 spring:
   datasource:
-    url: 'jdbc:mariadb://localhost:3306/springbootoauth2server'
-    username: willy
-    password: 'mO6/DHN[ry'
+    url: 'jdbc:mariadb://localhost:3306/oauth2_authorization_server'
+    username: mb_test
+    password: 'test'
     driver-class-name: org.mariadb.jdbc.Driver
 
   flyway:
     enabled: true
     baseline-version: 0
     baseline-on-migrate: true
-    schemas: springbootoauth2server
+    schemas: oauth2_authorization_server
     table: schema_version
     validate-on-migrate: false
 
   jpa:
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MariaDB103Dialect
+        dialect: org.hibernate.dialect.MariaDBDialect
         format_sql: true
-        default_schema: springbootoauth2server
+        default_schema: oauth2_authorization_server
     defer-datasource-initialization: false # https://stackoverflow.com/a/69235286 -> https://docs.spring.io/spring-boot/docs/current/reference/html/howto.html
     hibernate:
       ddl-auto: validate
     generate-ddl: false
     show-sql: true
-    database-platform: org.hibernate.dialect.MariaDB103Dialect
+    database-platform: org.hibernate.dialect.MariaDBDialect
+
+  docker:
+    compose:
+      enabled: true
+
+logging:
+  level:
+    org.springframework.security: trace
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs # http://localhost:9000/v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html # http://localhost:9000/swagger-ui/index.html
+    csrf:
+      enabled: true

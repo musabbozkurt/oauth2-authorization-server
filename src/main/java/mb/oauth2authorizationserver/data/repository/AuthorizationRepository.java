@@ -1,6 +1,6 @@
-package mb.springboot3oauth2server.data.repository;
+package mb.oauth2authorizationserver.data.repository;
 
-import mb.springboot3oauth2server.data.entity.Authorization;
+import mb.oauth2authorizationserver.data.entity.Authorization;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,10 +17,6 @@ public interface AuthorizationRepository extends JpaRepository<Authorization, St
 
     Optional<Authorization> findByRefreshTokenValue(String refreshToken);
 
-    @Query("select a from Authorization a where a.state = :token" +
-            " or a.authorizationCodeValue = :token" +
-            " or a.accessTokenValue = :token" +
-            " or a.refreshTokenValue = :token"
-    )
+    @Query("select a from Authorization a where a.state = :token or a.authorizationCodeValue = :token or a.accessTokenValue = :token or a.refreshTokenValue = :token")
     Optional<Authorization> findByStateOrAuthorizationCodeValueOrAccessTokenValueOrRefreshTokenValue(@Param("token") String token);
 }

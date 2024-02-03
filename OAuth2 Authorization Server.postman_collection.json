@@ -1,0 +1,142 @@
+{
+  "info": {
+    "_postman_id": "6f2013c5-ce4f-45e9-925b-c74657c76b96",
+    "name": "OAuth2 Authorization Server",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "31512047"
+  },
+  "item": [
+    {
+      "name": "Client Credentials",
+      "request": {
+        "auth": {
+          "type": "oauth2",
+          "oauth2": [
+            {
+              "key": "clientSecret",
+              "value": "{{client_secret}}",
+              "type": "string"
+            },
+            {
+              "key": "clientId",
+              "value": "{{client_id}}",
+              "type": "string"
+            },
+            {
+              "key": "grant_type",
+              "value": "client_credentials",
+              "type": "string"
+            },
+            {
+              "key": "addTokenTo",
+              "value": "queryParams",
+              "type": "string"
+            },
+            {
+              "key": "accessTokenUrl",
+              "value": "http://localhost:9000/oauth2/token",
+              "type": "string"
+            },
+            {
+              "key": "authUrl",
+              "value": "http://localhost:9000/oauth2/authorize",
+              "type": "string"
+            },
+            {
+              "key": "redirect_uri",
+              "value": "http://127.0.0.1:8080/login/oauth2/code/client",
+              "type": "string"
+            },
+            {
+              "key": "scope",
+              "value": "openid read",
+              "type": "string"
+            },
+            {
+              "key": "tokenName",
+              "value": "Bearer",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": ""
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Authorization Code (With PKCE)",
+      "request": {
+        "auth": {
+          "type": "oauth2",
+          "oauth2": [
+            {
+              "key": "grant_type",
+              "value": "authorization_code_with_pkce",
+              "type": "string"
+            },
+            {
+              "key": "scope",
+              "value": "openid read",
+              "type": "string"
+            },
+            {
+              "key": "redirect_uri",
+              "value": "http://127.0.0.1:8080/login/oauth2/code/client",
+              "type": "string"
+            },
+            {
+              "key": "clientSecret",
+              "value": "{{client_secret}}",
+              "type": "string"
+            },
+            {
+              "key": "clientId",
+              "value": "{{client_id}}",
+              "type": "string"
+            },
+            {
+              "key": "addTokenTo",
+              "value": "queryParams",
+              "type": "string"
+            },
+            {
+              "key": "accessTokenUrl",
+              "value": "http://localhost:9000/oauth2/token",
+              "type": "string"
+            },
+            {
+              "key": "authUrl",
+              "value": "http://localhost:9000/oauth2/authorize",
+              "type": "string"
+            },
+            {
+              "key": "tokenName",
+              "value": "Bearer",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": ""
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "client_id",
+      "value": "client"
+    },
+    {
+      "key": "client_secret",
+      "value": "secret"
+    }
+  ]
+}

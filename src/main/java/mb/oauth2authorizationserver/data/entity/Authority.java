@@ -1,10 +1,9 @@
-package mb.springboot3oauth2server.data.entity;
+package mb.oauth2authorizationserver.data.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.NonNull;
 
 @Data
 @Entity
@@ -16,8 +15,7 @@ public class Authority {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
-    @NonNull
-    @Column(unique = true)
-    private String authority;
 
+    @Column(unique = true, nullable = false)
+    private String authority;
 }
