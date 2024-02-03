@@ -1,4 +1,4 @@
-## OAuth2 Authorization Server with Spring Boot 3
+## OAuth2 Authorization Server with Spring Boot 3 and Java 21
 
 #### Prerequisites
 
