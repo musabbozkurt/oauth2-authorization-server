@@ -52,12 +52,12 @@ import static org.springframework.security.config.Customizer.withDefaults;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    @Value(value = "${springdoc.api-docs.path}")
-    private String apiDocsPath;
-
     private final AuthorizationRepository authorizationRepository;
     private final AuthorizationBuilderService authorizationBuilderService;
     private final UserRepository userRepository;
+
+    @Value(value = "${springdoc.api-docs.path}")
+    private String apiDocsPath;
 
     @Bean
     @Order(1)
