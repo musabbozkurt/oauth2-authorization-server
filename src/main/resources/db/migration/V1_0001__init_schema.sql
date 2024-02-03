@@ -75,31 +75,28 @@ create table if not exists oauth2_authorization_server.users_authorities
 );
 
 alter table oauth2_authorization_server.authorities
-    drop index if exists UK_q0u5f2cdlshec8tlh6818bhbk;
-
+    drop index if exists idx__authorities_authority;
 
 alter table oauth2_authorization_server.authorities
-    add constraint UK_q0u5f2cdlshec8tlh6818bhbk unique (authority);
-
-
-alter table oauth2_authorization_server.users
-    drop index if exists UK_r43af9ap4edm43mmtq01oddj6;
-
+    add constraint idx__authorities_authority unique (authority);
 
 alter table oauth2_authorization_server.users
-    add constraint UK_r43af9ap4edm43mmtq01oddj6 unique (username);
+    drop index if exists idx__users_username;
 
-
-alter table oauth2_authorization_server.users_authorities
-    add constraint FKmfxncv8ke1jjgna64c8kclry5
-        foreign key (authorities_id)
-            references authorities (id);
-
+alter table oauth2_authorization_server.users
+    add constraint idx__users_username unique (username);
 
 alter table oauth2_authorization_server.users_authorities
-    add constraint FK2cmfwo8tbjcpmltse0rh5ir0t
-        foreign key (users_id)
-            references users (id);
+    drop constraint if exists users_authorities_authorities_id__authorities_id;
+
+alter table oauth2_authorization_server.users_authorities
+    add constraint users_authorities_authorities_id__authorities_id foreign key (authorities_id) references oauth2_authorization_server.authorities (id);
+
+alter table oauth2_authorization_server.users_authorities
+    drop constraint if exists users_authorities_users_id__users_id;
+
+alter table oauth2_authorization_server.users_authorities
+    add constraint users_authorities_users_id__users_id foreign key (users_id) references oauth2_authorization_server.users (id);
 
 INSERT INTO oauth2_authorization_server.authorities(authority)
 VALUES ('ROLE_USER');
@@ -148,7 +145,7 @@ VALUES ('abbc70f1-fb59-4b42-b1e4-c52fa0080bea', 'refresh_token,client_credential
         'client_secret_basic', 'client', null, 'abbc70f1-fb59-4b42-b1e4-c52fa0080bea',
         '$2a$10$lcGI9Fp6GLfk7wjyOK0VqORQqMtsQRoC3J7i/V023SgQv9JZLZ01K', null,
         '{"@class":"java.util.Collections$UnmodifiableMap","settings.client.require-proof-key":true,"settings.client.require-authorization-consent":true}',
-        'http://insomnia,http://127.0.0.1:8080/login/oauth2/code/client', 'read,openid,profile',
+        'https://insomnia,http://127.0.0.1:8080/login/oauth2/code/client', 'read,openid,profile',
         '{"@class":"java.util.Collections$UnmodifiableMap","settings.token.reuse-refresh-tokens":true,
         "settings.token.id-token-signature-algorithm":["org.springframework.security.oauth2.jose.jws.SignatureAlgorithm","RS256"],
         "settings.token.access-token-time-to-live":["java.time.Duration",86400.000000000],

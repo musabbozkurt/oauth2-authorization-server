@@ -3,10 +3,10 @@ server:
 
 spring:
   datasource:
-    url: 'jdbc:mariadb://localhost:3306/oauth2_authorization_server'
+    url: 'jdbc:tc:mariadb://localhost:3306/oauth2_authorization_server'
     username: mb_test
     password: 'test'
-    driver-class-name: org.mariadb.jdbc.Driver
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
 
   flyway:
     enabled: true
@@ -28,10 +28,6 @@ spring:
     generate-ddl: false
     show-sql: true
     database-platform: org.hibernate.dialect.MariaDBDialect
-
-  docker:
-    compose:
-      enabled: true
 
 logging:
   level:
