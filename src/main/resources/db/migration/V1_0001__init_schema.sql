@@ -141,7 +141,8 @@ INSERT INTO oauth2_authorization_server.client(id, authorization_grant_types, cl
                                                client_id_issued_at, client_name, client_secret,
                                                client_secret_expires_at,
                                                client_settings, redirect_uris, scopes, token_settings)
-VALUES ('abbc70f1-fb59-4b42-b1e4-c52fa0080bea', 'refresh_token,client_credentials,authorization_code',
+VALUES ('abbc70f1-fb59-4b42-b1e4-c52fa0080bea',
+        'refresh_token,client_credentials,authorization_code,urn:ietf:params:oauth:grant-type:jwt-bearer',
         'client_secret_basic', 'client', null, 'abbc70f1-fb59-4b42-b1e4-c52fa0080bea',
         '$2a$10$lcGI9Fp6GLfk7wjyOK0VqORQqMtsQRoC3J7i/V023SgQv9JZLZ01K', null,
         '{"@class":"java.util.Collections$UnmodifiableMap","settings.client.require-proof-key":true,"settings.client.require-authorization-consent":true}',

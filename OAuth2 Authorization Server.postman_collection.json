@@ -1,6 +1,6 @@
 {
   "info": {
-    "_postman_id": "6f2013c5-ce4f-45e9-925b-c74657c76b96",
+    "_postman_id": "4984c05e-6ca1-418a-ad8d-865821ba6a10",
     "name": "OAuth2 Authorization Server",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "31512047"
@@ -127,6 +127,199 @@
         }
       },
       "response": []
+    },
+    {
+      "name": "Get OAuth2 Token with Custom Password",
+      "request": {
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "password",
+              "value": "{{client_secret}}",
+              "type": "string"
+            },
+            {
+              "key": "username",
+              "value": "{{client_id}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "grant_type",
+              "value": "custom_password",
+              "type": "text"
+            },
+            {
+              "key": "username",
+              "value": "User",
+              "type": "text"
+            },
+            {
+              "key": "password",
+              "value": "password",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "localhost:9000/oauth2/token",
+          "host": [
+            "localhost"
+          ],
+          "port": "9000",
+          "path": [
+            "oauth2",
+            "token"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get OAuth2 Token Using Client Credentials Grant",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var response = JSON.parse(responseBody);",
+              "",
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "    pm.collectionVariables.set(\"client_credentials_access_token\", response.access_token);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "password",
+              "value": "{{client_secret}}",
+              "type": "string"
+            },
+            {
+              "key": "username",
+              "value": "{{client_id}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "grant_type",
+              "value": "client_credentials",
+              "type": "text"
+            },
+            {
+              "key": "scope",
+              "value": "read openid",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "localhost:9000/oauth2/token",
+          "host": [
+            "localhost"
+          ],
+          "port": "9000",
+          "path": [
+            "oauth2",
+            "token"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get OAuth2 Token Using JWT Bearer Grant",
+      "request": {
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "password",
+              "value": "{{client_secret}}",
+              "type": "string"
+            },
+            {
+              "key": "username",
+              "value": "{{client_id}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "grant_type",
+              "value": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+              "type": "text"
+            },
+            {
+              "key": "assertion",
+              "value": "{{client_credentials_access_token}}",
+              "type": "text"
+            },
+            {
+              "key": "scope",
+              "value": "read",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "localhost:9000/oauth2/token",
+          "host": [
+            "localhost"
+          ],
+          "port": "9000",
+          "path": [
+            "oauth2",
+            "token"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
     }
   ],
   "variable": [
@@ -137,6 +330,10 @@
     {
       "key": "client_secret",
       "value": "secret"
+    },
+    {
+      "key": "client_credentials_access_token",
+      "value": "null"
     }
   ]
 }
