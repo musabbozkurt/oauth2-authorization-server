@@ -10,43 +10,43 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 @Slf4j
-public class BCryptPasswordEncoderTests {
+class BCryptPasswordEncoderTests {
 
     @Test
-    public void emptyRawPasswordDoesNotMatchPassword() {
+    void emptyRawPasswordDoesNotMatchPassword() {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
         String result = encoder.encode("password");
         assertThat(encoder.matches("", result)).isFalse();
     }
 
     @Test
-    public void $2yMatches() {
+    void $2yMatches() {
         // $2y is default version
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
         String result = encoder.encode("password");
-        assertThat(result.equals("password")).isFalse();
+        assertThat(result).isNotEqualTo("password");
         log.info("Encoded password: {}", result);
         assertThat(encoder.matches("password", result)).isTrue();
     }
 
     @Test
-    public void $2aMatches() {
+    void $2aMatches() {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(BCryptPasswordEncoder.BCryptVersion.$2A);
         String result = encoder.encode("password");
-        assertThat(result.equals("password")).isFalse();
+        assertThat(result).isNotEqualTo("password");
         assertThat(encoder.matches("password", result)).isTrue();
     }
 
     @Test
-    public void $2bMatches() {
+    void $2bMatches() {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(BCryptPasswordEncoder.BCryptVersion.$2B);
         String result = encoder.encode("password");
-        assertThat(result.equals("password")).isFalse();
+        assertThat(result).isNotEqualTo("password");
         assertThat(encoder.matches("password", result)).isTrue();
     }
 
     @Test
-    public void $2yUnicode() {
+    void $2yUnicode() {
         // $2y is default version
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
         String result = encoder.encode("passw\u9292rd");
@@ -55,7 +55,7 @@ public class BCryptPasswordEncoderTests {
     }
 
     @Test
-    public void $2aUnicode() {
+    void $2aUnicode() {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(BCryptPasswordEncoder.BCryptVersion.$2A);
         String result = encoder.encode("passw\u9292rd");
         assertThat(encoder.matches("pass\u9292\u9292rd", result)).isFalse();
@@ -63,7 +63,7 @@ public class BCryptPasswordEncoderTests {
     }
 
     @Test
-    public void $2bUnicode() {
+    void $2bUnicode() {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(BCryptPasswordEncoder.BCryptVersion.$2B);
         String result = encoder.encode("passw\u9292rd");
         assertThat(encoder.matches("pass\u9292\u9292rd", result)).isFalse();
@@ -71,7 +71,7 @@ public class BCryptPasswordEncoderTests {
     }
 
     @Test
-    public void $2yNotMatches() {
+    void $2yNotMatches() {
         // $2y is default version
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
         String result = encoder.encode("password");
@@ -79,77 +79,77 @@ public class BCryptPasswordEncoderTests {
     }
 
     @Test
-    public void $2aNotMatches() {
+    void $2aNotMatches() {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(BCryptPasswordEncoder.BCryptVersion.$2A);
         String result = encoder.encode("password");
         assertThat(encoder.matches("bogus", result)).isFalse();
     }
 
     @Test
-    public void $2bNotMatches() {
+    void $2bNotMatches() {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(BCryptPasswordEncoder.BCryptVersion.$2B);
         String result = encoder.encode("password");
         assertThat(encoder.matches("bogus", result)).isFalse();
     }
 
     @Test
-    public void $2yCustomStrength() {
+    void $2yCustomStrength() {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(8);
         String result = encoder.encode("password");
         assertThat(encoder.matches("password", result)).isTrue();
     }
 
     @Test
-    public void $2aCustomStrength() {
+    void $2aCustomStrength() {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(BCryptPasswordEncoder.BCryptVersion.$2A, 8);
         String result = encoder.encode("password");
         assertThat(encoder.matches("password", result)).isTrue();
     }
 
     @Test
-    public void $2bCustomStrength() {
+    void $2bCustomStrength() {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(BCryptPasswordEncoder.BCryptVersion.$2B, 8);
         String result = encoder.encode("password");
         assertThat(encoder.matches("password", result)).isTrue();
     }
 
     @Test
-    public void badLowCustomStrength() {
+    void badLowCustomStrength() {
         assertThatIllegalArgumentException().isThrownBy(() -> new BCryptPasswordEncoder(3));
     }
 
     @Test
-    public void badHighCustomStrength() {
+    void badHighCustomStrength() {
         assertThatIllegalArgumentException().isThrownBy(() -> new BCryptPasswordEncoder(32));
     }
 
     @Test
-    public void customRandom() {
+    void customRandom() {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(8, new SecureRandom());
         String result = encoder.encode("password");
         assertThat(encoder.matches("password", result)).isTrue();
     }
 
     @Test
-    public void doesntMatchNullEncodedValue() {
+    void doesntMatchNullEncodedValue() {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
         assertThat(encoder.matches("password", null)).isFalse();
     }
 
     @Test
-    public void doesntMatchEmptyEncodedValue() {
+    void doesntMatchEmptyEncodedValue() {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
         assertThat(encoder.matches("password", "")).isFalse();
     }
 
     @Test
-    public void doesntMatchBogusEncodedValue() {
+    void doesntMatchBogusEncodedValue() {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
         assertThat(encoder.matches("password", "012345678901234567890123456789")).isFalse();
     }
 
     @Test
-    public void upgradeFromLowerStrength() {
+    void upgradeFromLowerStrength() {
         BCryptPasswordEncoder weakEncoder = new BCryptPasswordEncoder(5);
         BCryptPasswordEncoder strongEncoder = new BCryptPasswordEncoder(15);
         String weakPassword = weakEncoder.encode("password");
@@ -162,7 +162,7 @@ public class BCryptPasswordEncoderTests {
      * @see <a href="https://github.com/spring-projects/spring-security/pull/7042#issuecomment-506755496">https://github.com/spring-projects/spring-security/pull/7042#issuecomment-506755496</a>
      */
     @Test
-    public void upgradeFromNullOrEmpty() {
+    void upgradeFromNullOrEmpty() {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
         assertThat(encoder.upgradeEncoding(null)).isFalse();
         assertThat(encoder.upgradeEncoding("")).isFalse();
@@ -172,19 +172,19 @@ public class BCryptPasswordEncoderTests {
      * @see <a href="https://github.com/spring-projects/spring-security/pull/7042#issuecomment-506755496">https://github.com/spring-projects/spring-security/pull/7042#issuecomment-506755496</a>
      */
     @Test
-    public void upgradeFromNonBCrypt() {
+    void upgradeFromNonBCrypt() {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
         assertThatIllegalArgumentException().isThrownBy(() -> encoder.upgradeEncoding("not-a-bcrypt-password"));
     }
 
     @Test
-    public void encodeNullRawPassword() {
+    void encodeNullRawPassword() {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
         assertThatIllegalArgumentException().isThrownBy(() -> encoder.encode(null));
     }
 
     @Test
-    public void matchNullRawPassword() {
+    void matchNullRawPassword() {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
         assertThatIllegalArgumentException().isThrownBy(() -> encoder.matches(null, "does-not-matter"));
     }
