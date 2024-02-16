@@ -1,5 +1,6 @@
 package mb.oauth2authorizationserver.config.security;
 
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import org.springframework.lang.Nullable;
 import org.springframework.security.core.Authentication;
@@ -14,6 +15,7 @@ import java.util.Map;
 import java.util.Set;
 
 @Getter
+@EqualsAndHashCode(callSuper = false)
 public class JwtBearerGrantAuthenticationToken extends OAuth2AuthorizationGrantAuthenticationToken {
 
     @Serial

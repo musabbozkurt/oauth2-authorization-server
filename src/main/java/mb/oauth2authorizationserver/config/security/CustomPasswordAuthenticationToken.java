@@ -1,5 +1,6 @@
 package mb.oauth2authorizationserver.config.security;
 
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import org.springframework.lang.Nullable;
 import org.springframework.security.core.Authentication;
@@ -10,6 +11,7 @@ import java.io.Serial;
 import java.util.*;
 
 @Getter
+@EqualsAndHashCode(callSuper = false)
 public class CustomPasswordAuthenticationToken extends OAuth2AuthorizationGrantAuthenticationToken {
 
     @Serial
