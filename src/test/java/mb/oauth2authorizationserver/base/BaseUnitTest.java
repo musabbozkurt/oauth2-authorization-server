@@ -1,6 +1,7 @@
 package mb.oauth2authorizationserver.base;
 
 import lombok.extern.slf4j.Slf4j;
+import mb.oauth2authorizationserver.api.request.ApiUserRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.mock.http.client.MockClientHttpResponse;
@@ -50,5 +51,33 @@ public abstract class BaseUnitTest {
             log.info("Exception message: {}", ex.getMessage());
             throw new RuntimeException(ex);
         }
+    }
+
+    public static ApiUserRequest getApiUserRequest() {
+        ApiUserRequest apiUserRequest = new ApiUserRequest();
+        apiUserRequest.setFirstName("Jack");
+        apiUserRequest.setLastName("Hack");
+        apiUserRequest.setUsername("jack_hack");
+        apiUserRequest.setPassword("test1234");
+        apiUserRequest.setEmail("jack.hack@gmail.com");
+        apiUserRequest.setPhoneNumber("1234567899");
+        return apiUserRequest;
+    }
+
+    public static ApiUserRequest getApiUserRequest2() {
+        ApiUserRequest apiUserRequest = new ApiUserRequest();
+        apiUserRequest.setFirstName("Jack");
+        apiUserRequest.setLastName("Hack");
+        apiUserRequest.setUsername("jack_hack");
+        apiUserRequest.setPassword("test1234");
+        apiUserRequest.setEmail("jack.hack@gmail.com");
+        apiUserRequest.setPhoneNumber("1234567890");
+        return apiUserRequest;
+    }
+
+    public static ApiUserRequest getApiUserRequest3() {
+        ApiUserRequest apiUserRequest = new ApiUserRequest();
+        apiUserRequest.setEmail("jack.hack.new@gmail.com");
+        return apiUserRequest;
     }
 }

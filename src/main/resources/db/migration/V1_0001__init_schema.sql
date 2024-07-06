@@ -2,8 +2,9 @@ create schema if not exists oauth2_authorization_server;
 
 create table if not exists oauth2_authorization_server.authorities
 (
-    id        integer not null auto_increment,
-    authority varchar(255),
+    id                bigint not null auto_increment,
+    authority         varchar(255),
+    default_authority bit default false,
     primary key (id)
 );
 
@@ -57,20 +58,24 @@ create table if not exists oauth2_authorization_server.client
 
 create table if not exists oauth2_authorization_server.users
 (
-    id                      integer not null auto_increment,
+    id                      bigint              not null auto_increment,
     account_non_expired     bit,
     account_non_locked      bit,
     credentials_non_expired bit,
     enabled                 bit,
-    password                varchar(255),
-    username                varchar(255),
+    password                varchar(255)        not null,
+    username                varchar(255) unique not null,
+    first_name              varchar(255)        not null,
+    last_name               varchar(255)        not null,
+    phone_number            varchar(50) unique  not null,
+    email                   varchar(255) unique not null,
     primary key (id)
 );
 
 create table if not exists oauth2_authorization_server.users_authorities
 (
-    users_id       integer not null,
-    authorities_id integer not null,
+    users_id       bigint not null,
+    authorities_id bigint not null,
     primary key (users_id, authorities_id)
 );
 
@@ -104,20 +109,23 @@ VALUES ('ROLE_USER');
 INSERT INTO oauth2_authorization_server.authorities(authority)
 VALUES ('ROLE_ADMIN');
 
-INSERT INTO oauth2_authorization_server.authorities(authority)
-VALUES ('ROLE_DEVELOPER');
+INSERT INTO oauth2_authorization_server.authorities(authority, default_authority)
+VALUES ('ROLE_DEVELOPER', true);
 
-INSERT INTO oauth2_authorization_server.users(username, password, account_non_expired, account_non_locked,
-                                              credentials_non_expired, enabled)
-VALUES ('Developer', '$2a$10$Vs0szjjJRXdIIdik/Kpg/eE7eXo97vA.vHW0PF9bLaGvEyyO2IuY6', true, true, true, true);
+INSERT INTO oauth2_authorization_server.users(first_name, last_name, phone_number, email, username, password,
+                                              account_non_expired, account_non_locked, credentials_non_expired, enabled)
+VALUES ('Developer', 'Developer', '90123456789', 'developer@developer.com', 'Developer',
+        '$2a$10$Vs0szjjJRXdIIdik/Kpg/eE7eXo97vA.vHW0PF9bLaGvEyyO2IuY6', true, true, true, true);
 
-INSERT INTO oauth2_authorization_server.users(username, password, account_non_expired, account_non_locked,
-                                              credentials_non_expired, enabled)
-VALUES ('Admin', '$2a$10$Vs0szjjJRXdIIdik/Kpg/eE7eXo97vA.vHW0PF9bLaGvEyyO2IuY6', true, true, true, true);
+INSERT INTO oauth2_authorization_server.users(first_name, last_name, phone_number, email, username, password,
+                                              account_non_expired, account_non_locked, credentials_non_expired, enabled)
+VALUES ('Admin', 'Admin', '90123456781', 'admin@admin.com', 'Admin',
+        '$2a$10$Vs0szjjJRXdIIdik/Kpg/eE7eXo97vA.vHW0PF9bLaGvEyyO2IuY6', true, true, true, true);
 
-INSERT INTO oauth2_authorization_server.users(username, password, account_non_expired, account_non_locked,
-                                              credentials_non_expired, enabled)
-VALUES ('User', '$2a$10$Vs0szjjJRXdIIdik/Kpg/eE7eXo97vA.vHW0PF9bLaGvEyyO2IuY6', true, true, true, true);
+INSERT INTO oauth2_authorization_server.users(first_name, last_name, phone_number, email, username, password,
+                                              account_non_expired, account_non_locked, credentials_non_expired, enabled)
+VALUES ('User', 'User', '90123456782', 'user@user.com', 'User',
+        '$2a$10$Vs0szjjJRXdIIdik/Kpg/eE7eXo97vA.vHW0PF9bLaGvEyyO2IuY6', true, true, true, true);
 
 INSERT INTO oauth2_authorization_server.users_authorities(users_id, authorities_id)
 VALUES (1, 1);

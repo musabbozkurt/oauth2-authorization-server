@@ -1,7 +1,7 @@
 package mb.oauth2authorizationserver.config.security.provider;
 
 import mb.oauth2authorizationserver.config.security.JwtBearerGrantAuthenticationToken;
-import mb.oauth2authorizationserver.utils.SecurityUtil;
+import mb.oauth2authorizationserver.utils.SecurityUtils;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
@@ -38,7 +38,7 @@ public final class JwtBearerGrantAuthenticationProvider implements Authenticatio
     @Override
     public Authentication authenticate(Authentication authentication) throws AuthenticationException {
         JwtBearerGrantAuthenticationToken jwtBearerGrantAuthentication = (JwtBearerGrantAuthenticationToken) authentication;
-        OAuth2ClientAuthenticationToken clientPrincipal = SecurityUtil.getAuthenticatedClientElseThrowInvalidClient(jwtBearerGrantAuthentication);
+        OAuth2ClientAuthenticationToken clientPrincipal = SecurityUtils.getAuthenticatedClientElseThrowInvalidClient(jwtBearerGrantAuthentication);
         RegisteredClient registeredClient = clientPrincipal.getRegisteredClient();
         OAuth2Authorization authorization = this.authorizationService.findByToken(jwtBearerGrantAuthentication.getAssertion(), OAuth2TokenType.ACCESS_TOKEN);
 

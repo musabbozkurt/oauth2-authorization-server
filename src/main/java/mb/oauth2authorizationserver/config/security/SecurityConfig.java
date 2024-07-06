@@ -16,7 +16,7 @@ import mb.oauth2authorizationserver.config.security.service.impl.OAuth2Authoriza
 import mb.oauth2authorizationserver.config.security.service.impl.UserDetailsManagerImpl;
 import mb.oauth2authorizationserver.data.repository.AuthorizationRepository;
 import mb.oauth2authorizationserver.data.repository.UserRepository;
-import mb.oauth2authorizationserver.utils.SecurityUtil;
+import mb.oauth2authorizationserver.utils.SecurityUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -182,7 +182,7 @@ public class SecurityConfig {
 
     @Bean
     public JWKSource<SecurityContext> jwkSource() {
-        RSAKey rsaKey = SecurityUtil.generateRsa();
+        RSAKey rsaKey = SecurityUtils.generateRsa();
         JWKSet jwkSet = new JWKSet(rsaKey);
         return (jwkSelector, securityContext) -> jwkSelector.select(jwkSet);
     }

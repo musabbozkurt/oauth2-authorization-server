@@ -2,7 +2,7 @@ package mb.oauth2authorizationserver.config.security.provider;
 
 import mb.oauth2authorizationserver.config.security.CustomPasswordAuthenticationToken;
 import mb.oauth2authorizationserver.config.security.model.CustomPasswordUser;
-import mb.oauth2authorizationserver.utils.SecurityUtil;
+import mb.oauth2authorizationserver.utils.SecurityUtils;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
@@ -54,7 +54,7 @@ public class CustomPasswordAuthenticationProvider implements AuthenticationProvi
     @Override
     public Authentication authenticate(Authentication authentication) throws AuthenticationException {
         CustomPasswordAuthenticationToken customPasswordAuthenticationToken = (CustomPasswordAuthenticationToken) authentication;
-        OAuth2ClientAuthenticationToken clientPrincipal = SecurityUtil.getAuthenticatedClientElseThrowInvalidClient(customPasswordAuthenticationToken);
+        OAuth2ClientAuthenticationToken clientPrincipal = SecurityUtils.getAuthenticatedClientElseThrowInvalidClient(customPasswordAuthenticationToken);
         RegisteredClient registeredClient = clientPrincipal.getRegisteredClient();
         String username = customPasswordAuthenticationToken.getUsername();
         String password = customPasswordAuthenticationToken.getPassword();

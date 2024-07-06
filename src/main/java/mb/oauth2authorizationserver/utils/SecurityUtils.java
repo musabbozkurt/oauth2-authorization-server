@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
-public class SecurityUtil {
+public class SecurityUtils {
 
     public static RSAKey generateRsa() {
         KeyPair keyPair = generateRsaKey();

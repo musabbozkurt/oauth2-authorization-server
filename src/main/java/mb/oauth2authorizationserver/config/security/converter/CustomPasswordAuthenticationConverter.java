@@ -2,7 +2,7 @@ package mb.oauth2authorizationserver.config.security.converter;
 
 import jakarta.servlet.http.HttpServletRequest;
 import mb.oauth2authorizationserver.config.security.CustomPasswordAuthenticationToken;
-import mb.oauth2authorizationserver.utils.SecurityUtil;
+import mb.oauth2authorizationserver.utils.SecurityUtils;
 import org.springframework.lang.Nullable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -26,7 +26,7 @@ public class CustomPasswordAuthenticationConverter implements AuthenticationConv
             return null;
         }
 
-        MultiValueMap<String, String> parameters = SecurityUtil.getParameters(request);
+        MultiValueMap<String, String> parameters = SecurityUtils.getParameters(request);
 
         // scope (OPTIONAL)
         String scope = parameters.getFirst(OAuth2ParameterNames.SCOPE);
