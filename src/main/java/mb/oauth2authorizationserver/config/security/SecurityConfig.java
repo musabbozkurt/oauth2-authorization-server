@@ -22,10 +22,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.config.annotation.web.configurers.oauth2.server.resource.OAuth2ResourceServerConfigurer;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -49,8 +49,6 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-import static org.springframework.security.config.Customizer.withDefaults;
-
 @Slf4j
 @Configuration
 @EnableWebSecurity
@@ -66,13 +64,19 @@ public class SecurityConfig {
 
     @Bean
     @Order(1)
-    SecurityFilterChain asSecurityFilterChain(HttpSecurity httpSecurity) throws Exception {
+    public SecurityFilterChain asSecurityFilterChain(HttpSecurity httpSecurity) throws Exception {
         OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(httpSecurity);
         OAuth2AuthorizationService oAuth2AuthorizationService = new OAuth2AuthorizationServiceImpl(authorizationRepository, authorizationBuilderService);
 
-        return httpSecurity
+        httpSecurity
+                .getConfigurer(OAuth2AuthorizationServerConfigurer.class)
+                .oidc(Customizer.withDefaults()); // Enable OpenID Connect 1.0
+
+        httpSecurity
                 .cors(AbstractHttpConfigurer::disable)
                 .csrf(AbstractHttpConfigurer::disable)
+                .oauth2ResourceServer(httpSecurityOAuth2ResourceServerConfigurer -> httpSecurityOAuth2ResourceServerConfigurer.jwt(Customizer.withDefaults()))
+                .exceptionHandling(e -> e.authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")))
                 .getConfigurer(OAuth2AuthorizationServerConfigurer.class)
                 .tokenEndpoint(tokenEndpoint -> tokenEndpoint
                         .accessTokenRequestConverter(new CustomPasswordAuthenticationConverter())
@@ -80,12 +84,9 @@ public class SecurityConfig {
                         .accessTokenRequestConverter(new JwtBearerGrantAuthenticationConverter())
                         .authenticationProvider(new JwtBearerGrantAuthenticationProvider(oAuth2AuthorizationService, tokenGenerator()))
                         .accessTokenRequestConverters(getConverters())
-                        .authenticationProviders(getProviders()))
-                .oidc(withDefaults())
-                .and()
-                .exceptionHandling(e -> e.authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")))
-                .oauth2ResourceServer(OAuth2ResourceServerConfigurer::jwt)
-                .build();
+                        .authenticationProviders(getProviders()));
+
+        return httpSecurity.build();
     }
 
     @Bean
@@ -113,9 +114,9 @@ public class SecurityConfig {
 
     @Bean
     @Order(2)
-    SecurityFilterChain appSecurityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain appSecurityFilterChain(HttpSecurity http) throws Exception {
         return http
-                .formLogin(withDefaults())
+                .formLogin(Customizer.withDefaults())
                 .authorizeHttpRequests(authorizationManagerRequestMatcherRegistry -> authorizationManagerRequestMatcherRegistry
                         .requestMatchers(
                                 "%s/**".formatted(apiDocsPath),

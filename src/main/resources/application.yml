@@ -3,9 +3,9 @@ server:
 
 spring:
   datasource:
-    url: 'jdbc:mariadb://localhost:3306/oauth2_authorization_server'
-    username: mb_test
-    password: 'test'
+    url: ${DB_URL:jdbc:mariadb://localhost:3306/oauth2_authorization_server}
+    username: ${DB_USERNAME:mb_test}
+    password: ${DB_PASSWORD:test}
     driver-class-name: org.mariadb.jdbc.Driver
 
   flyway:
@@ -44,3 +44,11 @@ springdoc:
     path: /swagger-ui.html # http://localhost:9000/swagger-ui/index.html
     csrf:
       enabled: true
+
+openapi:
+  url: ${OPENAPI_URL:http://localhost:9000}
+  title: ${OPENAPI_TITLE:OAuth2 Authorization Server}
+  description: ${OPENAPI_DESCRIPTION:This lists all the OAuth2 Authorization Server API Calls. The Calls are OAuth2 secured, so please use your Client ID and Secret to test them out.}
+  version: ${OPENAPI_VERSION:v1.0}
+  oauth-flow:
+    token-url: ${OPENAPI_OAUTH_FLOW_TOKEN_URL:http://localhost:9000/oauth2/token}
