@@ -23,6 +23,34 @@ public abstract class BaseUnitTest {
 
     private static final HttpMessageConverter<OAuth2AccessTokenResponse> accessTokenHttpResponseConverter = new OAuth2AccessTokenResponseHttpMessageConverter();
 
+    public static ApiUserRequest getApiUserRequest() {
+        ApiUserRequest apiUserRequest = new ApiUserRequest();
+        apiUserRequest.setFirstName("Jack");
+        apiUserRequest.setLastName("Hack");
+        apiUserRequest.setUsername("jack_hack");
+        apiUserRequest.setPassword("test1234");
+        apiUserRequest.setEmail("jack.hack@gmail.com");
+        apiUserRequest.setPhoneNumber("1234567899");
+        return apiUserRequest;
+    }
+
+    public static ApiUserRequest getApiUserRequest2() {
+        ApiUserRequest apiUserRequest = new ApiUserRequest();
+        apiUserRequest.setFirstName("Jack");
+        apiUserRequest.setLastName("Hack");
+        apiUserRequest.setUsername("jack_hack");
+        apiUserRequest.setPassword("test1234");
+        apiUserRequest.setEmail("jack.hack@gmail.com");
+        apiUserRequest.setPhoneNumber("1234567890");
+        return apiUserRequest;
+    }
+
+    public static ApiUserRequest getApiUserRequest3() {
+        ApiUserRequest apiUserRequest = new ApiUserRequest();
+        apiUserRequest.setEmail("jack.hack.new@gmail.com");
+        return apiUserRequest;
+    }
+
     public OAuth2AccessToken getAccessToken(MvcResult mvcResult) {
         MockHttpServletResponse servletResponse = mvcResult.getResponse();
         MockClientHttpResponse httpResponse = new MockClientHttpResponse(servletResponse.getContentAsByteArray(), HttpStatus.valueOf(servletResponse.getStatus()));
@@ -51,33 +79,5 @@ public abstract class BaseUnitTest {
             log.info("Exception message: {}", ex.getMessage());
             throw new RuntimeException(ex);
         }
-    }
-
-    public static ApiUserRequest getApiUserRequest() {
-        ApiUserRequest apiUserRequest = new ApiUserRequest();
-        apiUserRequest.setFirstName("Jack");
-        apiUserRequest.setLastName("Hack");
-        apiUserRequest.setUsername("jack_hack");
-        apiUserRequest.setPassword("test1234");
-        apiUserRequest.setEmail("jack.hack@gmail.com");
-        apiUserRequest.setPhoneNumber("1234567899");
-        return apiUserRequest;
-    }
-
-    public static ApiUserRequest getApiUserRequest2() {
-        ApiUserRequest apiUserRequest = new ApiUserRequest();
-        apiUserRequest.setFirstName("Jack");
-        apiUserRequest.setLastName("Hack");
-        apiUserRequest.setUsername("jack_hack");
-        apiUserRequest.setPassword("test1234");
-        apiUserRequest.setEmail("jack.hack@gmail.com");
-        apiUserRequest.setPhoneNumber("1234567890");
-        return apiUserRequest;
-    }
-
-    public static ApiUserRequest getApiUserRequest3() {
-        ApiUserRequest apiUserRequest = new ApiUserRequest();
-        apiUserRequest.setEmail("jack.hack.new@gmail.com");
-        return apiUserRequest;
     }
 }
