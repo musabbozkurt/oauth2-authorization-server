@@ -9,7 +9,7 @@
 
 #### How to Run and Test
 
-- Run `mvn test` or `mvn clean install` or `mvn clean package` command to run all the tests
+- Run `mvn test` or `mvn clean install` or `mvn clean package` or `./mvnw clean install` command to run all the tests
 - `mvn spring-boot:run`
 - Import [OAuth2 Authorization Server.postman_collection.json](OAuth2%20Authorization%20Server.postman_collection.json)
 - Swagger: http://localhost:9000/swagger-ui/index.html
