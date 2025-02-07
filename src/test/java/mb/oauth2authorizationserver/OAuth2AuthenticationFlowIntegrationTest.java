@@ -2,7 +2,6 @@ package mb.oauth2authorizationserver;
 
 import lombok.extern.slf4j.Slf4j;
 import mb.oauth2authorizationserver.config.RedisTestConfiguration;
-import mb.oauth2authorizationserver.data.entity.Client;
 import mb.oauth2authorizationserver.data.repository.ClientRepository;
 import org.apache.commons.lang3.StringUtils;
 import org.json.JSONObject;
@@ -22,8 +21,9 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Base64;
-import java.util.Optional;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -34,7 +34,7 @@ class OAuth2AuthenticationFlowIntegrationTest {
 
     private static final String SCOPES = "read openid";
     private static final String ACCESS_TOKEN = "access_token";
-    private static final String REDIRECT_URI = "http://127.0.0.1:9082/login/oauth2/code/client";
+    private static final String REDIRECT_URI = "http://127.0.0.1:8080/login/oauth2/code/client";
     private static final String EXPECTED_REDIRECTED_URL = "http://localhost/login";
     private static final String CLIENT_ID = "client";
     private static final String SECRET_ID = "secret";
@@ -124,16 +124,43 @@ class OAuth2AuthenticationFlowIntegrationTest {
     }
 
     @Test
+    void getOAuthAuthorize_ShouldGenerateAuthorizationCode_WhenRequestIsValidAndRequireProofKeyIsDisabledInClientSettingsToDisablePKCE() throws Exception {
+        // Perform login with CSRF token and simulate authenticated user
+
+        // Arrange
+        clientRepository.findByClientId(CLIENT_ID)
+                .ifPresent(client1 -> {
+                    client1.setClientSettings("""
+                            {"@class":"java.util.Collections$UnmodifiableMap","settings.client.require-proof-key":false,"settings.client.require-authorization-consent":false}
+                            """);
+                    clientRepository.save(client1);
+                });
+
+        // Act
+        MockHttpServletResponse response = mockMvc.perform(MockMvcRequestBuilders.get("/oauth2/authorize")
+                        .with(csrf())
+                        .with(user("User").password("password").roles("USER")) // Add authentication
+                        .queryParam("response_type", "code")
+                        .queryParam("client_id", CLIENT_ID)
+                        .queryParam("redirect_uri", REDIRECT_URI)
+                        .queryParam("scope", SCOPES))
+                .andExpect(status().is3xxRedirection())
+                .andDo(print())
+                .andReturn()
+                .getResponse();
+
+        String location = response.getHeader("Location");
+
+        // Assertions
+        Assertions.assertNotNull(response);
+        Assertions.assertEquals(HttpStatus.FOUND.value(), response.getStatus());
+        Assertions.assertTrue(StringUtils.isNotBlank(location));
+        Assertions.assertTrue(location.contains("code="), "Location should contain authorization code");
+    }
+
+    @Test
     void getOAuthAuthorize_ShouldSucceedRedirection_WhenClientIdAndRedirectUriAreValidAndRequireProofKeyIsEnabledInClientSettingsToEnablePKCE() throws Exception {
         // Arrange
-        Optional<Client> byClientId = clientRepository.findByClientId(CLIENT_ID);
-        byClientId.ifPresent(client1 -> {
-            client1.setClientSettings("""
-                    {"@class":"java.util.Collections$UnmodifiableMap","settings.client.require-proof-key":true,"settings.client.require-authorization-consent":true}
-                    """);
-            clientRepository.save(client1);
-        });
-
         String codeVerifier = "someRandomString123456789someRandomString123456789";
         String codeChallenge = Base64.getUrlEncoder().withoutPadding().encodeToString(
                 MessageDigest.getInstance("SHA-256").digest(codeVerifier.getBytes())
