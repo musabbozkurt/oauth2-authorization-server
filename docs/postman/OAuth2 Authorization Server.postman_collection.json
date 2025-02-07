@@ -1,9 +1,9 @@
 {
   "info": {
-    "_postman_id": "4984c05e-6ca1-418a-ad8d-865821ba6a10",
+    "_postman_id": "2cb04994-30a6-4635-a276-542cce6a9818",
     "name": "OAuth2 Authorization Server",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "_exporter_id": "31512047"
+    "_exporter_id": "40256801"
   },
   "item": [
     {

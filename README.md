@@ -11,7 +11,9 @@
 
 - Run `mvn test` or `mvn clean install` or `mvn clean package` or `./mvnw clean install` command to run all the tests
 - `mvn spring-boot:run`
-- Import [OAuth2 Authorization Server.postman_collection.json](OAuth2%20Authorization%20Server.postman_collection.json)
+- Import the followings to test in Postman
+    - [OAuth2 Authorization Server.postman_collection.json](docs/postman/OAuth2%20Authorization%20Server.postman_collection.json)
+    - [OAuth2 Authorization Server.postman_environment.json](docs/postman/OAuth2%20Authorization%20Server.postman_environment.json)
 - Swagger: http://localhost:9000/swagger-ui/index.html
     - Click `Authorize` and enter the following credentials
     - `client_id`: `client`
