@@ -14,7 +14,10 @@ public enum OAuth2AuthorizationServerServiceErrorCode implements Serializable, E
     USER_NOT_FOUND(HttpStatus.NOT_FOUND),
     BAD_CREDENTIALS(HttpStatus.FORBIDDEN),
     ACCESS_DENIED(HttpStatus.FORBIDDEN),
-    TOKEN_EXPIRED(HttpStatus.FORBIDDEN);
+    TOKEN_EXPIRED(HttpStatus.FORBIDDEN),
+    EMPTY_OR_NULL_COLLECTION(HttpStatus.BAD_REQUEST),
+    CAN_NOT_BE_ENCODED(HttpStatus.BAD_REQUEST),
+    CAN_NOT_BE_DECODED(HttpStatus.BAD_REQUEST);
 
     private final HttpStatus httpStatus;
 
