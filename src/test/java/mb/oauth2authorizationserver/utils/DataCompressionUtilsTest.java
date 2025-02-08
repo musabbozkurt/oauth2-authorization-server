@@ -36,27 +36,27 @@ class DataCompressionUtilsTest {
     }
 
     @Test
-    void encode_ShouldThrowNextException_WhenCollectionIsNull() {
+    void encode_ShouldThrowBaseException_WhenCollectionIsNull() {
         // Arrange
         Collection<String> data = null;
 
         // Act
-        BaseException nextException = assertThrows(BaseException.class, () -> DataCompressionUtils.encode(data));
+        BaseException baseException = assertThrows(BaseException.class, () -> DataCompressionUtils.encode(data));
 
         // Assertions
-        assertEquals(OAuth2AuthorizationServerServiceErrorCode.EMPTY_OR_NULL_COLLECTION, nextException.getErrorCode());
+        assertEquals(OAuth2AuthorizationServerServiceErrorCode.EMPTY_OR_NULL_COLLECTION, baseException.getErrorCode());
     }
 
     @Test
-    void encode_ShouldThrowNextException_WhenCollectionIsEmpty() {
+    void encode_ShouldThrowBaseException_WhenCollectionIsEmpty() {
         // Arrange
         Collection<String> data = new ArrayList<>();
 
         // Act
-        BaseException nextException = assertThrows(BaseException.class, () -> DataCompressionUtils.encode(data));
+        BaseException baseException = assertThrows(BaseException.class, () -> DataCompressionUtils.encode(data));
 
         // Assertions
-        assertEquals(OAuth2AuthorizationServerServiceErrorCode.EMPTY_OR_NULL_COLLECTION, nextException.getErrorCode());
+        assertEquals(OAuth2AuthorizationServerServiceErrorCode.EMPTY_OR_NULL_COLLECTION, baseException.getErrorCode());
     }
 
     @Test
@@ -78,15 +78,15 @@ class DataCompressionUtilsTest {
     }
 
     @Test
-    void decode_ShouldThrowNextException_WhenBase64StringIsInvalid() {
+    void decode_ShouldThrowBaseException_WhenBase64StringIsInvalid() {
         // Arrange
         String invalidBase64Data = "invalid_base64_string";
 
         // Act
-        BaseException nextException = assertThrows(BaseException.class, () -> DataCompressionUtils.decode(invalidBase64Data));
+        BaseException baseException = assertThrows(BaseException.class, () -> DataCompressionUtils.decode(invalidBase64Data));
 
         // Assertions
-        assertEquals(OAuth2AuthorizationServerServiceErrorCode.CAN_NOT_BE_DECODED, nextException.getErrorCode());
+        assertEquals(OAuth2AuthorizationServerServiceErrorCode.CAN_NOT_BE_DECODED, baseException.getErrorCode());
     }
 
     @Test
