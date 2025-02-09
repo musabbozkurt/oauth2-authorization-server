@@ -18,16 +18,22 @@ import mb.oauth2authorizationserver.data.repository.AuthorizationRepository;
 import mb.oauth2authorizationserver.data.repository.UserRepository;
 import mb.oauth2authorizationserver.utils.SecurityUtils;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.event.AuthenticationFailureBadCredentialsEvent;
+import org.springframework.security.authentication.event.AuthenticationSuccessEvent;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.oauth2.core.OAuth2Token;
@@ -43,7 +49,11 @@ import org.springframework.security.oauth2.server.authorization.token.*;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationConverter;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.session.HttpSessionEventPublisher;
+import org.springframework.session.security.web.authentication.SpringSessionRememberMeServices;
+import org.thymeleaf.extras.springsecurity6.dialect.SpringSecurityDialect;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -75,6 +85,11 @@ public class SecurityConfig {
         httpSecurity
                 .cors(AbstractHttpConfigurer::disable)
                 .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(management -> management
+                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+                        .maximumSessions(10)
+                        .sessionRegistry(sessionRegistry()))
+                .rememberMe(me -> me.rememberMeServices(rememberMeServices()))
                 .oauth2ResourceServer(httpSecurityOAuth2ResourceServerConfigurer -> httpSecurityOAuth2ResourceServerConfigurer.jwt(Customizer.withDefaults()))
                 .exceptionHandling(e -> e.authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")))
                 .getConfigurer(OAuth2AuthorizationServerConfigurer.class)
@@ -87,29 +102,6 @@ public class SecurityConfig {
                         .authenticationProviders(getProviders()));
 
         return httpSecurity.build();
-    }
-
-    @Bean
-    public UserDetailsService userDetailsService() {
-        return new UserDetailsManagerImpl(userRepository);
-    }
-
-    @Bean
-    public OAuth2TokenGenerator<? extends OAuth2Token> tokenGenerator() {
-        NimbusJwtEncoder jwtEncoder = new NimbusJwtEncoder(jwkSource());
-        JwtGenerator jwtGenerator = new JwtGenerator(jwtEncoder);
-        jwtGenerator.setJwtCustomizer(tokenCustomizer());
-        OAuth2AccessTokenGenerator accessTokenGenerator = new OAuth2AccessTokenGenerator();
-        OAuth2RefreshTokenGenerator refreshTokenGenerator = new OAuth2RefreshTokenGenerator();
-        return new DelegatingOAuth2TokenGenerator(jwtGenerator, accessTokenGenerator, refreshTokenGenerator);
-    }
-
-    private Consumer<List<AuthenticationProvider>> getProviders() {
-        return a -> a.forEach(authenticationProvider -> log.info("authenticationProvider: {}", authenticationProvider));
-    }
-
-    private Consumer<List<AuthenticationConverter>> getConverters() {
-        return a -> a.forEach(authenticationConverter -> log.info("authenticationConverter: {}", authenticationConverter));
     }
 
     @Bean
@@ -135,6 +127,21 @@ public class SecurityConfig {
     }
 
     @Bean
+    public UserDetailsService userDetailsService() {
+        return new UserDetailsManagerImpl(userRepository);
+    }
+
+    @Bean
+    public OAuth2TokenGenerator<? extends OAuth2Token> tokenGenerator() {
+        NimbusJwtEncoder jwtEncoder = new NimbusJwtEncoder(jwkSource());
+        JwtGenerator jwtGenerator = new JwtGenerator(jwtEncoder);
+        jwtGenerator.setJwtCustomizer(tokenCustomizer());
+        OAuth2AccessTokenGenerator accessTokenGenerator = new OAuth2AccessTokenGenerator();
+        OAuth2RefreshTokenGenerator refreshTokenGenerator = new OAuth2RefreshTokenGenerator();
+        return new DelegatingOAuth2TokenGenerator(jwtGenerator, accessTokenGenerator, refreshTokenGenerator);
+    }
+
+    @Bean
     public BCryptPasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
@@ -150,6 +157,28 @@ public class SecurityConfig {
     }
 
     @Bean
+    public static HttpSessionEventPublisher httpSessionEventPublisher() {
+        return new HttpSessionEventPublisher();
+    }
+
+    @Bean
+    public SessionRegistry sessionRegistry() {
+        return new SessionRegistryImpl();
+    }
+
+    @Bean
+    public SpringSessionRememberMeServices rememberMeServices() {
+        SpringSessionRememberMeServices rememberMeServices = new SpringSessionRememberMeServices();
+        rememberMeServices.setAlwaysRemember(true);
+        return rememberMeServices;
+    }
+
+    @Bean
+    public SpringSecurityDialect securityDialect() {
+        return new SpringSecurityDialect();
+    }
+
+    @Bean
     public OAuth2TokenCustomizer<JwtEncodingContext> tokenCustomizer() {
         return context -> {
             Authentication principal = context.getPrincipal();
@@ -161,15 +190,17 @@ public class SecurityConfig {
                 Set<String> authorities = principal.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.toSet());
                 context.getClaims().claim("authorities", authorities).claim("user", principal.getName());
             }
-            if (principal.getDetails() instanceof CustomPasswordUser user) {
-                Set<String> authorities = user.authorities()
+            if (principal.getDetails() instanceof CustomPasswordUser(
+                    String username, Collection<GrantedAuthority> grantedAuthorities
+            )) {
+                Set<String> authorities = grantedAuthorities
                         .stream()
                         .map(GrantedAuthority::getAuthority)
                         .collect(Collectors.toSet());
                 if (context.getTokenType().getValue().equals("access_token")) {
                     context.getClaims()
                             .claim("authorities", authorities)
-                            .claim("user", user.username());
+                            .claim("user", username);
                 }
             }
         };
@@ -185,5 +216,23 @@ public class SecurityConfig {
         RSAKey rsaKey = SecurityUtils.generateRsa();
         JWKSet jwkSet = new JWKSet(rsaKey);
         return (jwkSelector, securityContext) -> jwkSelector.select(jwkSet);
+    }
+
+    @Bean
+    ApplicationListener<AuthenticationSuccessEvent> successEvent() {
+        return event -> log.info("Success login AuthenticationClassName: {} - AuthenticationName: {}", event.getAuthentication().getClass().getSimpleName(), event.getAuthentication().getName());
+    }
+
+    @Bean
+    ApplicationListener<AuthenticationFailureBadCredentialsEvent> failureEvent() {
+        return event -> log.info("Bad credentials login AuthenticationClassName: {} - AuthenticationName: {}", event.getAuthentication().getClass().getSimpleName(), event.getAuthentication().getName());
+    }
+
+    private Consumer<List<AuthenticationProvider>> getProviders() {
+        return a -> a.forEach(authenticationProvider -> log.info("authenticationProvider: {}", authenticationProvider));
+    }
+
+    private Consumer<List<AuthenticationConverter>> getConverters() {
+        return a -> a.forEach(authenticationConverter -> log.info("authenticationConverter: {}", authenticationConverter));
     }
 }

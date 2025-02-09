@@ -2,6 +2,7 @@ package mb.oauth2authorizationserver;
 
 import lombok.extern.slf4j.Slf4j;
 import mb.oauth2authorizationserver.base.BaseUnitTest;
+import mb.oauth2authorizationserver.config.RedisTestConfiguration;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -22,7 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Slf4j
 @AutoConfigureMockMvc
 @ExtendWith(SpringExtension.class)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = RedisTestConfiguration.class)
 class JwtBearerGrantTests extends BaseUnitTest {
 
     @Autowired
