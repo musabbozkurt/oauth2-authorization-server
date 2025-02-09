@@ -25,7 +25,7 @@ import java.util.Collections;
 
 @TestMethodOrder(OrderAnnotation.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestSecurityConfig.class)
-public class UserControllerIntegrationTests extends BaseUnitTest {
+class UserControllerIntegrationTests extends BaseUnitTest {
 
     @Autowired
     private TestRestTemplate restTemplate;
