@@ -1,4 +1,6 @@
 package mb.oauth2authorizationserver.exception;
 
-public class ErrorDetail {
+import java.io.Serializable;
+
+public class ErrorDetail implements Serializable {
 }

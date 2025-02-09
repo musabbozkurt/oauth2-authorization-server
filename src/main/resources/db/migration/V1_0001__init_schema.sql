@@ -160,4 +160,4 @@ VALUES ('abbc70f1-fb59-4b42-b1e4-c52fa0080bea',
         "settings.token.access-token-time-to-live":["java.time.Duration",86400.000000000],
         "settings.token.access-token-format":{"@class":"org.springframework.security.oauth2.server.authorization.settings.OAuth2TokenFormat",
         "value":"self-contained"},"settings.token.refresh-token-time-to-live":["java.time.Duration",3600.000000000],
-        "settings.token.authorization-code-time-to-live":["java.time.Duration",300.000000000]}');
+        "settings.token.authorization-code-time-to-live":["java.time.Duration",300.000000000],"settings.token.x509-certificate-bound-access-tokens": false}');

@@ -2,12 +2,14 @@ package mb.oauth2authorizationserver.exception;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 import java.io.Serializable;
 
 @Data
 @ToString
+@NoArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 public class BaseException extends RuntimeException implements Serializable {
 
