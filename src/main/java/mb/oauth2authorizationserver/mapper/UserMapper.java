@@ -5,11 +5,12 @@ import mb.oauth2authorizationserver.api.response.ApiUserResponse;
 import mb.oauth2authorizationserver.data.entity.SecurityUser;
 import org.apache.commons.lang3.StringUtils;
 import org.mapstruct.Mapper;
+import org.mapstruct.ReportingPolicy;
 import org.springframework.data.domain.Page;
 
 import java.util.List;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface UserMapper {
 
     ApiUserResponse map(SecurityUser user);
