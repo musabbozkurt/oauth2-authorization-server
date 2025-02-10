@@ -1,6 +1,8 @@
 package mb.oauth2authorizationserver.exception;
 
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.context.MessageSource;
 import org.springframework.context.support.MessageSourceAccessor;
@@ -18,6 +20,7 @@ public class LocalizedExceptionResponse extends ErrorResponse {
     private static final String PREFIX = "error.%s";
     private static final String DEFAULT = "DEFAULT";
 
+    @Setter(AccessLevel.PACKAGE)
     private static MessageSourceAccessor messages;
 
     public LocalizedExceptionResponse(String errorCode) {
