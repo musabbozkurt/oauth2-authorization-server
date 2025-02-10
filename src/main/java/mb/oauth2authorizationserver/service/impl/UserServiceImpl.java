@@ -13,6 +13,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Set;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -37,7 +39,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public SecurityUser getUserById(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new BaseException(OAuth2AuthorizationServerServiceErrorCode.USER_NOT_FOUND));
+                .orElseThrow(() -> new BaseException(OAuth2AuthorizationServerServiceErrorCode.USER_NOT_FOUND, Set.of(userId)));
     }
 
     @Override
