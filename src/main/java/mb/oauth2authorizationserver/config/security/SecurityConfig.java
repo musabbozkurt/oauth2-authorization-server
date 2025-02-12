@@ -21,6 +21,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.event.AuthenticationFailureBadCredentialsEvent;
@@ -118,6 +119,7 @@ public class SecurityConfig {
     public SecurityFilterChain appSecurityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .formLogin(Customizer.withDefaults())
+                .oneTimeTokenLogin(Customizer.withDefaults())
                 .authorizeHttpRequests(authorizationManagerRequestMatcherRegistry -> authorizationManagerRequestMatcherRegistry
                         .requestMatchers(
                                 "%s/**".formatted(apiDocsPath),
@@ -128,7 +130,9 @@ public class SecurityConfig {
                                 "/webjars/**",
                                 "/swagger-ui.html",
                                 "/oauth2/**",
-                                "/error/**")
+                                "/error/**",
+                                "/ott/sent",
+                                "/login/ott")
                         .permitAll()
                         .anyRequest()
                         .authenticated())
@@ -136,12 +140,13 @@ public class SecurityConfig {
     }
 
     @Bean
+    @Primary
     public UserDetailsService userDetailsService() {
         return new UserDetailsManagerImpl(userRepository);
     }
 
     @Bean
-    public OAuth2TokenGenerator<? extends OAuth2Token> tokenGenerator() {
+    public OAuth2TokenGenerator<OAuth2Token> tokenGenerator() {
         NimbusJwtEncoder jwtEncoder = new NimbusJwtEncoder(jwkSource());
         JwtGenerator jwtGenerator = new JwtGenerator(jwtEncoder);
         jwtGenerator.setJwtCustomizer(tokenCustomizer());
@@ -224,7 +229,7 @@ public class SecurityConfig {
     public JWKSource<SecurityContext> jwkSource() {
         RSAKey rsaKey = SecurityUtils.generateRsa();
         JWKSet jwkSet = new JWKSet(rsaKey);
-        return (jwkSelector, securityContext) -> jwkSelector.select(jwkSet);
+        return (jwkSelector, _) -> jwkSelector.select(jwkSet);
     }
 
     @Bean
