@@ -48,6 +48,10 @@ public class SessionConfig extends AbstractHttpSessionApplicationInitializer imp
                 .setSerializationInclusion(JsonInclude.Include.NON_NULL)
                 .setTimeZone(TimeZone.getTimeZone(ZoneId.of("Europe/Istanbul")))
                 .registerModules(new Hibernate6Module(), new JavaTimeModule())
-                .registerModules(SecurityJackson2Modules.getModules(this.loader));
+                .registerModules(SecurityJackson2Modules.getModules(this.loader))
+                .addMixIn(Long.class, LongMixin.class);
+    }
+
+    interface LongMixin {
     }
 }
