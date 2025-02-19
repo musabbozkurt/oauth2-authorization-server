@@ -27,6 +27,22 @@
     - `username`: `mb_test`
     - `password`: `test`
 
+#### Debugging Spring Boot Tests in IntelliJ IDEA
+
+- A quick guide on how to run Spring Boot tests in debug mode using IntelliJ IDEA's terminal.
+
+1. Run one of the below commands in the terminal
+    - `mvn test -Dmaven.surefire.debug`
+    - If port 5005 is already in use, you can specify a custom port
+        - `mvn test -Dmaven.surefire.debug="-Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=8000"`
+2. Open IntelliJ IDEA
+3. Go to `Run > Attach to Process` (or use shortcut)
+    - Windows/Linux: `Ctrl + Alt + 5`
+    - Mac: `Cmd + Alt + 5`
+4. Select the Java process running your tests
+5. The test will pause until you connect your debugger. Once connected, you can use breakpoints and step through your
+   code.
+
 ### References
 
 - [Spring Boot 3 Tutorial Security OAuth2 Spring Authorization Server Save login data to a database](https://www.youtube.com/watch?v=rVAqh-VDw2o)

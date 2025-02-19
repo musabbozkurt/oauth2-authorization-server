@@ -13,16 +13,23 @@ import org.springframework.security.web.authentication.AuthenticationConverter;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class CustomPasswordAuthenticationConverter implements AuthenticationConverter {
+
+    private static final List<String> ALLOWED_GRANT_TYPES = List.of("password", "custom_password");
 
     @Nullable
     @Override
     public Authentication convert(HttpServletRequest request) {
         String grantType = request.getParameter(OAuth2ParameterNames.GRANT_TYPE);
 
-        if (!"custom_password".equals(grantType)) {
+        if (!ALLOWED_GRANT_TYPES.contains(grantType)) {
             return null;
         }
 
