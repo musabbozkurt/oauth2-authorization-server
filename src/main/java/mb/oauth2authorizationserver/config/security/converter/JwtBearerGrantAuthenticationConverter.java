@@ -14,7 +14,11 @@ import org.springframework.security.web.authentication.AuthenticationConverter;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 public final class JwtBearerGrantAuthenticationConverter implements AuthenticationConverter {
 

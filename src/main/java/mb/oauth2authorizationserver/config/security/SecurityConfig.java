@@ -118,6 +118,7 @@ public class SecurityConfig {
     @Order(2)
     public SecurityFilterChain appSecurityFilterChain(HttpSecurity http) throws Exception {
         return http
+                .csrf(AbstractHttpConfigurer::disable)
                 .formLogin(Customizer.withDefaults())
                 .oneTimeTokenLogin(Customizer.withDefaults())
                 .authorizeHttpRequests(authorizationManagerRequestMatcherRegistry -> authorizationManagerRequestMatcherRegistry
@@ -171,7 +172,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public static HttpSessionEventPublisher httpSessionEventPublisher() {
+    public HttpSessionEventPublisher httpSessionEventPublisher() {
         return new HttpSessionEventPublisher();
     }
 

@@ -2,6 +2,7 @@ package mb.oauth2authorizationserver.exception;
 
 import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.context.MessageSource;
@@ -15,6 +16,7 @@ import java.util.Objects;
 import static java.util.Collections.EMPTY_LIST;
 
 @Getter
+@NoArgsConstructor
 public class LocalizedExceptionResponse extends ErrorResponse {
 
     private static final String PREFIX = "error.%s";

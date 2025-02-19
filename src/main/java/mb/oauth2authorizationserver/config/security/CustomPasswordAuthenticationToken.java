@@ -8,7 +8,11 @@ import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationGrantAuthenticationToken;
 
 import java.io.Serial;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 @Getter
 @EqualsAndHashCode(callSuper = false)
