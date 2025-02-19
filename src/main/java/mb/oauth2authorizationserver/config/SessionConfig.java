@@ -53,7 +53,7 @@ public class SessionConfig extends AbstractHttpSessionApplicationInitializer imp
                 .configure(DeserializationFeature.FAIL_ON_INVALID_SUBTYPE, false)
                 .configure(DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE, false)
                 .setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY)
-                .activateDefaultTyping(LaissezFaireSubTypeValidator.instance, ObjectMapper.DefaultTyping.NON_FINAL, JsonTypeInfo.As.WRAPPER_ARRAY)
+                .activateDefaultTyping(LaissezFaireSubTypeValidator.instance, ObjectMapper.DefaultTyping.NON_FINAL, JsonTypeInfo.As.PROPERTY)
                 .setSerializationInclusion(JsonInclude.Include.NON_NULL)
                 .setTimeZone(TimeZone.getTimeZone(ZoneId.of("Europe/Istanbul")))
                 .registerModules(new Hibernate6Module(), new JavaTimeModule())
