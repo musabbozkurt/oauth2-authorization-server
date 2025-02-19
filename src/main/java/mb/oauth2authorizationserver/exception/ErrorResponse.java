@@ -5,7 +5,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 import java.util.Collection;
@@ -13,7 +12,6 @@ import java.util.Collection;
 import static java.util.Collections.EMPTY_LIST;
 
 @Data
-@NoArgsConstructor
 public class ErrorResponse implements Serializable {
 
     private String errorCode;

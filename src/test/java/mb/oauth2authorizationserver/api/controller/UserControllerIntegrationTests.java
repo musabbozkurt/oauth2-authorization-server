@@ -4,7 +4,7 @@ import mb.oauth2authorizationserver.api.request.ApiUserRequest;
 import mb.oauth2authorizationserver.api.response.ApiUserResponse;
 import mb.oauth2authorizationserver.base.BaseUnitTest;
 import mb.oauth2authorizationserver.config.TestSecurityConfig;
-import mb.oauth2authorizationserver.exception.ErrorResponse;
+import mb.oauth2authorizationserver.exception.BaseException;
 import mb.oauth2authorizationserver.exception.OAuth2AuthorizationServerServiceErrorCode;
 import mb.oauth2authorizationserver.mapper.UserMapper;
 import mb.oauth2authorizationserver.service.UserService;
@@ -76,10 +76,10 @@ class UserControllerIntegrationTests extends BaseUnitTest {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        ErrorResponse exception = restTemplate.postForObject("/users/", new HttpEntity<>(apiUserRequest, headers), ErrorResponse.class);
+        BaseException exception = restTemplate.postForObject("/users/", new HttpEntity<>(apiUserRequest, headers), BaseException.class);
 
         Assertions.assertNotNull(exception);
-        Assertions.assertEquals(OAuth2AuthorizationServerServiceErrorCode.UNEXPECTED_ERROR.getCode(), exception.getErrorCode());
+        Assertions.assertEquals(OAuth2AuthorizationServerServiceErrorCode.UNEXPECTED_ERROR, exception.getErrorCode());
     }
 
     @Test
@@ -96,10 +96,10 @@ class UserControllerIntegrationTests extends BaseUnitTest {
     @Test
     @Order(value = 6)
     void testGetUserById_ShouldFail_WhenUserIsNotFound() {
-        ErrorResponse exception = restTemplate.getForObject("/users/0", ErrorResponse.class);
+        BaseException exception = restTemplate.getForObject("/users/0", BaseException.class);
 
         Assertions.assertNotNull(exception);
-        Assertions.assertEquals(OAuth2AuthorizationServerServiceErrorCode.USER_NOT_FOUND.getCode(), exception.getErrorCode());
+        Assertions.assertEquals(OAuth2AuthorizationServerServiceErrorCode.USER_NOT_FOUND, exception.getErrorCode());
     }
 
     @Test
@@ -122,16 +122,16 @@ class UserControllerIntegrationTests extends BaseUnitTest {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        ErrorResponse exception = restTemplate.exchange("/users/0", HttpMethod.PUT, new HttpEntity<>(apiUserRequest, headers), ErrorResponse.class).getBody();
+        BaseException exception = restTemplate.exchange("/users/0", HttpMethod.PUT, new HttpEntity<>(apiUserRequest, headers), BaseException.class).getBody();
 
         Assertions.assertNotNull(exception);
-        Assertions.assertEquals(OAuth2AuthorizationServerServiceErrorCode.USER_NOT_FOUND.getCode(), exception.getErrorCode());
+        Assertions.assertEquals(OAuth2AuthorizationServerServiceErrorCode.USER_NOT_FOUND, exception.getErrorCode());
     }
 
     @Test
     @Order(value = 9)
     void testDeleteUserById() {
-        String response = restTemplate.exchange("/users/3", HttpMethod.DELETE, null, String.class).getBody();
+        String response = restTemplate.exchange("/users/4", HttpMethod.DELETE, null, String.class).getBody();
 
         Assertions.assertEquals("User deleted successfully.", response);
     }
@@ -139,9 +139,9 @@ class UserControllerIntegrationTests extends BaseUnitTest {
     @Test
     @Order(value = 10)
     void testDeleteUserById_ShouldFail_WhenUserIsNotFound() {
-        ErrorResponse exception = restTemplate.exchange("/users/0", HttpMethod.DELETE, null, ErrorResponse.class).getBody();
+        BaseException exception = restTemplate.exchange("/users/0", HttpMethod.DELETE, null, BaseException.class).getBody();
 
         Assertions.assertNotNull(exception);
-        Assertions.assertEquals(OAuth2AuthorizationServerServiceErrorCode.USER_NOT_FOUND.getCode(), exception.getErrorCode());
+        Assertions.assertEquals(OAuth2AuthorizationServerServiceErrorCode.USER_NOT_FOUND, exception.getErrorCode());
     }
 }
