@@ -22,8 +22,10 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.MessageDigest;
-import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -78,7 +80,13 @@ class OAuth2AuthenticationFlowIntegrationTest {
 
         // Assertions
         Assertions.assertEquals(CLIENT_ID, jwt.getClaim("sub").toString());
-        Assertions.assertEquals(SCOPES, String.join(" ", (ArrayList<String>) jwt.getClaims().get("scope")));
+        Assertions.assertEquals(SCOPES, String.join(" ", Optional.ofNullable(jwt.getClaim("scope"))
+                .filter(List.class::isInstance)
+                .map(obj -> ((List<?>) obj).stream()
+                        .filter(String.class::isInstance)
+                        .map(String.class::cast)
+                        .toList())
+                .orElse(Collections.emptyList())));
     }
 
     @Test
@@ -231,6 +239,7 @@ class OAuth2AuthenticationFlowIntegrationTest {
         // Assertions
         Assertions.assertEquals(CLIENT_ID, jwt.getClaim("sub").toString());
         Assertions.assertEquals(CLIENT_ID, introspectedJsonObject.getString("sub"));
+        Assertions.assertEquals(CLIENT_ID, introspectedJsonObject.getString("client_id"));
         Assertions.assertEquals("Bearer", introspectedJsonObject.getString("token_type"));
         Assertions.assertEquals("Test Access Token", introspectedJsonObject.getString("Test"));
     }

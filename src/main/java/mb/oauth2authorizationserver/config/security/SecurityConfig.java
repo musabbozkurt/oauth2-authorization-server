@@ -11,6 +11,7 @@ import mb.oauth2authorizationserver.config.security.converter.CustomPasswordAuth
 import mb.oauth2authorizationserver.config.security.converter.JwtBearerGrantAuthenticationConverter;
 import mb.oauth2authorizationserver.config.security.model.CustomPasswordUser;
 import mb.oauth2authorizationserver.config.security.provider.CustomPasswordAuthenticationProvider;
+import mb.oauth2authorizationserver.config.security.provider.CustomRefreshTokenAuthenticationProvider;
 import mb.oauth2authorizationserver.config.security.provider.JwtBearerGrantAuthenticationProvider;
 import mb.oauth2authorizationserver.config.security.service.impl.OAuth2AuthorizationServiceImpl;
 import mb.oauth2authorizationserver.config.security.service.impl.UserDetailsManagerImpl;
@@ -37,12 +38,16 @@ import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.oauth2.core.AuthorizationGrantType;
+import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2Token;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.authorization.InMemoryOAuth2AuthorizationConsentService;
+import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
+import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
@@ -62,6 +67,7 @@ import org.thymeleaf.extras.springsecurity6.dialect.SpringSecurityDialect;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -71,6 +77,8 @@ import java.util.stream.Collectors;
 @EnableWebSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
+
+    private static final String AUTHORITIES = "authorities";
 
     private final AuthorizationRepository authorizationRepository;
     private final AuthorizationBuilderService authorizationBuilderService;
@@ -106,6 +114,7 @@ public class SecurityConfig {
                 .tokenEndpoint(tokenEndpoint -> tokenEndpoint
                         .accessTokenRequestConverter(new CustomPasswordAuthenticationConverter())
                         .authenticationProvider(new CustomPasswordAuthenticationProvider(oAuth2AuthorizationService, tokenGenerator(), userDetailsService(), passwordEncoder()))
+                        .authenticationProvider(new CustomRefreshTokenAuthenticationProvider(oAuth2AuthorizationService, tokenGenerator()))
                         .accessTokenRequestConverter(new JwtBearerGrantAuthenticationConverter())
                         .authenticationProvider(new JwtBearerGrantAuthenticationProvider(oAuth2AuthorizationService, tokenGenerator()))
                         .accessTokenRequestConverters(getConverters())
@@ -203,7 +212,7 @@ public class SecurityConfig {
             if (context.getTokenType().getValue().equals("access_token")) {
                 context.getClaims().claim("Test", "Test Access Token");
                 Set<String> authorities = principal.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.toSet());
-                context.getClaims().claim("authorities", authorities).claim("user", principal.getName());
+                context.getClaims().claim(AUTHORITIES, authorities).claim("user", principal.getName());
             }
             if (principal.getDetails() instanceof CustomPasswordUser(
                     String username, Collection<GrantedAuthority> grantedAuthorities
@@ -214,10 +223,11 @@ public class SecurityConfig {
                         .collect(Collectors.toSet());
                 if (context.getTokenType().getValue().equals("access_token")) {
                     context.getClaims()
-                            .claim("authorities", authorities)
+                            .claim(AUTHORITIES, authorities)
                             .claim("user", username);
                 }
             }
+            customizeRefreshToken(context, principal);
         };
     }
 
@@ -249,5 +259,19 @@ public class SecurityConfig {
 
     private Consumer<List<AuthenticationConverter>> getConverters() {
         return a -> a.forEach(authenticationConverter -> log.info("authenticationConverter: {}", authenticationConverter));
+    }
+
+    private void customizeRefreshToken(JwtEncodingContext context, Authentication principal) {
+        if (AuthorizationGrantType.REFRESH_TOKEN.equals(context.getAuthorizationGrantType()) && OAuth2TokenType.REFRESH_TOKEN.equals(context.getTokenType())) {
+            OAuth2Authorization authorization = context.getAuthorization();
+            if (authorization != null) {
+                OAuth2Authorization.Token<OAuth2AccessToken> oAuth2AccessTokenToken = authorization.getToken(OAuth2AccessToken.class);
+                if (Objects.nonNull(oAuth2AccessTokenToken) && oAuth2AccessTokenToken.getClaims() != null) {
+                    context.getClaims().claim("Test", "Test Access Token");
+                    Set<String> authorities = principal.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.toSet());
+                    context.getClaims().claim(AUTHORITIES, authorities).claim("user", principal.getName());
+                }
+            }
+        }
     }
 }
