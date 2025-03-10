@@ -12,7 +12,7 @@ import io.swagger.v3.oas.annotations.servers.Server;
 
 @OpenAPIDefinition(
         servers = {
-                @Server(url = "${openapi.url}")
+                @Server(url = "/")
         },
         info = @Info(
                 title = "${openapi.title}",
