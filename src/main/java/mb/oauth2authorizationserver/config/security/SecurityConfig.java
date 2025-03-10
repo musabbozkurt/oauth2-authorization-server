@@ -142,7 +142,8 @@ public class SecurityConfig {
                                 "/oauth2/**",
                                 "/error/**",
                                 "/ott/sent",
-                                "/login/ott")
+                                "/login/ott",
+                                "/chats/**")
                         .permitAll()
                         .anyRequest()
                         .authenticated())

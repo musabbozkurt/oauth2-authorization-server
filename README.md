@@ -9,8 +9,10 @@
 
 #### How to Run and Test
 
+- Run `export DEEPSEEK_API_KEY=your_api_key_here` command to set DeepSeek API key
+- Run `docker-compose up -d` command to run necessary services
 - Run `mvn test` or `mvn clean install` or `mvn clean package` or `./mvnw clean install` command to run all the tests
-- `mvn spring-boot:run`
+- Run `mvn spring-boot:run` command to run the application
 - Import the followings to test in Postman
     - [OAuth2 Authorization Server.postman_collection.json](docs/postman/OAuth2%20Authorization%20Server.postman_collection.json)
     - [OAuth2 Authorization Server.postman_environment.json](docs/postman/OAuth2%20Authorization%20Server.postman_environment.json)
@@ -26,10 +28,11 @@
     - `url`: `jdbc:mariadb://localhost:3306/oauth2_authorization_server`
     - `username`: `mb_test`
     - `password`: `test`
+- Ollama
+    - http://localhost:3000/ sign up for an account for local environment
+    - Search for `deepseek-r1:7b` and download it if it does not exist
 
 #### Debugging Spring Boot Tests in IntelliJ IDEA
-
-- A quick guide on how to run Spring Boot tests in debug mode using IntelliJ IDEA's terminal.
 
 1. Run one of the below commands in the terminal
     - `mvn test -Dmaven.surefire.debug`
@@ -47,3 +50,4 @@
 
 - [Spring Boot 3 Tutorial Security OAuth2 Spring Authorization Server Save login data to a database](https://www.youtube.com/watch?v=rVAqh-VDw2o)
 - [BCryptPasswordEncoderTests](https://github.com/spring-projects/spring-security/blob/main/crypto/src/test/java/org/springframework/security/crypto/bcrypt/BCryptPasswordEncoderTests.java)
+- [Ollama Installation with Docker Compose](https://geshan.com.np/blog/2025/02/ollama-docker-compose/)

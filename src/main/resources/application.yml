@@ -31,7 +31,18 @@ spring:
 
   docker:
     compose:
-      enabled: true
+      enabled: false
+
+  ai:
+    openai:
+      api-key: ${DEEP_SEEK_API_KEY}
+      base-url: https://api.deepseek.com
+      chat:
+        options:
+          model: deepseek-reasoner
+    ollama:
+      chat:
+        model: deepseek-r1:7b
 
 logging:
   level:
@@ -46,9 +57,8 @@ springdoc:
       enabled: true
 
 openapi:
-  url: ${OPENAPI_URL:http://localhost:9000}
   title: ${OPENAPI_TITLE:OAuth2 Authorization Server}
   description: ${OPENAPI_DESCRIPTION:This lists all the OAuth2 Authorization Server API Calls. The Calls are OAuth2 secured, so please use your Client ID and Secret to test them out.}
   version: ${OPENAPI_VERSION:v1.0}
   oauth-flow:
-    token-url: ${OPENAPI_OAUTH_FLOW_TOKEN_URL:http://localhost:9000/oauth2/token}
+    token-url: ${OPENAPI_OAUTH_FLOW_TOKEN_URL:/oauth2/token}
