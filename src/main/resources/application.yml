@@ -43,6 +43,11 @@ spring:
     ollama:
       chat:
         model: deepseek-r1:7b
+    vectorstore:
+      mariadb:
+        initialize-schema: true
+        distance-type: COSINE
+        dimensions: 1536
 
 logging:
   level:

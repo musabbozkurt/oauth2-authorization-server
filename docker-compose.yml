@@ -1,6 +1,6 @@
 services:
   db:
-    image: mariadb:11.6.2
+    image: mariadb:11.7.2
     environment:
       MYSQL_ROOT_PASSWORD: password
       MYSQL_DATABASE: oauth2_authorization_server

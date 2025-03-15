@@ -143,7 +143,8 @@ public class SecurityConfig {
                                 "/error/**",
                                 "/ott/sent",
                                 "/login/ott",
-                                "/chats/**")
+                                "/chats/**",
+                                "/vector-stores/**")
                         .permitAll()
                         .anyRequest()
                         .authenticated())
