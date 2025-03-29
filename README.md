@@ -1,8 +1,8 @@
-## OAuth2 Authorization Server with Spring Boot 3 and Java 23
+## OAuth2 Authorization Server with Spring Boot 3 and Java 24
 
 #### Prerequisites
 
-- Java 23 should be installed --> `export JAVA_HOME=$(/usr/libexec/java_home -v 23)`
+- Java 24 should be installed --> `export JAVA_HOME=$(/usr/libexec/java_home -v 24)`
 - Maven should be installed
 - Docker should be installed
 - Postman can be installed
