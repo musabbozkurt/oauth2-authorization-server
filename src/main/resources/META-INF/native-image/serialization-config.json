@@ -1,0 +1,31 @@
+[
+  {
+    "name": "org.springframework.security.authentication.ott.OneTimeTokenAuthenticationToken",
+    "allDeclaredConstructors": true,
+    "allPublicConstructors": true,
+    "allDeclaredMethods": true,
+    "allPublicMethods": true,
+    "allDeclaredFields": true,
+    "allPublicFields": true,
+    "comment": "This entry resolves the SerializationFailedException caused by GraalVM's native image serialization restrictions. When Spring Data Redis attempts to serialize the OneTimeTokenAuthenticationToken object using JdkSerializationRedisSerializer, it fails because the SerializationConstructorAccessor class cannot be found at runtime in the native image. This configuration ensures that all constructors, methods, and fields of the OneTimeTokenAuthenticationToken class are accessible for serialization/deserialization in GraalVM native images."
+  },
+  {
+    "name": "java.util.ArrayList",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ],
+    "comment": "This entry enables the no-argument constructor of ArrayList to be accessible for serialization/deserialization. OneTimeTokenAuthenticationToken likely contains ArrayList fields or returns ArrayList objects that need to be serialized by Redis. The default constructor is required for proper deserialization when retrieving objects from Redis."
+  },
+  {
+    "name": "java.util.Collections$EmptyList",
+    "fields": [
+      {
+        "name": "EMPTY_LIST"
+      }
+    ],
+    "comment": "This entry ensures the static EMPTY_LIST field from Collections.emptyList() is accessible for serialization. Spring Security authentication tokens often contain empty collections for authorities or details when not explicitly set. This field needs to be accessible for proper serialization of these empty collections within the authentication token."
+  }
+]

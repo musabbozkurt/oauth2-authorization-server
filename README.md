@@ -46,8 +46,16 @@
 5. The test will pause until you connect your debugger. Once connected, you can use breakpoints and step through your
    code.
 
-### References
+#### How to Run and Test Native Image with GraalVM
+
+- Java 24 GraalVM edition should be installed
+- Run `./mvnw -Pnative native:compile` or `./mvnw -Pnative native:compile -DskipTests` command to build the native image
+- Run `./target/oauth2-authorization-server` command to run the native image
+
+#### References
 
 - [Spring Boot 3 Tutorial Security OAuth2 Spring Authorization Server Save login data to a database](https://www.youtube.com/watch?v=rVAqh-VDw2o)
 - [BCryptPasswordEncoderTests](https://github.com/spring-projects/spring-security/blob/main/crypto/src/test/java/org/springframework/security/crypto/bcrypt/BCryptPasswordEncoderTests.java)
 - [Ollama Installation with Docker Compose](https://geshan.com.np/blog/2025/02/ollama-docker-compose/)
+- [Getting started with Spring Boot AOT + GraalVM Native Images](https://www.youtube.com/watch?v=FjRBHKUP-NA)
+    - ![Spring_Boot_AOT_and_GraalVM_Native_Images.png](docs/Spring_Boot_AOT_and_GraalVM_Native_Images.png)

@@ -1,0 +1,8 @@
+[
+  {
+    "name": "org.mariadb.jdbc.Configuration$Builder",
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true,
+    "comment": "This configuration ensures that all methods and fields in the MariaDB Configuration$Builder class are available for reflection during native image compilation."
+  }
+]

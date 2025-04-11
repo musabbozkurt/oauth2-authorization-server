@@ -25,6 +25,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.authentication.event.AuthenticationFailureBadCredentialsEvent;
 import org.springframework.security.authentication.event.AuthenticationSuccessEvent;
 import org.springframework.security.config.Customizer;
@@ -38,6 +39,7 @@ import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2Token;
@@ -130,6 +132,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .formLogin(Customizer.withDefaults())
                 .oneTimeTokenLogin(Customizer.withDefaults())
+                .authenticationProvider(daoAuthenticationProvider())
                 .authorizeHttpRequests(authorizationManagerRequestMatcherRegistry -> authorizationManagerRequestMatcherRegistry
                         .requestMatchers(
                                 "%s/**".formatted(apiDocsPath),
@@ -152,12 +155,6 @@ public class SecurityConfig {
     }
 
     @Bean
-    @Primary
-    public UserDetailsService userDetailsService() {
-        return new UserDetailsManagerImpl(userRepository);
-    }
-
-    @Bean
     public OAuth2TokenGenerator<OAuth2Token> tokenGenerator() {
         NimbusJwtEncoder jwtEncoder = new NimbusJwtEncoder(jwkSource());
         JwtGenerator jwtGenerator = new JwtGenerator(jwtEncoder);
@@ -168,8 +165,51 @@ public class SecurityConfig {
     }
 
     @Bean
+    @Primary
+    public UserDetailsService userDetailsService() {
+        return new UserDetailsManagerImpl(userRepository);
+    }
+
+    @Bean
     public BCryptPasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    /***
+     * Authentication Provider Configuration
+     * -------------------------------
+     * Authentication Provider Setup
+     * -------------------------------
+     * • DaoAuthenticationProvider Configuration
+     *   - Configures a custom {@link DaoAuthenticationProvider} to authenticate users.
+     *   - If only one {@link UserDetailsService} is defined, Spring Security automatically uses the default provider.
+     *   - In cases of multiple {@link UserDetailsService} beans, manual configuration is required.
+     *   - Associates the appropriate {@link UserDetailsService} with the provider.
+     * -------------------------------
+     * Multiple UserDetailsService Beans
+     * -------------------------------
+     * • Need for Custom AuthenticationProvider
+     *   - When more than one {@link UserDetailsService} bean is defined (e.g., with {@link org.springframework.stereotype.Service} annotation),
+     *     Spring Security cannot auto-select the correct one.
+     *   - In such cases, you must explicitly configure the {@link AuthenticationProvider}.
+     *   - Ensures the correct {@link UserDetailsService} is used for authentication.
+     * -------------------------------
+     * Password Encoder Setup
+     * -------------------------------
+     * • Password Encoder Configuration
+     *   - Configures a {@link PasswordEncoder} for proper password validation during authentication.
+     * -------------------------------
+     * Return Value
+     * -------------------------------
+     * • DaoAuthenticationProvider
+     *   - Returns a configured {@link DaoAuthenticationProvider} that uses the correct {@link UserDetailsService} and {@link PasswordEncoder}.
+     */
+    @Bean
+    public DaoAuthenticationProvider daoAuthenticationProvider() {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        provider.setUserDetailsService(userDetailsService());
+        provider.setPasswordEncoder(passwordEncoder());
+        return provider;
     }
 
     @Bean
