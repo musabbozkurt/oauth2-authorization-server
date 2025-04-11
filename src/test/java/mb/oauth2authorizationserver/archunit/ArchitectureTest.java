@@ -103,6 +103,15 @@ class ArchitectureTest {
                 .whereLayer("Controller").mayNotBeAccessedByAnyLayer()
                 .whereLayer("Service").mayOnlyBeAccessedByLayers("Controller", "Security", "Config")
                 .whereLayer("Repository").mayOnlyBeAccessedByLayers("Service", "Security", "Config")
+                // Exclude all generated bean definitions and registrations
+                .ignoreDependency(
+                        JavaClass.Predicates.simpleNameContaining("__BeanFactoryRegistrations"),
+                        JavaClass.Predicates.resideInAnyPackage("..controller..", "..service..", "..repository..")
+                )
+                .ignoreDependency(
+                        JavaClass.Predicates.simpleNameContaining("__BeanDefinitions"),
+                        JavaClass.Predicates.resideInAnyPackage("..controller..", "..service..", "..repository..")
+                )
                 .ignoreDependency(
                         JavaClass.Predicates.assignableTo(JavaClass.Predicates.simpleName("OAuth2AuthenticationFlowIntegrationTest")),
                         JavaClass.Predicates.resideInAPackage("..repository..")
