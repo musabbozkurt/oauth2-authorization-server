@@ -24,6 +24,7 @@
         - username: `Developer` password: `password`
         - username: `Admin` password: `password`
         - username: `User` password: `password`
+- Actuator: http://localhost:9000/actuator/
 - Database credentials
     - `url`: `jdbc:mariadb://localhost:3306/oauth2_authorization_server`
     - `username`: `mb_test`
@@ -46,8 +47,24 @@
 5. The test will pause until you connect your debugger. Once connected, you can use breakpoints and step through your
    code.
 
-### References
+#### How to Run and Test Native Image with GraalVM
+
+- Java 24 GraalVM edition should be installed
+- Run `docker-compose up -d` command to run necessary services
+- Run `./mvnw -Pnative native:compile` or `./mvnw -Pnative native:compile -DskipTests` command to build the native image
+- Run `./target/oauth2-authorization-server` command to run the native image
+- Install [Grype](https://github.com/anchore/grype) (OPTIONAL)
+    - Run `native-image-inspect ./target/oauth2-authorization-server-0.0.1 | grype -v` command to scan vulnerabilities
+- Run `native-image-inspect ./target/oauth2-authorization-server-0.0.1 >output.json` command and open `output.json` or
+  visit http://localhost:9000/actuator/sbom/native-image to inspect all libraries, methods etc. used in the native image
+- Run `open ./target/oauth2-authorization-server-build-report.html` to see build report
+
+#### References
 
 - [Spring Boot 3 Tutorial Security OAuth2 Spring Authorization Server Save login data to a database](https://www.youtube.com/watch?v=rVAqh-VDw2o)
 - [BCryptPasswordEncoderTests](https://github.com/spring-projects/spring-security/blob/main/crypto/src/test/java/org/springframework/security/crypto/bcrypt/BCryptPasswordEncoderTests.java)
 - [Ollama Installation with Docker Compose](https://geshan.com.np/blog/2025/02/ollama-docker-compose/)
+- [Getting started with Spring Boot AOT + GraalVM Native Images](https://www.youtube.com/watch?v=FjRBHKUP-NA)
+    - ![Spring_Boot_AOT_and_GraalVM_Native_Images.png](docs/Spring_Boot_AOT_and_GraalVM_Native_Images.png)
+- [Welcome, GraalVM for JDK 24!🚀](https://medium.com/graalvm/welcome-graalvm-for-jdk-24-7c829fe98ea1)
+- [A vulnerability scanner for container images and filesystems Grype](https://github.com/anchore/grype)
