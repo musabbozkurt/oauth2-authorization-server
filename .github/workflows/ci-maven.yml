@@ -25,6 +25,11 @@ jobs:
       pull-requests: write
       repository-projects: write
 
+    services:
+      docker:
+        image: docker:stable-dind
+        options: --privileged
+
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 24
