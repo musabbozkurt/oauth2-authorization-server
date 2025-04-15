@@ -195,12 +195,6 @@
             <plugin>
                 <groupId>org.graalvm.buildtools</groupId>
                 <artifactId>native-maven-plugin</artifactId>
-                <configuration>
-                    <buildArgs>
-                        <buildArg>--enable-sbom=classpath,embed,class-level,export</buildArg>
-                        <buildArg>--emit=build-report</buildArg>
-                    </buildArgs>
-                </configuration>
             </plugin>
 
             <plugin>
