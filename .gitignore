@@ -33,4 +33,3 @@ build/
 .vscode/
 /open-webui-local/
 /ollama-local/
-/output.json

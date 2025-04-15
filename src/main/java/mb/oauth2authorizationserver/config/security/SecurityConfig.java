@@ -142,7 +142,6 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/webjars/**",
                                 "/swagger-ui.html",
-                                "/actuator/**",
                                 "/oauth2/**",
                                 "/error/**",
                                 "/ott/sent",
