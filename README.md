@@ -58,6 +58,22 @@
 - Run `native-image-inspect ./target/oauth2-authorization-server-0.0.1 >output.json` command and open `output.json` or
   visit http://localhost:9000/actuator/sbom/native-image to inspect all libraries, methods etc. used in the native image
 - Run `open ./target/oauth2-authorization-server-build-report.html` to see build report
+- Use Swagger UI to test the application
+
+#### Spring Boot with CRaC(Coordinated Restore at Checkpoint) by Creating Ready to Restore Container Image.
+
+- **Warning:** for real projects make sure to not leak sensitive data in CRaC files since they contain a snapshot of the
+  memory of the running JVM instance.
+- **Checkpoint**
+    - Run
+      on [demand checkpoint/restore of a running application](https://docs.spring.io/spring-framework/reference/6.1/integration/checkpoint-restore.html#_on_demand_checkpointrestore_of_a_running_application)
+      with: `./docs/scripts/checkpoint.sh`
+    - Run
+      an [automatic checkpoint/restore at startup](https://docs.spring.io/spring-framework/reference/6.1/integration/checkpoint-restore.html#_automatic_checkpointrestore_at_startup)
+      with: `./docs/scripts/checkpointOnRefresh.sh`
+- **Restore**
+    - Restore the application with: `./docs/scripts/restore.sh`
+- Use Swagger UI to test the application
 
 #### References
 
@@ -68,3 +84,4 @@
     - ![Spring_Boot_AOT_and_GraalVM_Native_Images.png](docs/Spring_Boot_AOT_and_GraalVM_Native_Images.png)
 - [Welcome, GraalVM for JDK 24!🚀](https://medium.com/graalvm/welcome-graalvm-for-jdk-24-7c829fe98ea1)
 - [A vulnerability scanner for container images and filesystems Grype](https://github.com/anchore/grype)
+- [Introduction to Project CRaC: Enhancing Runtime Efficiency in Java & Spring Development](https://www.youtube.com/watch?v=sVXUx_Y4hRU)
