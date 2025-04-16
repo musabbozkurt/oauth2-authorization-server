@@ -1,6 +1,7 @@
 services:
-  db:
+  mariadb:
     image: mariadb:11.7.2
+    container_name: mariadb
     environment:
       MYSQL_ROOT_PASSWORD: password
       MYSQL_DATABASE: oauth2_authorization_server
@@ -11,23 +12,28 @@ services:
     ports:
       - "3306:3306"
     restart: unless-stopped
+    networks:
+      - oauth2-network
 
   redis:
     image: redis:7.4.1
+    container_name: redis
     ports:
       - "6379:6379"
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes
     restart: unless-stopped
+    networks:
+      - oauth2-network
 
   ollama:
     image: ollama/ollama:0.5.13
+    container_name: ollama
     ports:
       - "11434:11434"
     volumes:
       - ollama:/root/.ollama
-    container_name: ollama
     tty: true
     restart: unless-stopped
 
@@ -52,3 +58,7 @@ volumes:
   open-webui: { }
   data:
   redis-data:
+
+networks:
+  oauth2-network:
+    driver: bridge

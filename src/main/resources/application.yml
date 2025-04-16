@@ -3,7 +3,7 @@ server:
 
 spring:
   datasource:
-    url: ${DB_URL:jdbc:mariadb://localhost:3306/oauth2_authorization_server}
+    url: ${SPRING_DATASOURCE_URL:jdbc:mariadb://localhost:3306/oauth2_authorization_server}
     username: ${DB_USERNAME:mb_test}
     password: ${DB_PASSWORD:test}
     driver-class-name: org.mariadb.jdbc.Driver
