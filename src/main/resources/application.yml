@@ -39,7 +39,8 @@ spring:
       base-url: https://api.deepseek.com
       chat:
         options:
-          model: deepseek-reasoner
+          model: ai/gemma3:4B-Q4_K_M
+        base-url: http://localhost:12434/engines/llama.cpp
     ollama:
       chat:
         model: deepseek-r1:7b
