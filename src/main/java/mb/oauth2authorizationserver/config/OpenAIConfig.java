@@ -23,6 +23,11 @@ public class OpenAIConfig {
     }
 
     @Bean
+    public ChatClient gemma3ChatClient(OpenAiChatModel chatModel) {
+        return ChatClient.create(chatModel);
+    }
+
+    @Bean
     public EmbeddingModel embeddingModel() {
         return OllamaEmbeddingModel.builder().ollamaApi(new OllamaApi()).build();
     }

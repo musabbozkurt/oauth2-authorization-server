@@ -75,13 +75,31 @@
     - Restore the application with: `./docs/scripts/restore.sh`
 - Use Swagger UI to test the application
 
+#### How to Run and Test AI Models Locally with Docker Desktop Model Runner
+
+- Requires: Docker Desktop 4.40 and later
+- Run `docker-compose up -d` command to run necessary services
+- Run `docker model pull ai/gemma3:4B-Q4_K_M` command to pull the model
+    - Run `docker model run ai/gemma3:4B-Q4_K_M` command to run the model to test it from the command line (OPTIONAL)
+- `Docker Desktop` --> `Settings` --> `Features in development` --> `Beta features` --> `Enable Docker Model Runner` -->
+  `Enable host-side TCP support` --> `Apply & Restart`
+    - ![Docker_Desktop_Enable_Host_Side_TCP_Support.png](docs/Docker_Desktop_Enable_Host_Side_TCP_Support.png)
+- Run `mvn test` or `mvn clean install` or `mvn clean package` or `./mvnw clean install` command to run all the tests
+- Run `mvn spring-boot:run` command to run the application
+- Use Swagger UI to test the application
+
 #### References
 
 - [Spring Boot 3 Tutorial Security OAuth2 Spring Authorization Server Save login data to a database](https://www.youtube.com/watch?v=rVAqh-VDw2o)
 - [BCryptPasswordEncoderTests](https://github.com/spring-projects/spring-security/blob/main/crypto/src/test/java/org/springframework/security/crypto/bcrypt/BCryptPasswordEncoderTests.java)
-- [Ollama Installation with Docker Compose](https://geshan.com.np/blog/2025/02/ollama-docker-compose/)
 - [Getting started with Spring Boot AOT + GraalVM Native Images](https://www.youtube.com/watch?v=FjRBHKUP-NA)
     - ![Spring_Boot_AOT_and_GraalVM_Native_Images.png](docs/Spring_Boot_AOT_and_GraalVM_Native_Images.png)
 - [Welcome, GraalVM for JDK 24!🚀](https://medium.com/graalvm/welcome-graalvm-for-jdk-24-7c829fe98ea1)
 - [A vulnerability scanner for container images and filesystems Grype](https://github.com/anchore/grype)
 - [Introduction to Project CRaC: Enhancing Runtime Efficiency in Java & Spring Development](https://www.youtube.com/watch?v=sVXUx_Y4hRU)
+- [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction)
+    - [Model Context Protocol (MCP) Explained: How to Give AI Access to Your Files, Web Searches & More](https://www.youtube.com/watch?v=nNLshWCoe0o)
+    - ![Why_MCP_What_is_MPC_How_Does_MCP_Work.png](docs/Why_MCP_What_is_MCP_How_Does_MCP_Work.png)
+- [Ollama Installation with Docker Compose](https://geshan.com.np/blog/2025/02/ollama-docker-compose/)
+- [Run AI Models Locally: Zero API Keys, Zero Fees with Docker Desktop Model Runner](https://www.youtube.com/watch?v=6E6JFLMHcoQ)
+    - [Docker Model Runner](https://docs.docker.com/desktop/features/model-runner/)
