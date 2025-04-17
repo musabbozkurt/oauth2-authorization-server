@@ -5,8 +5,8 @@ import mb.oauth2authorizationserver.api.response.ChatResponse;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -16,12 +16,12 @@ public class Gemma3ChatController {
 
     private final ChatClient gemma3ChatClient;
 
-    @GetMapping("/query")
-    public ResponseEntity<ChatResponse> query(@RequestParam String prompt) {
+    @GetMapping("/{question}")
+    public ResponseEntity<ChatResponse> gemma3(@PathVariable String question) {
         try {
             return ResponseEntity.ok(
                     new ChatResponse(
-                            gemma3ChatClient.prompt(prompt)
+                            gemma3ChatClient.prompt(question)
                                     .call()
                                     .content()
                     )
