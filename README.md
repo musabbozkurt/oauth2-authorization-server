@@ -31,6 +31,7 @@
     - `password`: `test`
 - Ollama
     - http://localhost:3000/ sign up for an account for local environment
+    - Search for `mxbai-embed-large` and download it if it does not exist
     - Search for `deepseek-r1:7b` and download it if it does not exist
 
 #### Debugging Spring Boot Tests in IntelliJ IDEA

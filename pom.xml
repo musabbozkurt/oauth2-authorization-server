@@ -26,7 +26,7 @@
         <org.mapstruct.version>1.6.3</org.mapstruct.version>
         <org.projectlombok.version>1.18.38</org.projectlombok.version>
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
-        <spring-ai.version>1.0.0-M6</spring-ai.version>
+        <spring-ai.version>1.0.0-M7</spring-ai.version>
     </properties>
 
     <dependencies>
@@ -42,17 +42,22 @@
 
         <dependency>
             <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-openai-spring-boot-starter</artifactId>
+            <artifactId>spring-ai-starter-model-openai</artifactId>
         </dependency>
 
         <dependency>
             <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-ollama-spring-boot-starter</artifactId>
+            <artifactId>spring-ai-starter-model-ollama</artifactId>
         </dependency>
 
         <dependency>
             <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-mariadb-store-spring-boot-starter</artifactId>
+            <artifactId>spring-ai-pdf-document-reader</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-vector-store-mariadb</artifactId>
         </dependency>
 
         <dependency>
