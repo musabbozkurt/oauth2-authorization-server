@@ -10,7 +10,7 @@ import reactor.core.publisher.Flux;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/chats/deep-seek")
+@RequestMapping("/chat/deep-seek")
 public class DeepSeekController {
 
     private final ChatClient openAIChatClient;

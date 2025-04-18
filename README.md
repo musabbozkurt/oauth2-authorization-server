@@ -102,5 +102,8 @@
     - [Model Context Protocol (MCP) Explained: How to Give AI Access to Your Files, Web Searches & More](https://www.youtube.com/watch?v=nNLshWCoe0o)
     - ![Why_MCP_What_is_MCP_How_Does_MCP_Work.png](docs/Why_MCP_What_is_MCP_How_Does_MCP_Work.png)
 - [Ollama Installation with Docker Compose](https://geshan.com.np/blog/2025/02/ollama-docker-compose/)
+- [Java + RAG: Create an AI-Powered Financial Advisor using Spring AI 💡](https://www.youtube.com/watch?v=6Pgmr7xMjiY)
+    - [Retrieval Augmented Generation (RAG)](https://docs.spring.io/spring-ai/reference/api/retrieval-augmented-generation.html)
+    - ![What_is_Retrieval_Augmented_Generation_(RAG)_What_is_Not_RAG.png](docs/What_is_Retrieval_Augmented_Generation_%28RAG%29_What_is_Not_RAG.png)
 - [Run AI Models Locally: Zero API Keys, Zero Fees with Docker Desktop Model Runner](https://www.youtube.com/watch?v=6E6JFLMHcoQ)
     - [Docker Model Runner](https://docs.docker.com/desktop/features/model-runner/)

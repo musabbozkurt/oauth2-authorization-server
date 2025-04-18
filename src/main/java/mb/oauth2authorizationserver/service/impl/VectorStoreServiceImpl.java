@@ -3,6 +3,7 @@ package mb.oauth2authorizationserver.service.impl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mb.oauth2authorizationserver.service.VectorStoreService;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.reader.pdf.ParagraphPdfDocumentReader;
 import org.springframework.ai.transformer.splitter.TextSplitter;
@@ -23,6 +24,7 @@ import java.util.Map;
 public class VectorStoreServiceImpl implements VectorStoreService {
 
     private final VectorStore vectorStore;
+    private final ChatClient vectorStoreChatClient;
 
     @Value("classpath:/docs/the_beat_oct_2024_article.pdf")
     private Resource marketPdf;
@@ -46,5 +48,14 @@ public class VectorStoreServiceImpl implements VectorStoreService {
         TextSplitter textSplitter = new TokenTextSplitter();
         vectorStore.accept(textSplitter.apply(pdfReader.get()));
         log.info("VectorStore loaded with PDF content");
+    }
+
+    @Override
+    public String chat(String question) {
+        return vectorStoreChatClient
+                .prompt()
+                .user(question)
+                .call()
+                .content();
     }
 }

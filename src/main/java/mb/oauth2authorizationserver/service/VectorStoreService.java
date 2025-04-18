@@ -9,4 +9,6 @@ public interface VectorStoreService {
     List<Document> getDocuments(String query);
 
     void loadPdf();
+
+    String chat(String question);
 }

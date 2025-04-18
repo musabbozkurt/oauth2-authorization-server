@@ -26,4 +26,9 @@ public class VectorStoreController {
     public void loadPdf() {
         vectorStoreService.loadPdf();
     }
+
+    @GetMapping("/chat")
+    public String chat(@RequestParam(defaultValue = "What is Spring AI?") String question) {
+        return vectorStoreService.chat(question);
+    }
 }
