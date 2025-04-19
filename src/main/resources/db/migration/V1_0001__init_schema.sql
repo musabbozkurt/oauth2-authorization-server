@@ -1,5 +1,15 @@
 create schema if not exists oauth2_authorization_server;
 
+create table if not exists oauth2_authorization_server.vector_store
+(
+    id        uuid primary key default uuid(),
+    content   text,
+    metadata  longtext check (json_valid(metadata)),
+    embedding blob not null
+);
+
+create index if not exists vector_store_embedding_idx on oauth2_authorization_server.vector_store (embedding);
+
 create table if not exists oauth2_authorization_server.authorities
 (
     id                bigint not null auto_increment,

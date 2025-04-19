@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/chats/gemma3")
+@RequestMapping("/chat/gemma3")
 public class Gemma3ChatController {
 
     private final ChatClient gemma3ChatClient;

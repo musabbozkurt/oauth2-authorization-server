@@ -10,7 +10,7 @@ import reactor.core.publisher.Flux;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/chats/ollama")
+@RequestMapping("/chat/ollama")
 public class OllamaChatController {
 
     private final ChatClient ollamaChatClient;
