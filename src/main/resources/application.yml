@@ -49,6 +49,14 @@ spring:
         initialize-schema: true
         distance-type: COSINE
         dimensions: 1536
+    mcp:
+      server:
+        name: webmvc-mcp-server
+        version: 1.0.0
+        type: SYNC
+
+  main:
+    banner-mode: off # NOTE: The banner and the console logging must be disabled to allow the STDIO transport to work
 
 logging:
   level:
