@@ -99,6 +99,7 @@
 - [A vulnerability scanner for container images and filesystems Grype](https://github.com/anchore/grype)
 - [Introduction to Project CRaC: Enhancing Runtime Efficiency in Java & Spring Development](https://www.youtube.com/watch?v=sVXUx_Y4hRU)
 - [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction)
+    - [MCP Server Boot Starter](https://docs.spring.io/spring-ai/reference/api/mcp/mcp-server-boot-starter-docs.html)
     - [Model Context Protocol (MCP) Explained: How to Give AI Access to Your Files, Web Searches & More](https://www.youtube.com/watch?v=nNLshWCoe0o)
     - ![Why_MCP_What_is_MCP_How_Does_MCP_Work.png](docs/Why_MCP_What_is_MCP_How_Does_MCP_Work.png)
 - [Ollama Installation with Docker Compose](https://geshan.com.np/blog/2025/02/ollama-docker-compose/)

@@ -148,7 +148,8 @@ public class SecurityConfig {
                                 "/ott/sent",
                                 "/login/ott",
                                 "/chat/**",
-                                "/vector-stores/**")
+                                "/vector-stores/**",
+                                "/mcp/message")
                         .permitAll()
                         .anyRequest()
                         .authenticated())
