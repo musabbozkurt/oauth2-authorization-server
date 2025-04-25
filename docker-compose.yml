@@ -27,6 +27,17 @@ services:
     networks:
       - oauth2-network
 
+  redis-insight:
+    image: redis/redisinsight:latest
+    restart: always
+    container_name: redis-insight
+    ports:
+      - "5540:5540"
+    volumes:
+      - redis-insight:/data
+    networks:
+      - oauth2-network
+
   ollama:
     image: ollama/ollama:0.5.13
     container_name: ollama
@@ -58,6 +69,7 @@ volumes:
   open-webui: { }
   data:
   redis-data:
+  redis-insight:
 
 networks:
   oauth2-network:
