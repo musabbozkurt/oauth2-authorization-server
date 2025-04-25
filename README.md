@@ -29,6 +29,14 @@
     - `url`: `jdbc:mariadb://localhost:3306/oauth2_authorization_server`
     - `username`: `mb_test`
     - `password`: `test`
+- Redis
+    - `host`: `localhost`
+    - `port`: `6379`
+- Redis Insight: http://localhost:5540/
+    - Click `Add Redis database`
+    - `Connection URL` --> `redis://default@host.docker.internal:6379`
+    - Click `Add Database`
+    - ![img.png](docs/Redis_Insight_Connection_Details.png)
 - Ollama
     - http://localhost:3000/ sign up for an account for local environment
     - Search for `mxbai-embed-large` and download it if it does not exist
