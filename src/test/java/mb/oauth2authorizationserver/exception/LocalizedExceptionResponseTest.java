@@ -3,9 +3,11 @@ package mb.oauth2authorizationserver.exception;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.test.context.TestPropertySource;
 
 import java.util.List;
+import java.util.Locale;
 
 import static java.util.Collections.EMPTY_LIST;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -17,6 +19,7 @@ class LocalizedExceptionResponseTest {
     @BeforeEach
     void setUp() {
         // Reset the static message source for each test
+        LocaleContextHolder.setLocale(Locale.of("EN"));
         LocalizedExceptionResponse.setMessages(null);
     }
 
