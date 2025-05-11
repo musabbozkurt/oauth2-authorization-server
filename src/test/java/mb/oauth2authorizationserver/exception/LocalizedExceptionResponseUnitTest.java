@@ -1,5 +1,6 @@
 package mb.oauth2authorizationserver.exception;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.support.MessageSourceAccessor;
@@ -19,6 +20,12 @@ class LocalizedExceptionResponseUnitTest {
         messageSource.setBasename("messages");
         messageSource.setDefaultEncoding("UTF-8");
         LocalizedExceptionResponse.setMessages(new MessageSourceAccessor(messageSource, Locale.getDefault()));
+    }
+
+    @AfterAll
+    static void tearDown() {
+        // Reset the static message source after all tests
+        LocalizedExceptionResponse.setMessages(null);
     }
 
     @Test

@@ -1,7 +1,6 @@
 package mb.oauth2authorizationserver.exception;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
@@ -66,7 +65,6 @@ class LocalizedExceptionResponseTest {
     }
 
     @Test
-    @Disabled("This test is disabled until github actions is fixed")
     void constructor_ShouldUseFallbackMessage_WhenMessageSourceNotFound() {
         // Arrange
         String errorCode = "NONEXISTENT_ERROR";
