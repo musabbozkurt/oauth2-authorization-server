@@ -1,0 +1,32 @@
+FROM bellsoft/liberica-runtime-container:jdk-24-stream-musl as builder
+
+WORKDIR /home/projects/oauth2-authorization-server
+COPY . /home/projects/oauth2-authorization-server
+
+# Download dependencies (this layer will be cached if pom.xml doesn't change)
+RUN --mount=type=cache,target=/root/.m2 ./mvnw -f /home/projects/oauth2-authorization-server/pom.xml clean package -DskipTests
+
+FROM bellsoft/liberica-runtime-container:jdk-24-cds-slim-musl as optimizer
+
+WORKDIR /oauth2-authorization-server
+COPY --from=builder /home/projects/oauth2-authorization-server/target/*.jar app.jar
+
+RUN java -Djarmode=tools -jar app.jar extract --layers --destination extracted
+
+FROM bellsoft/liberica-runtime-container:jdk-24-cds-slim-musl
+
+WORKDIR /oauth2-authorization-server
+
+ENTRYPOINT ["java", "-Dspring.aot.enabled=true", "-XX:AOTCache=app.aot", "-jar", "/oauth2-authorization-server/app.jar"]
+
+COPY --from=optimizer /oauth2-authorization-server/extracted/dependencies/ ./
+COPY --from=optimizer /oauth2-authorization-server/extracted/spring-boot-loader/ ./
+COPY --from=optimizer /oauth2-authorization-server/extracted/snapshot-dependencies/ ./
+COPY --from=optimizer /oauth2-authorization-server/extracted/application/ ./
+
+ENV SPRING_DATASOURCE_URL=jdbc:mariadb://host.docker.internal:3306/oauth2_authorization_server
+ENV spring.data.redis.host=host.docker.internal
+ENV spring.data.redis.port=6379
+
+RUN java -Dspring.aot.enabled=true -XX:AOTMode=record -XX:AOTConfiguration=app.aotconf -Dspring.context.exit=onRefresh -jar /oauth2-authorization-server/app.jar
+RUN java -Dspring.aot.enabled=true -XX:AOTMode=create -XX:AOTConfiguration=app.aotconf -XX:AOTCache=app.aot -jar /oauth2-authorization-server/app.jar
