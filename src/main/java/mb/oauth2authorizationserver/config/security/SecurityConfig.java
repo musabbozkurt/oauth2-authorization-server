@@ -89,6 +89,9 @@ public class SecurityConfig {
     @Value(value = "${springdoc.api-docs.path}")
     private String apiDocsPath;
 
+    @Value("${jwt.key.path:./keys/jwt.key}")
+    private String jwtKeyPath;
+
     @Bean
     @Order(1)
     public SecurityFilterChain asSecurityFilterChain(HttpSecurity httpSecurity) throws Exception {
@@ -284,7 +287,7 @@ public class SecurityConfig {
 
     @Bean
     public JWKSource<SecurityContext> jwkSource() {
-        RSAKey rsaKey = SecurityUtils.generateRsa();
+        RSAKey rsaKey = SecurityUtils.loadOrGenerateRsa(jwtKeyPath);
         JWKSet jwkSet = new JWKSet(rsaKey);
         return (jwkSelector, _) -> jwkSelector.select(jwkSet);
     }
