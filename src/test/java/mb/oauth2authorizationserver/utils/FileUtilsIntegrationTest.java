@@ -33,7 +33,7 @@ class FileUtilsIntegrationTest {
         if (!Files.exists(tempTargetDir)) {
             try {
                 Files.createDirectory(tempTargetDir);
-            } catch (IOException e) {
+            } catch (IOException _) {
                 fail("Failed to create temp_target directory");
             }
         }
@@ -47,7 +47,7 @@ class FileUtilsIntegrationTest {
             Files.delete(tempTargetDir.resolve(TEST_FILE_TXT));
             Files.delete(tempTargetDir.resolve(TEST_FILE_1_JAR));
             Files.delete(tempTargetDir.resolve(TEST_FILE_2_JAR));
-        } catch (IOException e) {
+        } catch (IOException _) {
             fail("Failed to delete temp_target directory");
         }
     }

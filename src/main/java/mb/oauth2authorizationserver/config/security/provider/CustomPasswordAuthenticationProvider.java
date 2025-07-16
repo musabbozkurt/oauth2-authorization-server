@@ -73,7 +73,7 @@ public class CustomPasswordAuthenticationProvider implements AuthenticationProvi
         User user;
         try {
             user = (User) userDetailsService.loadUserByUsername(username);
-        } catch (UsernameNotFoundException e) {
+        } catch (UsernameNotFoundException _) {
             throw new OAuth2AuthenticationException(OAuth2ErrorCodes.ACCESS_DENIED);
         }
         if (!bCryptPasswordEncoder.matches(password, user.getPassword()) || !user.getUsername().equals(username)) {

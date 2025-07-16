@@ -1,6 +1,7 @@
 package mb.oauth2authorizationserver.config;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
@@ -20,6 +21,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializer;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.jackson2.SecurityJackson2Modules;
 import org.springframework.security.oauth2.server.authorization.jackson2.OAuth2AuthorizationServerJackson2Module;
 import org.springframework.session.FlushMode;
@@ -69,9 +71,15 @@ public class SessionConfig extends AbstractHttpSessionApplicationInitializer imp
                 .registerModules(new Hibernate6Module(), new JavaTimeModule())
                 .registerModules(SecurityJackson2Modules.getModules(this.classLoader))
                 .registerModule(new OAuth2AuthorizationServerJackson2Module())
-                .addMixIn(Long.class, LongMixin.class);
+                .addMixIn(Long.class, LongMixin.class)
+                .addMixIn(DisabledException.class, Object.class)
+                .addMixIn(Throwable.class, ThrowableMixin.class);
     }
 
     interface LongMixin {
+    }
+
+    @JsonIgnoreProperties({"suppressed", "stackTrace", "localizedMessage", "cause"})
+    public static class ThrowableMixin {
     }
 }

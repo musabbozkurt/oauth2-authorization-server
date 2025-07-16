@@ -2,6 +2,9 @@ package mb.oauth2authorizationserver;
 
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.security.SecureRandom;
@@ -130,22 +133,12 @@ class BCryptPasswordEncoderTests {
         assertThat(encoder.matches("password", result)).isTrue();
     }
 
-    @Test
-    void doesntMatchNullEncodedValue() {
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"012345678901234567890123456789"})
+    void doesntMatchInvalidEncodedValues(String encodedValue) {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
-        assertThat(encoder.matches("password", null)).isFalse();
-    }
-
-    @Test
-    void doesntMatchEmptyEncodedValue() {
-        BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
-        assertThat(encoder.matches("password", "")).isFalse();
-    }
-
-    @Test
-    void doesntMatchBogusEncodedValue() {
-        BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
-        assertThat(encoder.matches("password", "012345678901234567890123456789")).isFalse();
+        assertThat(encoder.matches("password", encodedValue)).isFalse();
     }
 
     @Test

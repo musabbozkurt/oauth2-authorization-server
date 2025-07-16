@@ -16,7 +16,7 @@ import java.util.zip.Inflater;
 
 @Slf4j
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
-public class StringCollectionCompressorUtils {
+public final class StringCollectionCompressorUtils {
 
     private static final String DELIMITER = ",";
 

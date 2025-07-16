@@ -96,9 +96,17 @@ class OAuth2AuthenticationFlowIntegrationTest {
 
     @Test
     void getOAuthAuthorize_ShouldSucceedRedirection_WhenClientIdAndRedirectUriAreValidAndRequireProofKeyIsDisabledInClientSettingsToDisablePKCE() throws Exception {
-        // Arrange
+        // Arrange - Configure client to disable PKCE
+        clientRepository.findByClientId(CLIENT_ID)
+                .ifPresent(client -> {
+                    client.setClientSettings("""
+                            {"@class":"java.util.Collections$UnmodifiableMap","settings.client.require-proof-key":false,"settings.client.require-authorization-consent":false}
+                            """);
+                    clientRepository.save(client);
+                });
+
         // Act
-        MockHttpServletResponse response = mockMvc.perform(MockMvcRequestBuilders.get("/oauth/authorize")
+        MockHttpServletResponse response = mockMvc.perform(MockMvcRequestBuilders.get("/oauth2/authorize")
                         .queryParam("response_type", "code")
                         .queryParam("client_id", CLIENT_ID)
                         .queryParam("redirect_uri", REDIRECT_URI)

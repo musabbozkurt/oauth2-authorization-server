@@ -28,7 +28,7 @@ public class UsernamePasswordAuthenticationTokenAuthenticationProvider implement
         User user;
         try {
             user = (User) userDetailsService.loadUserByUsername(providedUsername);
-        } catch (UsernameNotFoundException e) {
+        } catch (UsernameNotFoundException _) {
             throw new OAuth2AuthenticationException(OAuth2ErrorCodes.ACCESS_DENIED);
         }
         if (!bCryptPasswordEncoder.matches(providedPassword, user.getPassword()) || !user.getUsername().equals(providedUsername)) {
