@@ -1,5 +1,6 @@
 package mb.oauth2authorizationserver.config.security;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.JWKSource;
@@ -9,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import mb.oauth2authorizationserver.config.security.builder.AuthorizationBuilderService;
 import mb.oauth2authorizationserver.config.security.converter.CustomPasswordAuthenticationConverter;
 import mb.oauth2authorizationserver.config.security.converter.JwtBearerGrantAuthenticationConverter;
+import mb.oauth2authorizationserver.config.security.handler.CustomSimpleUrlAuthenticationFailureHandler;
 import mb.oauth2authorizationserver.config.security.model.CustomPasswordUser;
 import mb.oauth2authorizationserver.config.security.provider.CustomPasswordAuthenticationProvider;
 import mb.oauth2authorizationserver.config.security.provider.CustomRefreshTokenAuthenticationProvider;
@@ -18,6 +20,7 @@ import mb.oauth2authorizationserver.config.security.service.impl.UserDetailsMana
 import mb.oauth2authorizationserver.data.repository.AuthorizationRepository;
 import mb.oauth2authorizationserver.data.repository.UserRepository;
 import mb.oauth2authorizationserver.utils.SecurityUtils;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
@@ -61,8 +64,11 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Refr
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenGenerator;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.AuthenticationConverter;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.session.security.web.authentication.SpringSessionRememberMeServices;
 import org.thymeleaf.extras.springsecurity6.dialect.SpringSecurityDialect;
@@ -80,21 +86,30 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
+    private static final String[] ALLOWED_ENDPOINT_PATTERNS = {
+            "/images/**", "/css/**", "/js/**", "/fonts/**", "/qrcode/**", "/login/**", "/scan/**", "/authenticate/**",
+            "/oauth/token/revokeById/**", "/oauth/token/**", "/oauth2/token/**", "/oauth/check_token/**",
+            "/oauth/authorize/**", "/v3/api-docs/**", "/swagger-resources/**", "/configuration/ui",
+            "/configuration/security", "/swagger-ui/**", "/webjars/**", "/swagger-ui.html", "/oauth2/**", "/error/**",
+            "/actuator/**", "/ott/sent", "/login/ott", "/chat/**", "/vector-stores/**", "/mcp/message"
+    };
+    private static final String LOGIN_FORM_URL = "/login";
+    private static final String JSESSIONID = "JSESSIONID";
+    private static final String LOGOUT_URL = "/logout";
     private static final String AUTHORITIES = "authorities";
 
     private final AuthorizationRepository authorizationRepository;
     private final AuthorizationBuilderService authorizationBuilderService;
     private final UserRepository userRepository;
 
-    @Value(value = "${springdoc.api-docs.path}")
-    private String apiDocsPath;
-
     @Value("${jwt.key.path:./keys/jwt.key}")
     private String jwtKeyPath;
 
     @Bean
     @Order(1)
-    public SecurityFilterChain asSecurityFilterChain(HttpSecurity httpSecurity) throws Exception {
+    public SecurityFilterChain asSecurityFilterChain(HttpSecurity httpSecurity,
+                                                     ObjectMapper objectMapper,
+                                                     @Qualifier("customAccessDeniedHandler") AccessDeniedHandler accessDeniedHandler) throws Exception {
         OAuth2AuthorizationServerConfigurer authorizationServerConfigurer = OAuth2AuthorizationServerConfigurer.authorizationServer();
         OAuth2AuthorizationService oAuth2AuthorizationService = new OAuth2AuthorizationServiceImpl(authorizationRepository, authorizationBuilderService);
 
@@ -115,8 +130,11 @@ public class SecurityConfig {
                         .maximumSessions(10)
                         .sessionRegistry(sessionRegistry()))
                 .rememberMe(me -> me.rememberMeServices(rememberMeServices()))
-                .oauth2ResourceServer(httpSecurityOAuth2ResourceServerConfigurer -> httpSecurityOAuth2ResourceServerConfigurer.jwt(Customizer.withDefaults()))
-                .exceptionHandling(e -> e.authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")))
+                .oauth2ResourceServer(auth2ResourceServerConfigurer -> {
+                    auth2ResourceServerConfigurer.authenticationEntryPoint(new AuthExceptionEntryPoint(objectMapper));
+                    auth2ResourceServerConfigurer.accessDeniedHandler(accessDeniedHandler);
+                    auth2ResourceServerConfigurer.jwt(Customizer.withDefaults());
+                }).exceptionHandling(e -> e.authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint(LOGIN_FORM_URL)))
                 .getConfigurer(OAuth2AuthorizationServerConfigurer.class)
                 .tokenEndpoint(tokenEndpoint -> tokenEndpoint
                         .accessTokenRequestConverter(new CustomPasswordAuthenticationConverter())
@@ -135,29 +153,54 @@ public class SecurityConfig {
     public SecurityFilterChain appSecurityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
-                .formLogin(Customizer.withDefaults())
-                .oneTimeTokenLogin(Customizer.withDefaults())
-                .authenticationProvider(daoAuthenticationProvider())
-                .authorizeHttpRequests(authorizationManagerRequestMatcherRegistry -> authorizationManagerRequestMatcherRegistry
-                        .requestMatchers(
-                                "%s/**".formatted(apiDocsPath),
-                                "/swagger-resources/**",
-                                "/configuration/ui",
-                                "/configuration/security",
-                                "/swagger-ui/**",
-                                "/webjars/**",
-                                "/swagger-ui.html",
-                                "/actuator/**",
-                                "/oauth2/**",
-                                "/error/**",
-                                "/ott/sent",
-                                "/login/ott",
-                                "/chat/**",
-                                "/vector-stores/**",
-                                "/mcp/message")
+                .authorizeHttpRequests(requests -> requests
+                        .requestMatchers(ALLOWED_ENDPOINT_PATTERNS)
                         .permitAll()
                         .anyRequest()
                         .authenticated())
+                .formLogin(Customizer.withDefaults())
+                .oneTimeTokenLogin(Customizer.withDefaults())
+                .authenticationProvider(daoAuthenticationProvider())
+                .build();
+    }
+
+    /**
+     * The following method configures the security filter chain for MVC requests. It should enabled, if there is login.html page is used for login.
+     * <p>
+     * {@code @Bean}
+     * {@code @Order(3)}
+     */
+    public SecurityFilterChain mvcRequestSecurityFilterChain(HttpSecurity http,
+                                                             @Qualifier("customSavedRequestAwareAuthenticationSuccessHandler") AuthenticationSuccessHandler customSavedRequestAwareAuthenticationSuccessHandler,
+                                                             CustomSimpleUrlAuthenticationFailureHandler customSimpleUrlAuthenticationFailureHandler) throws Exception {
+        return http
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(requests -> requests
+                        .requestMatchers(ALLOWED_ENDPOINT_PATTERNS)
+                        .permitAll()
+                        .anyRequest()
+                        .authenticated())
+                .sessionManagement(management -> management
+                        .sessionFixation()
+                        .migrateSession()
+                        .sessionCreationPolicy(SessionCreationPolicy.ALWAYS)
+                        .maximumSessions(10)
+                        .sessionRegistry(sessionRegistry()))
+                .rememberMe(me -> me.rememberMeServices(rememberMeServices()))
+                .formLogin(login -> {
+                            login.loginPage(LOGIN_FORM_URL);
+                            login.successHandler(customSavedRequestAwareAuthenticationSuccessHandler);
+                            login.failureHandler(customSimpleUrlAuthenticationFailureHandler);
+                        }
+                )
+                .logout(logout -> {
+                    logout.logoutRequestMatcher(PathPatternRequestMatcher.withDefaults().matcher(LOGOUT_URL));
+                    logout.logoutSuccessUrl(LOGIN_FORM_URL);
+                    logout.deleteCookies(JSESSIONID);
+                    logout.invalidateHttpSession(true);
+                })
+                .oneTimeTokenLogin(Customizer.withDefaults())
+                .authenticationProvider(daoAuthenticationProvider())
                 .build();
     }
 
@@ -213,8 +256,7 @@ public class SecurityConfig {
      */
     @Bean
     public DaoAuthenticationProvider daoAuthenticationProvider() {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        provider.setUserDetailsService(userDetailsService());
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService());
         provider.setPasswordEncoder(passwordEncoder());
         return provider;
     }

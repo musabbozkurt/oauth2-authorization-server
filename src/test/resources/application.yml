@@ -2,6 +2,9 @@ server:
   port: '9000'
 
 spring:
+  main:
+    allow-bean-definition-overriding: true
+
   datasource:
     url: 'jdbc:tc:mariadb:11.7.2://localhost:3306/oauth2_authorization_server'
     username: mb_test

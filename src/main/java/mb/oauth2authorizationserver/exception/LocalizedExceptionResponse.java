@@ -55,7 +55,7 @@ public class LocalizedExceptionResponse extends ErrorResponse {
                     .toArray();
 
             return messages.getMessage(String.format(PREFIX, errorCode), argsArray);
-        } catch (Exception ex) {
+        } catch (Exception _) {
             return messages.getMessage(String.format(PREFIX, DEFAULT));
         }
     }

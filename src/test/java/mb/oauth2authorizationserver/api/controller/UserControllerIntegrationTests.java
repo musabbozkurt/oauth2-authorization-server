@@ -3,6 +3,7 @@ package mb.oauth2authorizationserver.api.controller;
 import mb.oauth2authorizationserver.api.request.ApiUserRequest;
 import mb.oauth2authorizationserver.api.response.ApiUserResponse;
 import mb.oauth2authorizationserver.base.BaseUnitTest;
+import mb.oauth2authorizationserver.config.RedisTestConfiguration;
 import mb.oauth2authorizationserver.config.TestSecurityConfig;
 import mb.oauth2authorizationserver.exception.BaseException;
 import mb.oauth2authorizationserver.exception.OAuth2AuthorizationServerServiceErrorCode;
@@ -24,7 +25,7 @@ import org.springframework.http.MediaType;
 import java.util.Collections;
 
 @TestMethodOrder(OrderAnnotation.class)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestSecurityConfig.class)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = {TestSecurityConfig.class, RedisTestConfiguration.class})
 class UserControllerIntegrationTests extends BaseUnitTest {
 
     @Autowired

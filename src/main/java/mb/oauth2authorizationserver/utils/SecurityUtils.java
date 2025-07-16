@@ -29,7 +29,7 @@ import java.util.UUID;
 
 @Slf4j
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
-public class SecurityUtils {
+public final class SecurityUtils {
 
     public static final String ERROR_URI = "https://datatracker.ietf.org/doc/html/rfc6749#section-5.2";
 
