@@ -75,3 +75,5 @@ openapi:
   version: ${OPENAPI_VERSION:v1.0}
   oauth-flow:
     token-url: ${OPENAPI_OAUTH_FLOW_TOKEN_URL:/oauth2/token}
+
+environment-namespace: server

@@ -14,7 +14,7 @@ import java.util.Set;
 @Entity
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "users")
+@Table(name = "users", schema = "oauth2_authorization_$")
 public class SecurityUser {
 
     @Id
