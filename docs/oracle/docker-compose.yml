@@ -8,7 +8,7 @@ services:
     domainname: mydocker.com
     environment:
       ORACLE_SID: ORCLCDB         # Container database name is the name of the main Oracle instance running on the system
-      ORACLE_PDB: ORCLPDB         # Pluggable database name is the name of the database that is created inside the container database(CDB)
+      ORACLE_PDB: FREEPDB1        # Pluggable database name is the name of the database that is created inside the container database(CDB)
       ORACLE_PWD: mbpassword
       ORACLE_CHARACTERSET: AL32UTF8
       ORA_SDTZ: Japan
@@ -17,5 +17,18 @@ services:
       - "5500:5500"
     tty: true
     privileged: true
+    volumes:
+      - ./sql-scripts:/container-entrypoint-startdb.d
+
+  oracle23ai:
+    image: gvenzl/oracle-free:23-slim
+    container_name: oracle23ai
+    ports:
+      - "1522:1521"
+    environment:
+      - APP_USER=myapp_user
+      - APP_USER_PASSWORD=mbpassword
+      - ORACLE_PASSWORD=mbpassword
+    restart: unless-stopped
     volumes:
       - ./sql-scripts:/container-entrypoint-startdb.d
