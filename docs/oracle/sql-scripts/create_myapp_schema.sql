@@ -1,5 +1,5 @@
 -- Switch to the pluggable database
-ALTER SESSION SET CONTAINER = ORCLPDB;
+ALTER SESSION SET CONTAINER = FREEPDB1;
 
 -- Drop the user if it already exists (optional for repeatability)
 BEGIN

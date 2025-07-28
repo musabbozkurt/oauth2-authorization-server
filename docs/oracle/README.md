@@ -1,6 +1,6 @@
-## 🐘 Oracle Database 19c on (M1/M2/M3 Max)
+## 🐘 Oracle Database 19c/23ai on (M1/M2/M3 Max)
 
-Run Oracle Database 19c Enterprise Edition in a Docker container on M1, M2, M3 Max Macs.
+Run Oracle Database 19c/23ai Enterprise Edition in a Docker container on M1, M2, M3 Max Macs.
 
 ---
 
@@ -53,7 +53,8 @@ Run Oracle Database 19c Enterprise Edition in a Docker container on M1, M2, M3 M
 #### 🗄️ Connection Details for CDB
 
 * **Host:** `localhost`
-* **Port:** `1521`
+* **Port for Oracle 19c:** `1521`
+* **Port for Oracle 23ai:** `1522`
 * **Service name:** `ORCLCDB`
 * **Username:** `SYS as SYSDBA`
 * **Password:** `mbpassword`
@@ -63,8 +64,9 @@ Run Oracle Database 19c Enterprise Edition in a Docker container on M1, M2, M3 M
 #### 🧩 Connection Details for PDB
 
 * **Host:** `localhost`
-* **Port:** `1521`
-* **Service name:** `ORCLPDB`
+* **Port for Oracle 19c:** `1521`
+* **Port for Oracle 23ai:** `1522`
+* **Service name:** `FREEPDB1`
 * **Username:** `SYS as SYSDBA` or `myapp_user` as User & Password
 * **Password:** `mbpassword` or `myapp_password`
 
