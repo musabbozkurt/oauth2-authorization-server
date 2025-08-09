@@ -57,6 +57,10 @@ spring:
   main:
     banner-mode: off # NOTE: The banner and the console logging must be disabled to allow the STDIO transport to work
 
+  ldap:
+    urls: ${SPRING_LDAP_URL:ldap://localhost:10389}
+    base: ${SPRING_LDAP_BASE:ou=users,ou=system}
+
 logging:
   level:
     org.springframework.security: trace
