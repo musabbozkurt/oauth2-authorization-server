@@ -24,6 +24,7 @@
         <org.testcontainers.version>1.20.6</org.testcontainers.version>
         <archunit-junit5.version>1.4.0</archunit-junit5.version>
         <instancio-junit.version>5.5.0</instancio-junit.version>
+        <ldap.testcontainers.version>1.21.3</ldap.testcontainers.version>
         <springdoc-openapi-starter-webmvc-ui.version>2.8.5</springdoc-openapi-starter-webmvc-ui.version>
         <spring-boot-thin-layout.version>1.0.31.RELEASE</spring-boot-thin-layout.version>
         <org.mapstruct.version>1.6.3</org.mapstruct.version>
@@ -232,7 +233,7 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>ldap</artifactId>
-            <version>1.21.3</version>
+            <version>${ldap.testcontainers.version}</version>
             <scope>test</scope>
         </dependency>
 

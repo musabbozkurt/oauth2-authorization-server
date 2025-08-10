@@ -1,9 +1,7 @@
 package mb.oauth2authorizationserver;
 
 import lombok.extern.slf4j.Slf4j;
-import mb.oauth2authorizationserver.exception.BaseException;
-import mb.oauth2authorizationserver.exception.OAuth2AuthorizationServerServiceErrorCode;
-import org.apache.commons.lang3.exception.ExceptionUtils;
+import mb.oauth2authorizationserver.config.LldapTestConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -13,12 +11,6 @@ import org.springframework.ldap.support.LdapUtils;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 
 import javax.naming.directory.Attribute;
 import javax.naming.directory.Attributes;
@@ -29,12 +21,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Slf4j
-@SpringBootTest
-@Testcontainers
+@SpringBootTest(classes = LldapTestConfiguration.class)
 class LdapIntegrationTest {
-
-    @Container
-    private static final GenericContainer<?> LLDAP_CONTAINER = createLldapContainer();
 
     @Autowired
     private LdapTemplate ldapTemplate;
@@ -42,37 +30,13 @@ class LdapIntegrationTest {
     @Autowired
     private AuthenticationManager ldapAuthenticationManager;
 
-    private static GenericContainer<?> createLldapContainer() {
-        try (GenericContainer<?> lldapContainer = new GenericContainer<>(DockerImageName.parse("lldap/lldap:v0.6.1-alpine"))) {
-            return lldapContainer
-                    .withExposedPorts(3890, 17170)
-                    .withEnv("LLDAP_JWT_SECRET", "test-secret")
-                    .withEnv("LLDAP_LDAP_USER_PASS", "secret")
-                    .withEnv("LLDAP_LDAP_BASE_DN", "dc=example,dc=com");
-        } catch (Exception e) {
-            log.error("Failed to start Redis container. redisContainer - Exception: {}", ExceptionUtils.getStackTrace(e));
-            throw new BaseException(OAuth2AuthorizationServerServiceErrorCode.UNEXPECTED_ERROR);
-        }
-    }
-
-    @DynamicPropertySource
-    private static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("ldap.url", () -> "ldap://localhost:" + LLDAP_CONTAINER.getMappedPort(3890));
-        registry.add("ldap.base", () -> "dc=example,dc=com");
-        registry.add("ldap.username", () -> "cn=admin,dc=example,dc=com");
-        registry.add("ldap.password", () -> "secret");
-    }
-
     @Test
-    void connectToLdapServer_ShouldSucceed_WhenContainerIsRunning() {
+    void ldapComponents_ShouldBeConfigured_WhenContextLoads() {
         // Arrange
         // Act
-        int mappedPort = LLDAP_CONTAINER.getMappedPort(3890);
-
         // Assertions
         assertThat(ldapTemplate).isNotNull();
-        assertThat(LLDAP_CONTAINER.isRunning()).isFalse();
-        assertThat(mappedPort).isGreaterThan(0);
+        assertThat(ldapAuthenticationManager).isNotNull();
     }
 
     @Test
@@ -93,28 +57,6 @@ class LdapIntegrationTest {
         // Act
         // Assertions
         assertThatThrownBy(() -> ldapAuthenticationManager.authenticate(authRequest)).isInstanceOf(AuthenticationException.class);
-    }
-
-    @Test
-    void ldapAuthenticationManager_ShouldBeConfigured_WhenContextLoads() {
-        // Arrange
-        // Spring context is already loaded
-        // Act
-        // AuthenticationManager is already injected
-        // Assertions
-        assertThat(ldapAuthenticationManager).isNotNull();
-    }
-
-    @Test
-    void ldapTemplate_ShouldBeConfigured_WhenContextLoads() {
-        // Arrange
-        // Spring context is already loaded
-
-        // Act
-        // LdapTemplate is already injected
-
-        // Assertions
-        assertThat(ldapTemplate).isNotNull();
     }
 
     @Test

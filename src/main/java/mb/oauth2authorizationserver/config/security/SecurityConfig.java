@@ -20,8 +20,11 @@ import mb.oauth2authorizationserver.config.security.service.impl.UserDetailsMana
 import mb.oauth2authorizationserver.data.repository.AuthorizationRepository;
 import mb.oauth2authorizationserver.data.repository.UserRepository;
 import mb.oauth2authorizationserver.utils.SecurityUtils;
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.ldap.LdapProperties;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -106,6 +109,7 @@ public class SecurityConfig {
     private final AuthorizationRepository authorizationRepository;
     private final AuthorizationBuilderService authorizationBuilderService;
     private final UserRepository userRepository;
+    private final LdapProperties ldapProperties;
 
     @Value("${jwt.key.path:./keys/jwt.key}")
     private String jwtKeyPath;
@@ -357,16 +361,16 @@ public class SecurityConfig {
     @Bean
     public LdapContextSource contextSource() {
         LdapContextSource ldapContextSource = new LdapContextSource();
-        ldapContextSource.setUrl("ldap://localhost:10389");
-        ldapContextSource.setUserDn("uid=admin,ou=system");
-        ldapContextSource.setPassword("secret");
+        ldapContextSource.setUrl(ArrayUtils.isNotEmpty(ldapProperties.getUrls()) ? ldapProperties.getUrls()[0] : "ldap://localhost:10389");
+        ldapContextSource.setUserDn(StringUtils.isNotBlank(ldapProperties.getBase()) ? ldapProperties.getBase() : "uid=admin,ou=system");
+        ldapContextSource.setPassword(StringUtils.isNotBlank(ldapProperties.getPassword()) ? ldapProperties.getPassword() : "secret");
         return ldapContextSource;
     }
 
     @Bean
     public AuthenticationManager ldapAuthenticationManager(BaseLdapPathContextSource source) {
         LdapBindAuthenticationManagerFactory factory = new LdapBindAuthenticationManagerFactory(source);
-        factory.setUserDnPatterns("cn={0},ou=users,ou=system"); // ou=users,ou=system can be put in application.yml
+        factory.setUserDnPatterns("cn={0}"); // ou=users,ou=system can be put in application.yml
         return factory.createAuthenticationManager();
     }
 
