@@ -20,13 +20,20 @@ import mb.oauth2authorizationserver.config.security.service.impl.UserDetailsMana
 import mb.oauth2authorizationserver.data.repository.AuthorizationRepository;
 import mb.oauth2authorizationserver.data.repository.UserRepository;
 import mb.oauth2authorizationserver.utils.SecurityUtils;
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.ldap.LdapProperties;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.annotation.Order;
+import org.springframework.ldap.core.LdapTemplate;
+import org.springframework.ldap.core.support.BaseLdapPathContextSource;
+import org.springframework.ldap.core.support.LdapContextSource;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.authentication.event.AuthenticationFailureBadCredentialsEvent;
@@ -36,6 +43,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.config.ldap.LdapBindAuthenticationManagerFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.session.SessionRegistry;
@@ -101,6 +109,7 @@ public class SecurityConfig {
     private final AuthorizationRepository authorizationRepository;
     private final AuthorizationBuilderService authorizationBuilderService;
     private final UserRepository userRepository;
+    private final LdapProperties ldapProperties;
 
     @Value("${jwt.key.path:./keys/jwt.key}")
     private String jwtKeyPath;
@@ -342,6 +351,27 @@ public class SecurityConfig {
     @Bean
     ApplicationListener<AuthenticationFailureBadCredentialsEvent> failureEvent() {
         return event -> log.info("Bad credentials login AuthenticationClassName: {} - AuthenticationName: {}", event.getAuthentication().getClass().getSimpleName(), event.getAuthentication().getName());
+    }
+
+    @Bean
+    public LdapTemplate ldapTemplate() {
+        return new LdapTemplate(contextSource());
+    }
+
+    @Bean
+    public LdapContextSource contextSource() {
+        LdapContextSource ldapContextSource = new LdapContextSource();
+        ldapContextSource.setUrl(ArrayUtils.isNotEmpty(ldapProperties.getUrls()) ? ldapProperties.getUrls()[0] : "ldap://localhost:10389");
+        ldapContextSource.setUserDn(StringUtils.isNotBlank(ldapProperties.getBase()) ? ldapProperties.getBase() : "uid=admin,ou=system");
+        ldapContextSource.setPassword(StringUtils.isNotBlank(ldapProperties.getPassword()) ? ldapProperties.getPassword() : "secret");
+        return ldapContextSource;
+    }
+
+    @Bean
+    public AuthenticationManager ldapAuthenticationManager(BaseLdapPathContextSource source) {
+        LdapBindAuthenticationManagerFactory factory = new LdapBindAuthenticationManagerFactory(source);
+        factory.setUserDnPatterns("cn={0}"); // ou=users,ou=system can be put in application.yml
+        return factory.createAuthenticationManager();
     }
 
     private Consumer<List<AuthenticationProvider>> getProviders() {
