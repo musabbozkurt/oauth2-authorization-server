@@ -1,7 +1,9 @@
 package mb.oauth2authorizationserver.api.controller;
 
+import io.minio.MinioClient;
+import io.minio.PutObjectArgs;
 import lombok.RequiredArgsConstructor;
-import mb.oauth2authorizationserver.config.S3ClientConfigProperties;
+import mb.oauth2authorizationserver.config.MinioConfigProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -30,14 +32,15 @@ import java.util.UUID;
 public class FileController {
 
     private final S3Client s3Client;
-    private final S3ClientConfigProperties s3ClientConfigProperties;
+    private final MinioClient minioClient;
+    private final MinioConfigProperties minioConfigProperties;
 
     @PostMapping(path = "/upload", consumes = "multipart/form-data")
     public ResponseEntity<String> upload(@RequestParam("file") MultipartFile file) throws IOException {
         String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
 
         PutObjectRequest request = PutObjectRequest.builder()
-                .bucket(s3ClientConfigProperties.getBucket())
+                .bucket(minioConfigProperties.getBucket())
                 .key(filename)
                 .contentType(file.getContentType())
                 .build();
@@ -50,7 +53,7 @@ public class FileController {
     @GetMapping(path = "/download/{filename}", produces = "application/octet-stream")
     public ResponseEntity<byte[]> download(@PathVariable String filename) {
         GetObjectRequest request = GetObjectRequest.builder()
-                .bucket(s3ClientConfigProperties.getBucket())
+                .bucket(minioConfigProperties.getBucket())
                 .key(filename)
                 .build();
 
@@ -62,5 +65,23 @@ public class FileController {
         } catch (IOException _) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+
+    @PostMapping(path = "/upload/stream", consumes = "multipart/form-data")
+    public ResponseEntity<String> uploadStream(@RequestParam("file") MultipartFile file) {
+        String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
+        try {
+            minioClient.putObject(
+                    PutObjectArgs
+                            .builder()
+                            .bucket(minioConfigProperties.getBucket())
+                            .object(filename)
+                            .stream(file.getInputStream(), file.getSize(), -1) // -1 indicates unknown part size
+                            .build()
+            );
+        } catch (Exception _) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+        return ResponseEntity.ok(filename);
     }
 }
