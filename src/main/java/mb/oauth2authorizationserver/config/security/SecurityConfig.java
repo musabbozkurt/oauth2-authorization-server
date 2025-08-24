@@ -7,6 +7,7 @@ import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import mb.oauth2authorizationserver.config.CustomLdapProperties;
 import mb.oauth2authorizationserver.config.security.builder.AuthorizationBuilderService;
 import mb.oauth2authorizationserver.config.security.converter.CustomPasswordAuthenticationConverter;
 import mb.oauth2authorizationserver.config.security.converter.JwtBearerGrantAuthenticationConverter;
@@ -20,11 +21,9 @@ import mb.oauth2authorizationserver.config.security.service.impl.UserDetailsMana
 import mb.oauth2authorizationserver.data.repository.AuthorizationRepository;
 import mb.oauth2authorizationserver.data.repository.UserRepository;
 import mb.oauth2authorizationserver.utils.SecurityUtils;
-import org.apache.commons.lang3.ArrayUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.ldap.LdapProperties;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -99,7 +98,7 @@ public class SecurityConfig {
             "/oauth/token/revokeById/**", "/oauth/token/**", "/oauth2/token/**", "/oauth/check_token/**",
             "/oauth/authorize/**", "/v3/api-docs/**", "/swagger-resources/**", "/configuration/ui",
             "/configuration/security", "/swagger-ui/**", "/webjars/**", "/swagger-ui.html", "/oauth2/**", "/error/**",
-            "/actuator/**", "/ott/sent", "/login/ott", "/chat/**", "/vector-stores/**", "/mcp/message"
+            "/actuator/**", "/ott/sent", "/login/ott", "/chat/**", "/vector-stores/**", "/mcp/message", "/files/**"
     };
     private static final String LOGIN_FORM_URL = "/login";
     private static final String JSESSIONID = "JSESSIONID";
@@ -109,7 +108,7 @@ public class SecurityConfig {
     private final AuthorizationRepository authorizationRepository;
     private final AuthorizationBuilderService authorizationBuilderService;
     private final UserRepository userRepository;
-    private final LdapProperties ldapProperties;
+    private final CustomLdapProperties customLdapProperties;
 
     @Value("${jwt.key.path:./keys/jwt.key}")
     private String jwtKeyPath;
@@ -354,23 +353,27 @@ public class SecurityConfig {
     }
 
     @Bean
+    @ConditionalOnProperty(name = {"spring.ldap.urls", "spring.ldap.password", "spring.ldap.user-dn", "spring.ldap.user-search-base", "spring.ldap.user-search-filter"})
     public LdapTemplate ldapTemplate() {
         return new LdapTemplate(contextSource());
     }
 
     @Bean
+    @ConditionalOnProperty(name = {"spring.ldap.urls", "spring.ldap.password", "spring.ldap.user-dn", "spring.ldap.user-search-base", "spring.ldap.user-search-filter"})
     public LdapContextSource contextSource() {
         LdapContextSource ldapContextSource = new LdapContextSource();
-        ldapContextSource.setUrl(ArrayUtils.isNotEmpty(ldapProperties.getUrls()) ? ldapProperties.getUrls()[0] : "ldap://localhost:10389");
-        ldapContextSource.setUserDn(StringUtils.isNotBlank(ldapProperties.getBase()) ? ldapProperties.getBase() : "uid=admin,ou=system");
-        ldapContextSource.setPassword(StringUtils.isNotBlank(ldapProperties.getPassword()) ? ldapProperties.getPassword() : "secret");
+        ldapContextSource.setUrl(customLdapProperties.getUrls()[0]);
+        ldapContextSource.setUserDn(customLdapProperties.getUserDn());
+        ldapContextSource.setPassword(customLdapProperties.getPassword());
         return ldapContextSource;
     }
 
     @Bean
+    @ConditionalOnProperty(name = {"spring.ldap.urls", "spring.ldap.password", "spring.ldap.user-dn", "spring.ldap.user-search-base", "spring.ldap.user-search-filter"})
     public AuthenticationManager ldapAuthenticationManager(BaseLdapPathContextSource source) {
         LdapBindAuthenticationManagerFactory factory = new LdapBindAuthenticationManagerFactory(source);
-        factory.setUserDnPatterns("cn={0}"); // ou=users,ou=system can be put in application.yml
+        factory.setUserSearchBase(customLdapProperties.getUserSearchBase());
+        factory.setUserSearchFilter(customLdapProperties.getUserSearchFilter());
         return factory.createAuthenticationManager();
     }
 
