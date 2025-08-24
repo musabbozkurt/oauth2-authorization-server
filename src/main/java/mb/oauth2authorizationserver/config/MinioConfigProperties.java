@@ -1,7 +1,12 @@
 package mb.oauth2authorizationserver.config;
 
+import io.minio.BucketExistsArgs;
+import io.minio.MakeBucketArgs;
+import io.minio.MinioClient;
 import lombok.Getter;
 import lombok.Setter;
+import mb.oauth2authorizationserver.exception.BaseException;
+import mb.oauth2authorizationserver.exception.OAuth2AuthorizationServerServiceErrorCode;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -18,7 +23,7 @@ import java.net.URI;
 @Configuration
 @ConfigurationProperties(prefix = "minio")
 @ConditionalOnProperty(value = {"minio.endpoint", "minio.accessKey", "minio.secretKey", "minio.bucket"})
-public class S3ClientConfigProperties {
+public class MinioConfigProperties {
 
     private String endpoint;
     private String accessKey;
@@ -41,5 +46,21 @@ public class S3ClientConfigProperties {
         }
 
         return s3Client;
+    }
+
+    @Bean
+    public MinioClient minioClient() {
+        MinioClient client = MinioClient.builder()
+                .endpoint(endpoint)
+                .credentials(accessKey, secretKey)
+                .build();
+        try {
+            if (!client.bucketExists(BucketExistsArgs.builder().bucket(bucket).build())) {
+                client.makeBucket(MakeBucketArgs.builder().bucket(bucket).build());
+            }
+        } catch (Exception _) {
+            throw new BaseException(OAuth2AuthorizationServerServiceErrorCode.INVALID_VALUE);
+        }
+        return client;
     }
 }
