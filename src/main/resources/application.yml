@@ -59,7 +59,10 @@ spring:
 
   ldap:
     urls: ${SPRING_LDAP_URL:ldap://localhost:10389}
-    base: ${SPRING_LDAP_BASE:ou=users,ou=system}
+    password: ${SPRING_LDAP_PASSWORD:admin_pass}
+    user-dn: ${SPRING_LDAP_USER_DN:cn=admin,ou=people,dc=mbexample,dc=com}
+    user-search-base: ${SPRING_LDAP_USER_SEARCH_BASE:ou=people,dc=mbexample,dc=com}
+    user-search-filter: ${SPRING_LDAP_USER_SEARCH_FILTER:(cn={0})}
 
 logging:
   level:
@@ -81,3 +84,9 @@ openapi:
     token-url: ${OPENAPI_OAUTH_FLOW_TOKEN_URL:/oauth2/token}
 
 environment-namespace: server
+
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9091}
+  accessKey: ${MINIO_ACCESS_KEY:minio-admin}
+  secretKey: ${MINIO_SECRET_KEY:minio-password}
+  bucket: mb-bucket

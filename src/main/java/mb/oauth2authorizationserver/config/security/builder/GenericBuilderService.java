@@ -4,6 +4,5 @@ public interface GenericBuilderService<T, E> {
 
     T toObject(E entity);
 
-
     E toEntity(T object);
 }

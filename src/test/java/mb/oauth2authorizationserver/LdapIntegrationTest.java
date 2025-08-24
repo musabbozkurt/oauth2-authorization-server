@@ -11,6 +11,7 @@ import org.springframework.ldap.support.LdapUtils;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.test.context.ContextConfiguration;
 
 import javax.naming.directory.Attribute;
 import javax.naming.directory.Attributes;
@@ -22,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Slf4j
 @SpringBootTest(classes = LldapTestConfiguration.class)
+@ContextConfiguration(initializers = LldapTestConfiguration.Initializer.class)
 class LdapIntegrationTest {
 
     @Autowired

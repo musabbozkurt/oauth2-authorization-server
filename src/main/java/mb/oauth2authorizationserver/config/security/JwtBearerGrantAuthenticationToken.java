@@ -32,5 +32,4 @@ public class JwtBearerGrantAuthenticationToken extends OAuth2AuthorizationGrantA
         this.assertion = assertion;
         this.scopes = Collections.unmodifiableSet(scopes != null ? new HashSet<>(scopes) : Collections.emptySet());
     }
-
 }
