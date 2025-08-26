@@ -1,0 +1,19 @@
+# This is the AppMap configuration file.
+# For full documentation of this file for Java programs, see:
+# https://appmap.io/docs/reference/appmap-java.html#configuration
+name: oauth2-authorization-server
+language: java
+appmap_dir: tmp/appmap
+
+# Your project contains the directory src/main/java. AppMap has
+# auto-detected the following Java packages in this directory:
+packages:
+  - path: mb.oauth2authorizationserver
+  - path: org.springframework.web
+    shallow: true
+    exclude:
+      - org.springframework.web.util
+  - path: java.util.logging
+    methods:
+      - class: Logger
+        name: log

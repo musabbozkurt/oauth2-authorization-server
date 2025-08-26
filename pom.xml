@@ -36,6 +36,7 @@
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
         <spring-ai.version>1.0.0-M7</spring-ai.version>
         <jacoco.version>0.8.13</jacoco.version>
+        <appmap-maven-plugin.version>1.3.0</appmap-maven-plugin.version>
     </properties>
 
     <dependencies>
@@ -378,6 +379,20 @@
                         <configuration>
                             <outputDirectory>target/jacoco-report</outputDirectory>
                         </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>com.appland</groupId>
+                <artifactId>appmap-maven-plugin</artifactId>
+                <version>${appmap-maven-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <phase>process-test-classes</phase>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>
