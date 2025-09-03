@@ -173,7 +173,7 @@ public class SecurityConfig {
     }
 
     /**
-     * The following method configures the security filter chain for MVC requests. It should enabled, if there is login.html page is used for login.
+     * The following method configures the security filter chain for MVC requests. It should be enabled, if there is login.html page is used for login.
      * <p>
      * {@code @Bean}
      * {@code @Order(3)}
@@ -196,6 +196,7 @@ public class SecurityConfig {
                         .sessionRegistry(sessionRegistry()))
                 .rememberMe(me -> me.rememberMeServices(rememberMeServices()))
                 .formLogin(login -> {
+                            login.authenticationDetailsSource(new CustomAuthenticationDetailsSource());
                             login.loginPage(LOGIN_FORM_URL);
                             login.successHandler(customSavedRequestAwareAuthenticationSuccessHandler);
                             login.failureHandler(customSimpleUrlAuthenticationFailureHandler);
