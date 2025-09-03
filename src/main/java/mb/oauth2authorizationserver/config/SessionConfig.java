@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator
 import com.fasterxml.jackson.datatype.hibernate6.Hibernate6Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.NonNull;
+import mb.oauth2authorizationserver.config.security.model.HttpRequestDetails;
 import org.springframework.beans.factory.BeanClassLoaderAware;
 import org.springframework.boot.autoconfigure.cache.RedisCacheManagerBuilderCustomizer;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -72,11 +73,15 @@ public class SessionConfig extends AbstractHttpSessionApplicationInitializer imp
                 .registerModules(SecurityJackson2Modules.getModules(this.classLoader))
                 .registerModule(new OAuth2AuthorizationServerJackson2Module())
                 .addMixIn(Long.class, LongMixin.class)
+                .addMixIn(HttpRequestDetails.class, HttpRequestDetailsMixin.class)
                 .addMixIn(DisabledException.class, Object.class)
                 .addMixIn(Throwable.class, ThrowableMixin.class);
     }
 
     interface LongMixin {
+    }
+
+    interface HttpRequestDetailsMixin {
     }
 
     @JsonIgnoreProperties({"suppressed", "stackTrace", "localizedMessage", "cause"})
