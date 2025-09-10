@@ -16,7 +16,9 @@ import mb.oauth2authorizationserver.config.security.model.CustomPasswordUser;
 import mb.oauth2authorizationserver.config.security.provider.CustomPasswordAuthenticationProvider;
 import mb.oauth2authorizationserver.config.security.provider.CustomRefreshTokenAuthenticationProvider;
 import mb.oauth2authorizationserver.config.security.provider.JwtBearerGrantAuthenticationProvider;
+import mb.oauth2authorizationserver.config.security.service.impl.CustomOneTimeTokenServiceImpl;
 import mb.oauth2authorizationserver.config.security.service.impl.OAuth2AuthorizationServiceImpl;
+import mb.oauth2authorizationserver.config.security.service.impl.OneTimeTokenSuccessHandlerImpl;
 import mb.oauth2authorizationserver.config.security.service.impl.UserDetailsManagerImpl;
 import mb.oauth2authorizationserver.data.repository.AuthorizationRepository;
 import mb.oauth2authorizationserver.data.repository.UserRepository;
@@ -34,6 +36,8 @@ import org.springframework.ldap.core.support.BaseLdapPathContextSource;
 import org.springframework.ldap.core.support.LdapContextSource;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.authentication.event.AuthenticationFailureBadCredentialsEvent;
 import org.springframework.security.authentication.event.AuthenticationSuccessEvent;
@@ -44,6 +48,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.config.ldap.LdapBindAuthenticationManagerFactory;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
@@ -80,6 +85,7 @@ import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.session.security.web.authentication.SpringSessionRememberMeServices;
 import org.thymeleaf.extras.springsecurity6.dialect.SpringSecurityDialect;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -98,7 +104,7 @@ public class SecurityConfig {
             "/oauth/token/revokeById/**", "/oauth/token/**", "/oauth2/token/**", "/oauth/check_token/**",
             "/oauth/authorize/**", "/v3/api-docs/**", "/swagger-resources/**", "/configuration/ui",
             "/configuration/security", "/swagger-ui/**", "/webjars/**", "/swagger-ui.html", "/oauth2/**", "/error/**",
-            "/actuator/**", "/ott/sent", "/login/ott", "/chat/**", "/vector-stores/**", "/mcp/message", "/files/**"
+            "/actuator/**", "/ott/sent", "/login/ott", "/ott/submit", "/chat/**", "/vector-stores/**", "/mcp/message", "/files/**"
     };
     private static final String LOGIN_FORM_URL = "/login";
     private static final String JSESSIONID = "JSESSIONID";
@@ -158,7 +164,9 @@ public class SecurityConfig {
 
     @Bean
     @Order(2)
-    public SecurityFilterChain appSecurityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain appSecurityFilterChain(HttpSecurity http,
+                                                      CustomOneTimeTokenServiceImpl customOneTimeTokenService,
+                                                      OneTimeTokenSuccessHandlerImpl oneTimeTokenSuccessHandler) throws Exception {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(requests -> requests
@@ -166,8 +174,15 @@ public class SecurityConfig {
                         .permitAll()
                         .anyRequest()
                         .authenticated())
-                .formLogin(Customizer.withDefaults())
-                .oneTimeTokenLogin(Customizer.withDefaults())
+                .formLogin(formLogin -> formLogin
+                        .loginPage(LOGIN_FORM_URL)
+                        .permitAll())
+                .oneTimeTokenLogin(oneTimeTokenLogin -> oneTimeTokenLogin
+                        .loginPage(LOGIN_FORM_URL)
+                        .tokenGenerationSuccessHandler(oneTimeTokenSuccessHandler)
+                        .tokenService(customOneTimeTokenService)
+                        .showDefaultSubmitPage(false)
+                        .permitAll())
                 .authenticationProvider(daoAuthenticationProvider())
                 .build();
     }
@@ -376,6 +391,44 @@ public class SecurityConfig {
         factory.setUserSearchBase(customLdapProperties.getUserSearchBase());
         factory.setUserSearchFilter(customLdapProperties.getUserSearchFilter());
         return factory.createAuthenticationManager();
+    }
+
+    @Bean
+    @Primary
+    public AuthenticationManager authenticationManager() throws Exception {
+        List<AuthenticationProvider> providers = new ArrayList<>();
+
+        // Add DAO authentication provider
+        providers.add(daoAuthenticationProvider());
+
+        // Add LDAP provider if configured
+        if (customLdapProperties.isValid()) {
+            try {
+                LdapBindAuthenticationManagerFactory factory = new LdapBindAuthenticationManagerFactory(contextSource());
+                factory.setUserSearchBase(customLdapProperties.getUserSearchBase());
+                factory.setUserSearchFilter(customLdapProperties.getUserSearchFilter());
+
+                // Create a wrapper provider for LDAP
+                AuthenticationProvider ldapProvider = new AuthenticationProvider() {
+                    private final AuthenticationManager ldapManager = factory.createAuthenticationManager();
+
+                    @Override
+                    public Authentication authenticate(Authentication authentication) throws AuthenticationException {
+                        return ldapManager.authenticate(authentication);
+                    }
+
+                    @Override
+                    public boolean supports(Class<?> authentication) {
+                        return UsernamePasswordAuthenticationToken.class.isAssignableFrom(authentication);
+                    }
+                };
+                providers.add(ldapProvider);
+            } catch (Exception e) {
+                log.warn("Failed to configure LDAP authentication, using only DAO authentication", e);
+            }
+        }
+
+        return new ProviderManager(providers);
     }
 
     private Consumer<List<AuthenticationProvider>> getProviders() {

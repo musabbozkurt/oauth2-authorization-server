@@ -2,6 +2,7 @@ package mb.oauth2authorizationserver;
 
 import lombok.extern.slf4j.Slf4j;
 import mb.oauth2authorizationserver.config.LldapTestConfiguration;
+import mb.oauth2authorizationserver.config.RedisTestConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -22,8 +23,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Slf4j
-@SpringBootTest(classes = LldapTestConfiguration.class)
 @ContextConfiguration(initializers = LldapTestConfiguration.Initializer.class)
+@SpringBootTest(classes = {LldapTestConfiguration.class, RedisTestConfiguration.class})
 class LdapIntegrationTest {
 
     @Autowired

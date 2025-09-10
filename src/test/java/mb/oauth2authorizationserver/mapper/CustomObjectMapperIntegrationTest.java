@@ -1,5 +1,6 @@
 package mb.oauth2authorizationserver.mapper;
 
+import mb.oauth2authorizationserver.config.RedisTestConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -22,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SpringBootTest
+@SpringBootTest(classes = RedisTestConfiguration.class)
 class CustomObjectMapperIntegrationTest {
 
     @Autowired

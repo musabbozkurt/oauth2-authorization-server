@@ -18,6 +18,9 @@
                     <a class="text-gray-600 hover:text-gray-900" href="#">Home</a>
                     <a class="text-gray-600 hover:text-gray-900" href="#">About</a>
                     <a class="text-gray-600 hover:text-gray-900" href="#">Contact</a>
+                    <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+                            id="logout-button" onclick="logout()">Logout
+                    </button>
                 </nav>
             </div>
         </div>
@@ -32,5 +35,10 @@
         </div>
     </main>
 </div>
+<script>
+    function logout() {
+        window.location.href = '/logout';
+    }
+</script>
 </body>
 </html>
