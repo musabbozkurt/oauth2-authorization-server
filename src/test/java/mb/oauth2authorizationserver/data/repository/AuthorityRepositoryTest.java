@@ -1,23 +1,22 @@
 package mb.oauth2authorizationserver.data.repository;
 
 import mb.oauth2authorizationserver.config.OracleTestConfiguration;
+import mb.oauth2authorizationserver.config.RedisTestConfiguration;
 import mb.oauth2authorizationserver.data.entity.Authority;
 import org.instancio.Instancio;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.instancio.Select.field;
 
-@DataJpaTest(showSql = false)
-@Import(OracleTestConfiguration.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestPropertySource(properties = "spring.flyway.enabled=false")
+@SpringBootTest(classes = {OracleTestConfiguration.class, RedisTestConfiguration.class})
 class AuthorityRepositoryTest {
 
     @Autowired

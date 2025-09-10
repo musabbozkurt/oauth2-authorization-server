@@ -1,5 +1,6 @@
 package mb.oauth2authorizationserver.exception;
 
+import mb.oauth2authorizationserver.config.RedisTestConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -12,7 +13,7 @@ import java.util.Locale;
 import static java.util.Collections.EMPTY_LIST;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
+@SpringBootTest(classes = RedisTestConfiguration.class)
 @TestPropertySource(locations = "classpath:messages_tr.properties")
 class LocalizedExceptionResponseTrTest {
 

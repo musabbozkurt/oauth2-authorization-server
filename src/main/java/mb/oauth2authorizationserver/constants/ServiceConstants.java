@@ -21,4 +21,5 @@ public final class ServiceConstants {
     public static final String TOKEN_PREFIX = "Bearer ";
     public static final String AUTHORIZATION_HEADER_STRING = "Authorization";
     public static final String USERNAME_WITH_UNDERSCORE = "user_name";
+    public static final String ACCESS_TOKEN_COOKIE_NAME = "st";
 }

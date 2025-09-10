@@ -2,6 +2,7 @@ package mb.oauth2authorizationserver.data.repository;
 
 import mb.oauth2authorizationserver.data.entity.Authorization;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -19,4 +20,7 @@ public interface AuthorizationRepository extends JpaRepository<Authorization, St
 
     @Query("select a from Authorization a where a.state = :token or a.authorizationCodeValue = :token or a.accessTokenValue = :token or a.refreshTokenValue = :token")
     Optional<Authorization> findByStateOrAuthorizationCodeValueOrAccessTokenValueOrRefreshTokenValue(@Param("token") String token);
+
+    @Modifying
+    void deleteByAccessTokenValue(String accessToken);
 }
