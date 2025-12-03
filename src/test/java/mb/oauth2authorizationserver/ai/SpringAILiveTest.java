@@ -1,26 +1,28 @@
 package mb.oauth2authorizationserver.ai;
 
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.ChatClientRequest;
+import org.springframework.ai.chat.client.ChatClientResponse;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.PromptChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.SafeGuardAdvisor;
-import org.springframework.ai.chat.client.advisor.api.AdvisedRequest;
-import org.springframework.ai.chat.client.advisor.api.AdvisedResponse;
-import org.springframework.ai.chat.client.advisor.api.CallAroundAdvisor;
-import org.springframework.ai.chat.client.advisor.api.CallAroundAdvisorChain;
+import org.springframework.ai.chat.client.advisor.api.CallAdvisor;
+import org.springframework.ai.chat.client.advisor.api.CallAdvisorChain;
 import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.chat.memory.InMemoryChatMemory;
+import org.springframework.ai.chat.memory.InMemoryChatMemoryRepository;
+import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.ai.ollama.OllamaEmbeddingModel;
 import org.springframework.ai.ollama.api.OllamaApi;
+import org.springframework.ai.ollama.api.OllamaChatOptions;
 import org.springframework.ai.ollama.api.OllamaModel;
-import org.springframework.ai.ollama.api.OllamaOptions;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -29,11 +31,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.testcontainers.ollama.OllamaContainer;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Slf4j
 @SpringBootTest
 @Disabled("For local testing only")
 class SpringAILiveTest {
@@ -42,18 +46,23 @@ class SpringAILiveTest {
     private static final OllamaContainer ollamaContainer = new OllamaContainer("ollama/ollama:0.5.13")
             .withReuse(true);
 
-    private static final ChatMemory chatMemory = new InMemoryChatMemory();
+    private static final ChatMemory chatMemory = MessageWindowChatMemory.builder().chatMemoryRepository(new InMemoryChatMemoryRepository()).build();
     private static ChatClient chatClient;
     private static VectorStore vectorStore;
 
     @BeforeAll
     static void setUp() {
-        var ollamaApi = new OllamaApi();
+        ollamaContainer.start();
+
+        var ollamaApi = new OllamaApi.Builder().baseUrl(ollamaContainer.getEndpoint()).build();
+
+        // Only pull models if they don't exist
+        ensureModelsAvailable();
 
         var chatModel = OllamaChatModel.builder()
                 .ollamaApi(ollamaApi)
                 .defaultOptions(
-                        OllamaOptions.builder()
+                        OllamaChatOptions.builder()
                                 .model(OllamaModel.MISTRAL)
                                 .temperature(0.9)
                                 .build())
@@ -68,9 +77,32 @@ class SpringAILiveTest {
         vectorStore.add(List.of(bgDocument, nlDocument));
     }
 
+    private static void ensureModelsAvailable() {
+        try {
+            // Check if models exist, if not pull them
+            var result = ollamaContainer.execInContainer("ollama", "list");
+            String output = result.getStdout();
+
+
+            if (!output.contains("mxbai-embed-large")) {
+                log.info("Pulling mxbai-embed-large model...");
+                ollamaContainer.execInContainer("ollama", "pull", "mxbai-embed-large");
+            }
+
+            if (!output.contains("qwen2.5:3b")) {
+                log.info("Pulling qwen2.5:3b model...");
+                ollamaContainer.execInContainer("ollama", "pull", "qwen2.5:3b");
+            }
+
+            log.info("Models are ready");
+        } catch (IOException | InterruptedException e) {
+            throw new RuntimeException("Failed to ensure models are available", e);
+        }
+    }
+
     @Test
     void givenMessageChatMemoryAdvisor_WhenAskingChatToIncrementTheResponseWithNewName_ThenNamesFromTheChatHistoryExistInResponse() {
-        MessageChatMemoryAdvisor chatMemoryAdvisor = new MessageChatMemoryAdvisor(chatMemory);
+        MessageChatMemoryAdvisor chatMemoryAdvisor = MessageChatMemoryAdvisor.builder(chatMemory).build();
 
         String responseContent = chatClient.prompt()
                 .user("Add this name to a list and return all the values: Bob")
@@ -105,7 +137,7 @@ class SpringAILiveTest {
 
     @Test
     void givenPromptChatMemoryAdvisor_WhenAskingChatToIncrementTheResponseWithNewName_ThenNamesFromTheChatHistoryExistInResponse() {
-        PromptChatMemoryAdvisor chatMemoryAdvisor = new PromptChatMemoryAdvisor(chatMemory);
+        PromptChatMemoryAdvisor chatMemoryAdvisor = PromptChatMemoryAdvisor.builder(chatMemory).build();
 
         String responseContent = chatClient.prompt()
                 .user("Add this name to a list and return all the values: Bob")
@@ -170,7 +202,7 @@ class SpringAILiveTest {
 
     @Test
     void givenQuestionAnswerAdvisor_WhenSearchingWithFilters_ThenShouldReturnMatchingDocuments() {
-        QuestionAnswerAdvisor questionAnswerAdvisor = new QuestionAnswerAdvisor(vectorStore);
+        QuestionAnswerAdvisor questionAnswerAdvisor = QuestionAnswerAdvisor.builder(vectorStore).build();
 
         String responseContent = chatClient.prompt()
                 .user("How many documents with 'The World is Big' text are in the vector store?")
@@ -205,16 +237,18 @@ class SpringAILiveTest {
 }
 
 @Slf4j
-class CustomLoggingAdvisor implements CallAroundAdvisor {
+class CustomLoggingAdvisor implements CallAdvisor {
 
+    @NonNull
     @Override
-    public AdvisedResponse aroundCall(AdvisedRequest advisedRequest, CallAroundAdvisorChain chain) {
+    public ChatClientResponse adviseCall(@NonNull ChatClientRequest advisedRequest, CallAdvisorChain chain) {
         this.observeBefore(advisedRequest);
-        AdvisedResponse advisedResponse = chain.nextAroundCall(advisedRequest);
+        ChatClientResponse advisedResponse = chain.nextCall(advisedRequest);
         this.observeAfter(advisedResponse);
         return advisedResponse;
     }
 
+    @NonNull
     @Override
     public String getName() {
         return "CustomLoggingAdvisor";
@@ -225,11 +259,11 @@ class CustomLoggingAdvisor implements CallAroundAdvisor {
         return Integer.MAX_VALUE;
     }
 
-    private void observeBefore(AdvisedRequest advisedRequest) {
-        log.info(advisedRequest.userText());
+    private void observeBefore(ChatClientRequest advisedRequest) {
+        log.info(advisedRequest.prompt().toString());
     }
 
-    private void observeAfter(AdvisedResponse advisedResponse) {
-        log.info(advisedResponse.response() != null ? advisedResponse.response().getResult().getOutput().getText() : null);
+    private void observeAfter(ChatClientResponse advisedResponse) {
+        log.info(advisedResponse.chatResponse() != null ? advisedResponse.chatResponse().getResult().getOutput().getText() : null);
     }
 }

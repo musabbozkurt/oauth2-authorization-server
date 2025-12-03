@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.session.SessionInformation;
 import org.springframework.security.core.session.SessionRegistry;
@@ -40,14 +41,14 @@ public class CustomSavedRequestAwareAuthenticationSuccessHandler extends SavedRe
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException {
         this.handle(request, response, authentication);
         sessionRegistry
-                .getAllSessions(authentication.getPrincipal(), true)
+                .getAllSessions(Objects.requireNonNull(authentication.getPrincipal()), true)
                 .stream()
                 .filter(SessionInformation::isExpired)
                 .forEach(sessionInformation -> sessionRegistry.removeSessionInformation(sessionInformation.getSessionId()));
     }
 
     @Override
-    protected void handle(final HttpServletRequest request, final HttpServletResponse response, final Authentication authentication) throws IOException {
+    protected void handle(final HttpServletRequest request, final HttpServletResponse response, @Nullable final Authentication authentication) throws IOException {
         SavedRequest savedRequest = this.requestCache.getRequest(request, response);
 
         if (Objects.isNull(savedRequest)) {
@@ -58,7 +59,7 @@ public class CustomSavedRequestAwareAuthenticationSuccessHandler extends SavedRe
                 this.redirectStrategy.sendRedirect(request, response, targetUrl);
             }
         } else {
-            processWhenSavedRequestIsNull(request, response, authentication, savedRequest);
+            processWhenSavedRequestIsNull(request, response, Objects.requireNonNull(authentication), savedRequest);
         }
     }
 

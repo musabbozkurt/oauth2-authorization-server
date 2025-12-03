@@ -381,7 +381,7 @@ class CustomObjectMapperIntegrationTest {
 
         // Act
         // Assertions
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> customObjectMapper.writeMap(map));
-        assertTrue(exception.getMessage().contains("No serializer found"));
+        assertEquals("""
+                {"unserializable":{}}""", customObjectMapper.writeMap(map));
     }
 }
