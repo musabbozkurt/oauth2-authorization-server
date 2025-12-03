@@ -1,19 +1,19 @@
 package mb.oauth2authorizationserver.config.security.builder.impl;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.Module;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import mb.oauth2authorizationserver.config.security.builder.AuthorizationBuilderService;
 import mb.oauth2authorizationserver.config.security.builder.RegisteredClientBuilderService;
 import mb.oauth2authorizationserver.config.security.service.impl.RegisteredClientRepositoryImpl;
 import mb.oauth2authorizationserver.data.entity.Client;
-import org.springframework.security.jackson2.SecurityJackson2Modules;
+import org.springframework.security.jackson.SecurityJacksonModules;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
-import org.springframework.security.oauth2.server.authorization.jackson2.OAuth2AuthorizationServerJackson2Module;
+import org.springframework.security.oauth2.server.authorization.jackson.OAuth2AuthorizationServerJacksonModule;
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,13 +22,14 @@ import java.util.Set;
 
 @Service
 public class RegisteredClientBuilderServiceImpl implements RegisteredClientBuilderService {
-    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private final ObjectMapper objectMapper;
 
     public RegisteredClientBuilderServiceImpl() {
-        ClassLoader classLoader = RegisteredClientRepositoryImpl.class.getClassLoader();
-        List<Module> securityModules = SecurityJackson2Modules.getModules(classLoader);
-        this.objectMapper.registerModules(securityModules);
-        this.objectMapper.registerModule(new OAuth2AuthorizationServerJackson2Module());
+        this.objectMapper = JsonMapper.builder()
+                .addModules(SecurityJacksonModules.getModules(RegisteredClientRepositoryImpl.class.getClassLoader()))
+                .addModule(new OAuth2AuthorizationServerJacksonModule())
+                .build();
     }
 
     @Override

@@ -2,8 +2,10 @@ package mb.oauth2authorizationserver.config.security.converter;
 
 import jakarta.servlet.http.HttpServletRequest;
 import mb.oauth2authorizationserver.config.security.CustomPasswordAuthenticationToken;
+import mb.oauth2authorizationserver.constants.ServiceConstants;
 import mb.oauth2authorizationserver.utils.SecurityUtils;
-import org.springframework.lang.Nullable;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
@@ -33,7 +35,7 @@ public class CustomPasswordAuthenticationConverter implements AuthenticationConv
             return null;
         }
 
-        MultiValueMap<String, String> parameters = SecurityUtils.getParameters(request);
+        MultiValueMap<@NonNull String, String> parameters = SecurityUtils.getParameters(request);
 
         // scope (OPTIONAL)
         String scope = parameters.getFirst(OAuth2ParameterNames.SCOPE);
@@ -42,14 +44,14 @@ public class CustomPasswordAuthenticationConverter implements AuthenticationConv
         }
 
         // username (REQUIRED)
-        String username = parameters.getFirst(OAuth2ParameterNames.USERNAME);
-        if (!StringUtils.hasText(username) || parameters.get(OAuth2ParameterNames.USERNAME).size() != 1) {
+        String username = parameters.getFirst(ServiceConstants.USERNAME);
+        if (!StringUtils.hasText(username) || parameters.get(ServiceConstants.USERNAME).size() != 1) {
             throw new OAuth2AuthenticationException(OAuth2ErrorCodes.INVALID_REQUEST);
         }
 
         // password (REQUIRED)
-        String password = parameters.getFirst(OAuth2ParameterNames.PASSWORD);
-        if (!StringUtils.hasText(password) || parameters.get(OAuth2ParameterNames.PASSWORD).size() != 1) {
+        String password = parameters.getFirst(ServiceConstants.PASSWORD);
+        if (!StringUtils.hasText(password) || parameters.get(ServiceConstants.PASSWORD).size() != 1) {
             throw new OAuth2AuthenticationException(OAuth2ErrorCodes.INVALID_REQUEST);
         }
 

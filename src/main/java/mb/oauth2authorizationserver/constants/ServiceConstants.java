@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 public final class ServiceConstants {
 
     public static final String USERNAME = "username";
+    public static final String PASSWORD = "password";
     public static final String ERROR = "error";
     public static final String MESSAGE = "message";
     public static final String PATH = "path";

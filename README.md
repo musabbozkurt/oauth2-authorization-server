@@ -1,8 +1,8 @@
-## OAuth2 Authorization Server with Spring Boot 3 and Java 24
+## OAuth2 Authorization Server with Spring Boot 3 and Java 25
 
 #### Prerequisites
 
-- Java 24 should be installed --> `export JAVA_HOME=$(/usr/libexec/java_home -v 24)`
+- Java 25 should be installed --> `export JAVA_HOME=$(/usr/libexec/java_home -v 25)`
 - Maven should be installed
 - Docker should be installed
 - Postman can be installed
@@ -40,6 +40,7 @@
 - Ollama
     - http://localhost:3000/ sign up for an account for local environment
     - Search for `mxbai-embed-large` and download it if it does not exist
+    - Search for `mistral` and download it if it does not exist
     - Search for `deepseek-r1:7b` and download it if it does not exist
 
 #### Debugging Spring Boot Tests in IntelliJ IDEA
@@ -58,7 +59,7 @@
 
 #### How to Run and Test Native Image with GraalVM
 
-- Java 24 GraalVM edition should be installed
+- Java 25 GraalVM edition should be installed
 - Run `docker-compose up -d` command to run necessary services
 - Run `./mvnw -Pnative native:compile` or `./mvnw -Pnative native:compile -DskipTests` command to build the native image
 - Run `./target/oauth2-authorization-server` command to run the native image

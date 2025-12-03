@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 
 /**
- * The following code is a custom authentication failure handler for Spring Security and it should be added to the login.html file
+ * The following code is a custom authentication failure handler for Spring Security, and it should be added to the login.html file
  * <p>
  * <div th:if="${param.error}">
  * <div class="alert alert-danger alert-danger-custom">
