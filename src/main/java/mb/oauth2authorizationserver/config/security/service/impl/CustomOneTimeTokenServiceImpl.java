@@ -1,8 +1,8 @@
 package mb.oauth2authorizationserver.config.security.service.impl;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.lang.NonNull;
-import org.springframework.lang.Nullable;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.authentication.ott.DefaultOneTimeToken;
 import org.springframework.security.authentication.ott.GenerateOneTimeTokenRequest;
 import org.springframework.security.authentication.ott.OneTimeToken;

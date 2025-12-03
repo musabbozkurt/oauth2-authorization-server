@@ -5,7 +5,8 @@ import mb.oauth2authorizationserver.api.response.ApiUserResponse;
 import mb.oauth2authorizationserver.base.BaseUnitTest;
 import mb.oauth2authorizationserver.config.RedisTestConfiguration;
 import mb.oauth2authorizationserver.config.TestSecurityConfig;
-import mb.oauth2authorizationserver.exception.BaseException;
+import mb.oauth2authorizationserver.exception.ErrorResponse;
+import mb.oauth2authorizationserver.exception.LocalizedExceptionResponse;
 import mb.oauth2authorizationserver.exception.OAuth2AuthorizationServerServiceErrorCode;
 import mb.oauth2authorizationserver.mapper.UserMapper;
 import mb.oauth2authorizationserver.service.UserService;
@@ -15,8 +16,9 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -24,6 +26,7 @@ import org.springframework.http.MediaType;
 
 import java.util.Collections;
 
+@AutoConfigureTestRestTemplate
 @TestMethodOrder(OrderAnnotation.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = {TestSecurityConfig.class, RedisTestConfiguration.class})
 class UserControllerIntegrationTests extends BaseUnitTest {
@@ -77,10 +80,11 @@ class UserControllerIntegrationTests extends BaseUnitTest {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        BaseException exception = restTemplate.postForObject("/users/", new HttpEntity<>(apiUserRequest, headers), BaseException.class);
+        // ErrorResponse or LocalizedExceptionResponse can be used here based on the implementation
+        ErrorResponse exception = restTemplate.postForObject("/users/", new HttpEntity<>(apiUserRequest, headers), ErrorResponse.class);
 
         Assertions.assertNotNull(exception);
-        Assertions.assertEquals(OAuth2AuthorizationServerServiceErrorCode.UNEXPECTED_ERROR, exception.getErrorCode());
+        Assertions.assertEquals(OAuth2AuthorizationServerServiceErrorCode.UNEXPECTED_ERROR.getCode(), exception.getErrorCode());
     }
 
     @Test
@@ -97,10 +101,10 @@ class UserControllerIntegrationTests extends BaseUnitTest {
     @Test
     @Order(value = 6)
     void testGetUserById_ShouldFail_WhenUserIsNotFound() {
-        BaseException exception = restTemplate.getForObject("/users/0", BaseException.class);
+        LocalizedExceptionResponse exception = restTemplate.getForObject("/users/0", LocalizedExceptionResponse.class);
 
         Assertions.assertNotNull(exception);
-        Assertions.assertEquals(OAuth2AuthorizationServerServiceErrorCode.USER_NOT_FOUND, exception.getErrorCode());
+        Assertions.assertEquals(OAuth2AuthorizationServerServiceErrorCode.USER_NOT_FOUND.getCode(), exception.getErrorCode());
     }
 
     @Test
@@ -123,10 +127,10 @@ class UserControllerIntegrationTests extends BaseUnitTest {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        BaseException exception = restTemplate.exchange("/users/0", HttpMethod.PUT, new HttpEntity<>(apiUserRequest, headers), BaseException.class).getBody();
+        LocalizedExceptionResponse exception = restTemplate.exchange("/users/0", HttpMethod.PUT, new HttpEntity<>(apiUserRequest, headers), LocalizedExceptionResponse.class).getBody();
 
         Assertions.assertNotNull(exception);
-        Assertions.assertEquals(OAuth2AuthorizationServerServiceErrorCode.USER_NOT_FOUND, exception.getErrorCode());
+        Assertions.assertEquals(OAuth2AuthorizationServerServiceErrorCode.USER_NOT_FOUND.getCode(), exception.getErrorCode());
     }
 
     @Test
@@ -140,9 +144,9 @@ class UserControllerIntegrationTests extends BaseUnitTest {
     @Test
     @Order(value = 10)
     void testDeleteUserById_ShouldFail_WhenUserIsNotFound() {
-        BaseException exception = restTemplate.exchange("/users/0", HttpMethod.DELETE, null, BaseException.class).getBody();
+        LocalizedExceptionResponse exception = restTemplate.exchange("/users/0", HttpMethod.DELETE, null, LocalizedExceptionResponse.class).getBody();
 
         Assertions.assertNotNull(exception);
-        Assertions.assertEquals(OAuth2AuthorizationServerServiceErrorCode.USER_NOT_FOUND, exception.getErrorCode());
+        Assertions.assertEquals(OAuth2AuthorizationServerServiceErrorCode.USER_NOT_FOUND.getCode(), exception.getErrorCode());
     }
 }

@@ -1,6 +1,5 @@
 package mb.oauth2authorizationserver.config.security;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.JWKSource;
@@ -23,6 +22,7 @@ import mb.oauth2authorizationserver.config.security.service.impl.UserDetailsMana
 import mb.oauth2authorizationserver.data.repository.AuthorizationRepository;
 import mb.oauth2authorizationserver.data.repository.UserRepository;
 import mb.oauth2authorizationserver.utils.SecurityUtils;
+import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -44,7 +44,9 @@ import org.springframework.security.authentication.event.AuthenticationSuccessEv
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.config.ldap.LdapBindAuthenticationManagerFactory;
 import org.springframework.security.core.Authentication;
@@ -65,8 +67,6 @@ import org.springframework.security.oauth2.server.authorization.OAuth2Authorizat
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
-import org.springframework.security.oauth2.server.authorization.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
-import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.oauth2.server.authorization.token.DelegatingOAuth2TokenGenerator;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
@@ -84,6 +84,7 @@ import org.springframework.security.web.servlet.util.matcher.PathPatternRequestM
 import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.session.security.web.authentication.SpringSessionRememberMeServices;
 import org.thymeleaf.extras.springsecurity6.dialect.SpringSecurityDialect;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -123,9 +124,9 @@ public class SecurityConfig {
     @Order(1)
     public SecurityFilterChain asSecurityFilterChain(HttpSecurity httpSecurity,
                                                      ObjectMapper objectMapper,
-                                                     @Qualifier("customAccessDeniedHandler") AccessDeniedHandler accessDeniedHandler) throws Exception {
-        OAuth2AuthorizationServerConfigurer authorizationServerConfigurer = OAuth2AuthorizationServerConfigurer.authorizationServer();
+                                                     @Qualifier("customAccessDeniedHandler") AccessDeniedHandler accessDeniedHandler) {
         OAuth2AuthorizationService oAuth2AuthorizationService = new OAuth2AuthorizationServiceImpl(authorizationRepository, authorizationBuilderService);
+        OAuth2AuthorizationServerConfigurer authorizationServerConfigurer = new OAuth2AuthorizationServerConfigurer();
 
         httpSecurity
                 .securityMatcher(authorizationServerConfigurer.getEndpointsMatcher())
@@ -166,7 +167,7 @@ public class SecurityConfig {
     @Order(2)
     public SecurityFilterChain appSecurityFilterChain(HttpSecurity http,
                                                       CustomOneTimeTokenServiceImpl customOneTimeTokenService,
-                                                      OneTimeTokenSuccessHandlerImpl oneTimeTokenSuccessHandler) throws Exception {
+                                                      OneTimeTokenSuccessHandlerImpl oneTimeTokenSuccessHandler) {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(requests -> requests
@@ -195,7 +196,7 @@ public class SecurityConfig {
      */
     public SecurityFilterChain mvcRequestSecurityFilterChain(HttpSecurity http,
                                                              @Qualifier("customSavedRequestAwareAuthenticationSuccessHandler") AuthenticationSuccessHandler customSavedRequestAwareAuthenticationSuccessHandler,
-                                                             CustomSimpleUrlAuthenticationFailureHandler customSimpleUrlAuthenticationFailureHandler) throws Exception {
+                                                             CustomSimpleUrlAuthenticationFailureHandler customSimpleUrlAuthenticationFailureHandler) {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(requests -> requests
@@ -359,12 +360,12 @@ public class SecurityConfig {
     }
 
     @Bean
-    ApplicationListener<AuthenticationSuccessEvent> successEvent() {
+    ApplicationListener<@NonNull AuthenticationSuccessEvent> successEvent() {
         return event -> log.info("Success login AuthenticationClassName: {} - AuthenticationName: {}", event.getAuthentication().getClass().getSimpleName(), event.getAuthentication().getName());
     }
 
     @Bean
-    ApplicationListener<AuthenticationFailureBadCredentialsEvent> failureEvent() {
+    ApplicationListener<@NonNull AuthenticationFailureBadCredentialsEvent> failureEvent() {
         return event -> log.info("Bad credentials login AuthenticationClassName: {} - AuthenticationName: {}", event.getAuthentication().getClass().getSimpleName(), event.getAuthentication().getName());
     }
 
@@ -413,12 +414,12 @@ public class SecurityConfig {
                     private final AuthenticationManager ldapManager = factory.createAuthenticationManager();
 
                     @Override
-                    public Authentication authenticate(Authentication authentication) throws AuthenticationException {
+                    public Authentication authenticate(@NonNull Authentication authentication) throws AuthenticationException {
                         return ldapManager.authenticate(authentication);
                     }
 
                     @Override
-                    public boolean supports(Class<?> authentication) {
+                    public boolean supports(@NonNull Class<?> authentication) {
                         return UsernamePasswordAuthenticationToken.class.isAssignableFrom(authentication);
                     }
                 };
