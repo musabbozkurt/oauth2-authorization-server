@@ -1,7 +1,7 @@
 package mb.oauth2authorizationserver.config;
 
-import org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy;
 import org.hibernate.boot.model.naming.Identifier;
+import org.hibernate.boot.model.naming.PhysicalNamingStrategySnakeCaseImpl;
 import org.hibernate.engine.jdbc.env.spi.JdbcEnvironment;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Primary;
@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 
 @Primary
 @Component
-public class CustomPhysicalNamingStrategy extends CamelCaseToUnderscoresNamingStrategy {
+public class CustomPhysicalNamingStrategy extends PhysicalNamingStrategySnakeCaseImpl {
 
     @Value("${environment-namespace}")
     private String environmentNamespace;

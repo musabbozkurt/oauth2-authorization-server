@@ -3,7 +3,8 @@ package mb.oauth2authorizationserver.config.security.converter;
 import jakarta.servlet.http.HttpServletRequest;
 import mb.oauth2authorizationserver.config.security.JwtBearerGrantAuthenticationToken;
 import mb.oauth2authorizationserver.utils.SecurityUtils;
-import org.springframework.lang.Nullable;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
@@ -32,7 +33,7 @@ public final class JwtBearerGrantAuthenticationConverter implements Authenticati
             return null;
         }
 
-        MultiValueMap<String, String> parameters = SecurityUtils.getParameters(request);
+        MultiValueMap<@NonNull String, String> parameters = SecurityUtils.getParameters(request);
 
         // assertion (REQUIRED)
         String assertion = parameters.getFirst(OAuth2ParameterNames.ASSERTION);

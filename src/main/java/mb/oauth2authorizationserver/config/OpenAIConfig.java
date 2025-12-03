@@ -32,12 +32,12 @@ public class OpenAIConfig {
     @Bean
     public ChatClient vectorStoreChatClient(OpenAiChatModel chatModel, VectorStore vectorStore) {
         return ChatClient.builder(chatModel)
-                .defaultAdvisors(new QuestionAnswerAdvisor(vectorStore))
+                .defaultAdvisors(QuestionAnswerAdvisor.builder(vectorStore).build())
                 .build();
     }
 
     @Bean
     public EmbeddingModel embeddingModel() {
-        return OllamaEmbeddingModel.builder().ollamaApi(new OllamaApi()).build();
+        return OllamaEmbeddingModel.builder().ollamaApi(OllamaApi.builder().build()).build();
     }
 }
