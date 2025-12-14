@@ -17,7 +17,10 @@ public class LldapTestConfiguration {
     private static final LLdapContainer lldapContainer;
 
     static {
-        lldapContainer = new LLdapContainer(DockerImageName.parse("lldap/lldap:v0.6.1-alpine")).withReuse(true);
+        lldapContainer = new LLdapContainer(DockerImageName.parse("lldap/lldap:2025-12-12"))
+                .withEnv("LLDAP_JWT_SECRET", "superSecretJwtTokenForTestingPurposesOnly123")
+                .withEnv("LLDAP_LDAP_USER_PASS", "password")
+                .withReuse(true);
         lldapContainer.start();
 
         assertThat(lldapContainer.isRunning()).isTrue();
@@ -30,7 +33,7 @@ public class LldapTestConfiguration {
         public void initialize(ConfigurableApplicationContext applicationContext) {
             TestPropertyValues values = TestPropertyValues.of(
                     "spring.ldap.urls=ldap://%s:%d".formatted(lldapContainer.getHost(), lldapContainer.getMappedPort(3890)),
-                    "spring.ldap.password=password",
+                    "spring.ldap.password=%s".formatted(lldapContainer.getPassword()),
                     "spring.ldap.user-dn=uid=admin,ou=people,dc=example,dc=com",
                     "spring.ldap.user-search-base=ou=people,dc=example,dc=com",
                     "spring.ldap.user-search-filter=(cn={0})"

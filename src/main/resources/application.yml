@@ -90,3 +90,15 @@ minio:
   accessKey: ${MINIO_ACCESS_KEY:minio-admin}
   secretKey: ${MINIO_SECRET_KEY:minio-password}
   bucket: mb-bucket
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, loggers, prometheus
+  tracing:
+    sampling:
+      probability: 1.0
+    export:
+      zipkin:
+        endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
