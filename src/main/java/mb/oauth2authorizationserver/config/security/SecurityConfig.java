@@ -31,6 +31,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.MediaType;
 import org.springframework.ldap.core.LdapTemplate;
 import org.springframework.ldap.core.support.BaseLdapPathContextSource;
 import org.springframework.ldap.core.support.LdapContextSource;
@@ -82,6 +83,7 @@ import org.springframework.security.web.authentication.AuthenticationSuccessHand
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
+import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
 import org.springframework.session.security.web.authentication.SpringSessionRememberMeServices;
 import org.thymeleaf.extras.springsecurity6.dialect.SpringSecurityDialect;
 import tools.jackson.databind.ObjectMapper;
@@ -167,7 +169,9 @@ public class SecurityConfig {
     @Order(2)
     public SecurityFilterChain appSecurityFilterChain(HttpSecurity http,
                                                       CustomOneTimeTokenServiceImpl customOneTimeTokenService,
-                                                      OneTimeTokenSuccessHandlerImpl oneTimeTokenSuccessHandler) {
+                                                      OneTimeTokenSuccessHandlerImpl oneTimeTokenSuccessHandler,
+                                                      ObjectMapper objectMapper,
+                                                      @Qualifier("customAccessDeniedHandler") AccessDeniedHandler accessDeniedHandler) {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(requests -> requests
@@ -178,6 +182,13 @@ public class SecurityConfig {
                 .formLogin(formLogin -> formLogin
                         .loginPage(LOGIN_FORM_URL)
                         .permitAll())
+                .exceptionHandling(exception -> exception
+                        .defaultAuthenticationEntryPointFor(new AuthExceptionEntryPoint(objectMapper), new MediaTypeRequestMatcher(MediaType.APPLICATION_JSON))
+                        .authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint(LOGIN_FORM_URL)))
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .authenticationEntryPoint(new AuthExceptionEntryPoint(objectMapper))
+                        .accessDeniedHandler(accessDeniedHandler)
+                        .jwt(Customizer.withDefaults()))
                 .oneTimeTokenLogin(oneTimeTokenLogin -> oneTimeTokenLogin
                         .loginPage(LOGIN_FORM_URL)
                         .tokenGenerationSuccessHandler(oneTimeTokenSuccessHandler)

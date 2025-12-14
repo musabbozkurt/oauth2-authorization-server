@@ -57,6 +57,15 @@
 5. The test will pause until you connect your debugger. Once connected, you can use breakpoints and step through your
    code.
 
+#### How to Run and Test with CDC(Class Data Sharing)
+
+- Java 25+ should be installed
+- Run `./mvnw clean install` or`./mvnw clean install -Paot` or `./mvnw -Paot package` command to build the application
+  with AOT
+- Run `docker-compose up -d` command to run necessary services
+- Run `docker build -t oauth2-authorization-server -f DockerfileForAOTCache .` command to build the image
+- Run `docker run -d --restart=always -p 9000:9000 oauth2-authorization-server:latest` command to run the image
+
 #### How to Run and Test Native Image with GraalVM
 
 - Java 25 GraalVM edition should be installed
@@ -103,8 +112,13 @@
 - [Spring Boot 3 Tutorial Security OAuth2 Spring Authorization Server Save login data to a database](https://www.youtube.com/watch?v=rVAqh-VDw2o)
 - [Spring Boot LDAP Authentication from scratch with Spring Security and LDAP Server](https://www.youtube.com/watch?v=figTvA-MAZA)
 - [BCryptPasswordEncoderTests](https://github.com/spring-projects/spring-security/blob/main/crypto/src/test/java/org/springframework/security/crypto/bcrypt/BCryptPasswordEncoderTests.java)
+- [Efficient Containers with Spring Boot 3, Java 21 and CDS (SpringOne 2024)](https://www.youtube.com/watch?v=h5tL8DCOjLI)
+    - https://medium.com/ekino-france/a-comprehensive-guide-to-using-class-data-sharing-cds-with-spring-boot-1ee8e6e9b2a6
+    - https://bell-sw.com/blog/how-to-use-cds-with-spring-boot-applications/
+    - ![Comparing_GraalVM_CRaC_CDC.png](docs/Comparing_GraalVM_CRaC_CDC.png)
 - [Getting started with Spring Boot AOT + GraalVM Native Images](https://www.youtube.com/watch?v=FjRBHKUP-NA)
     - ![Spring_Boot_AOT_and_GraalVM_Native_Images.png](docs/Spring_Boot_AOT_and_GraalVM_Native_Images.png)
+    - [Master Spring Data AOT in IntelliJ IDEA](https://blog.jetbrains.com/idea/2025/11/spring-data-aot/)
 - [Welcome, GraalVM for JDK 24!🚀](https://medium.com/graalvm/welcome-graalvm-for-jdk-24-7c829fe98ea1)
 - [A vulnerability scanner for container images and filesystems Grype](https://github.com/anchore/grype)
 - [Introduction to Project CRaC: Enhancing Runtime Efficiency in Java & Spring Development](https://www.youtube.com/watch?v=sVXUx_Y4hRU)
