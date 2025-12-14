@@ -59,7 +59,7 @@
 
 #### How to Run and Test with CDC(Class Data Sharing)
 
-- Java 21+ should be installed
+- Java 25+ should be installed
 - Run `docker-compose up -d` command to run necessary services
 - Run `docker build -t oauth2-authorization-server -f DockerfileForAOTCache .` command to build the image
 - Run `docker run -d --restart=always -p 9000:9000 oauth2-authorization-server:latest` command to run the image
