@@ -1,4 +1,4 @@
-FROM bellsoft/liberica-runtime-container:jdk-24-stream-musl as builder
+FROM bellsoft/liberica-runtime-container:jdk-25-stream-musl as builder
 
 WORKDIR /home/projects/oauth2-authorization-server
 COPY . /home/projects/oauth2-authorization-server
@@ -6,14 +6,14 @@ COPY . /home/projects/oauth2-authorization-server
 # Download dependencies (this layer will be cached if pom.xml doesn't change)
 RUN --mount=type=cache,target=/root/.m2 ./mvnw -f /home/projects/oauth2-authorization-server/pom.xml clean package -DskipTests
 
-FROM bellsoft/liberica-runtime-container:jdk-24-cds-slim-musl as optimizer
+FROM bellsoft/liberica-runtime-container:jdk-25-cds-slim-musl as optimizer
 
 WORKDIR /oauth2-authorization-server
 COPY --from=builder /home/projects/oauth2-authorization-server/target/*.jar app.jar
 
 RUN java -Djarmode=tools -jar app.jar extract --layers --destination extracted
 
-FROM bellsoft/liberica-runtime-container:jdk-24-cds-slim-musl
+FROM bellsoft/liberica-runtime-container:jdk-25-cds-slim-musl
 
 WORKDIR /oauth2-authorization-server
 
