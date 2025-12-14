@@ -10,7 +10,7 @@ import org.testcontainers.utility.DockerImageName;
 @TestConfiguration
 public class MinioTestConfiguration {
 
-    private static final MinIOContainer minio = new MinIOContainer(DockerImageName.parse("minio/minio:RELEASE.2025-07-23T15-54-02Z-cpuv1"))
+    private static final MinIOContainer minio = new MinIOContainer(DockerImageName.parse("minio/minio:RELEASE.2025-09-07T16-13-09Z"))
             .withEnv("MINIO_ACCESS_KEY", "minio-admin")
             .withEnv("MINIO_SECRET_KEY", "minio-password")
             .withCommand("server /data")

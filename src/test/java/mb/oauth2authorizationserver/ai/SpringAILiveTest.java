@@ -2,6 +2,7 @@ package mb.oauth2authorizationserver.ai;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import mb.oauth2authorizationserver.config.RedisTestConfiguration;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -81,12 +82,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  * }</pre>
  * </p>
  */
-@SpringBootTest
 @Disabled("For local testing only")
+@SpringBootTest(classes = RedisTestConfiguration.class)
 class SpringAILiveTest {
 
     @ServiceConnection
-    private static final OllamaContainer ollamaContainer = new OllamaContainer("ollama/ollama:0.5.13")
+    private static final OllamaContainer ollamaContainer = new OllamaContainer("ollama/ollama:0.13.3")
             .withReuse(true);
 
     private static final ChatMemory chatMemory = MessageWindowChatMemory.builder().chatMemoryRepository(new InMemoryChatMemoryRepository()).build();

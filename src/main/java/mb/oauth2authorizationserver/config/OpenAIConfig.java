@@ -10,6 +10,7 @@ import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 @Configuration
 public class OpenAIConfig {
@@ -37,6 +38,7 @@ public class OpenAIConfig {
     }
 
     @Bean
+    @Primary
     public EmbeddingModel embeddingModel() {
         return OllamaEmbeddingModel.builder().ollamaApi(OllamaApi.builder().build()).build();
     }
