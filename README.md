@@ -60,6 +60,8 @@
 #### How to Run and Test with CDC(Class Data Sharing)
 
 - Java 25+ should be installed
+- Run `./mvnw clean install` or`./mvnw clean install -Paot` or `./mvnw -Paot package` command to build the application
+  with AOT
 - Run `docker-compose up -d` command to run necessary services
 - Run `docker build -t oauth2-authorization-server -f DockerfileForAOTCache .` command to build the image
 - Run `docker run -d --restart=always -p 9000:9000 oauth2-authorization-server:latest` command to run the image
@@ -116,6 +118,7 @@
     - ![Comparing_GraalVM_CRaC_CDC.png](docs/Comparing_GraalVM_CRaC_CDC.png)
 - [Getting started with Spring Boot AOT + GraalVM Native Images](https://www.youtube.com/watch?v=FjRBHKUP-NA)
     - ![Spring_Boot_AOT_and_GraalVM_Native_Images.png](docs/Spring_Boot_AOT_and_GraalVM_Native_Images.png)
+    - [Master Spring Data AOT in IntelliJ IDEA](https://blog.jetbrains.com/idea/2025/11/spring-data-aot/)
 - [Welcome, GraalVM for JDK 24!🚀](https://medium.com/graalvm/welcome-graalvm-for-jdk-24-7c829fe98ea1)
 - [A vulnerability scanner for container images and filesystems Grype](https://github.com/anchore/grype)
 - [Introduction to Project CRaC: Enhancing Runtime Efficiency in Java & Spring Development](https://www.youtube.com/watch?v=sVXUx_Y4hRU)
