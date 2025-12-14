@@ -17,7 +17,7 @@ import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
-public class DataCompressionUtils {
+public final class DataCompressionUtils {
 
     private static final int BUFFER_SIZE = 8192;
     private static final String DELIMITER = ",";
@@ -38,7 +38,7 @@ public class DataCompressionUtils {
             }
 
             return Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray());
-        } catch (Exception e) {
+        } catch (Exception _) {
             throw new BaseException(OAuth2AuthorizationServerServiceErrorCode.CAN_NOT_BE_ENCODED);
         }
     }
@@ -64,7 +64,7 @@ public class DataCompressionUtils {
                 String decompressedString = byteArrayOutputStream.toString(StandardCharsets.UTF_8);
                 return decompressedString.isEmpty() ? Set.of() : Set.of(decompressedString.split(DELIMITER));
             }
-        } catch (Exception e) {
+        } catch (Exception _) {
             throw new BaseException(OAuth2AuthorizationServerServiceErrorCode.CAN_NOT_BE_DECODED);
         }
     }

@@ -33,3 +33,6 @@ build/
 .vscode/
 /open-webui-local/
 /ollama-local/
+/keys/jwt.key
+/tmp/
+/.run-stats/

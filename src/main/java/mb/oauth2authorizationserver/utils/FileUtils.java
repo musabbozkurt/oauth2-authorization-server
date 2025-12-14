@@ -29,7 +29,7 @@ public final class FileUtils {
                     .filter(Files::isRegularFile)
                     .filter(path -> path.getFileName().toString().matches(pattern))
                     .findFirst();
-        } catch (Exception e) {
+        } catch (Exception _) {
             throw new BaseException(OAuth2AuthorizationServerServiceErrorCode.UNEXPECTED_ERROR);
         }
     }

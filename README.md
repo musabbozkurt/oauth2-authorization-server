@@ -1,8 +1,8 @@
-## OAuth2 Authorization Server with Spring Boot 3 and Java 24
+## OAuth2 Authorization Server with Spring Boot 4 and Java 25
 
 #### Prerequisites
 
-- Java 24 should be installed --> `export JAVA_HOME=$(/usr/libexec/java_home -v 24)`
+- Java 25 should be installed --> `export JAVA_HOME=$(/usr/libexec/java_home -v 25)`
 - Maven should be installed
 - Docker should be installed
 - Postman can be installed
@@ -40,6 +40,7 @@
 - Ollama
     - http://localhost:3000/ sign up for an account for local environment
     - Search for `mxbai-embed-large` and download it if it does not exist
+    - Search for `mistral` and download it if it does not exist
     - Search for `deepseek-r1:7b` and download it if it does not exist
 
 #### Debugging Spring Boot Tests in IntelliJ IDEA
@@ -65,7 +66,7 @@
 
 #### How to Run and Test Native Image with GraalVM
 
-- Java 24 GraalVM edition should be installed
+- Java 25 GraalVM edition should be installed
 - Run `docker-compose up -d` command to run necessary services
 - Run `./mvnw -Pnative native:compile` or `./mvnw -Pnative native:compile -DskipTests` command to build the native image
 - Run `./target/oauth2-authorization-server` command to run the native image
@@ -107,6 +108,7 @@
 #### References
 
 - [Spring Boot 3 Tutorial Security OAuth2 Spring Authorization Server Save login data to a database](https://www.youtube.com/watch?v=rVAqh-VDw2o)
+- [Spring Boot LDAP Authentication from scratch with Spring Security and LDAP Server](https://www.youtube.com/watch?v=figTvA-MAZA)
 - [BCryptPasswordEncoderTests](https://github.com/spring-projects/spring-security/blob/main/crypto/src/test/java/org/springframework/security/crypto/bcrypt/BCryptPasswordEncoderTests.java)
 - [Efficient Containers with Spring Boot 3, Java 21 and CDS (SpringOne 2024)](https://www.youtube.com/watch?v=h5tL8DCOjLI)
     - https://medium.com/ekino-france/a-comprehensive-guide-to-using-class-data-sharing-cds-with-spring-boot-1ee8e6e9b2a6
@@ -131,3 +133,6 @@
     - ![What_is_Retrieval_Augmented_Generation_(RAG)_What_is_Not_RAG.png](docs/What_is_Retrieval_Augmented_Generation_%28RAG%29_What_is_Not_RAG.png)
 - [Run AI Models Locally: Zero API Keys, Zero Fees with Docker Desktop Model Runner](https://www.youtube.com/watch?v=6E6JFLMHcoQ)
     - [Docker Model Runner](https://docs.docker.com/desktop/features/model-runner/)
+- [A Step-by-Step Guide for Installing and Using AppMap for Java](https://appmap.io/blog/2021/09/07/mapping-java-applications-tutorial/)
+    - [AppMap Maven plugin](https://appmap.io/docs/reference/appmap-maven-plugin)
+    - [AppMap: Free AI Architect IntelliJ Plugin](https://plugins.jetbrains.com/plugin/16701-appmap-free-ai-architect)

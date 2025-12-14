@@ -8,8 +8,8 @@ import org.json.JSONObject;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -41,7 +41,7 @@ class OAuth2AuthenticationFlowIntegrationTest {
 
     private static final String SCOPES = "read openid";
     private static final String REDIRECT_URI = "http://127.0.0.1:8080/login/oauth2/code/client";
-    private static final String EXPECTED_REDIRECTED_URL = "http://localhost/login";
+    private static final String EXPECTED_REDIRECTED_URL = "/login";
     private static final String CLIENT_ID = "client";
     private static final String SECRET_ID = "secret";
     private static final String USER = "User";
@@ -96,9 +96,17 @@ class OAuth2AuthenticationFlowIntegrationTest {
 
     @Test
     void getOAuthAuthorize_ShouldSucceedRedirection_WhenClientIdAndRedirectUriAreValidAndRequireProofKeyIsDisabledInClientSettingsToDisablePKCE() throws Exception {
-        // Arrange
+        // Arrange - Configure client to disable PKCE
+        clientRepository.findByClientId(CLIENT_ID)
+                .ifPresent(client -> {
+                    client.setClientSettings("""
+                            {"@class":"java.util.Collections$UnmodifiableMap","settings.client.require-proof-key":false,"settings.client.require-authorization-consent":false}
+                            """);
+                    clientRepository.save(client);
+                });
+
         // Act
-        MockHttpServletResponse response = mockMvc.perform(MockMvcRequestBuilders.get("/oauth/authorize")
+        MockHttpServletResponse response = mockMvc.perform(MockMvcRequestBuilders.get("/oauth2/authorize")
                         .queryParam("response_type", "code")
                         .queryParam("client_id", CLIENT_ID)
                         .queryParam("redirect_uri", REDIRECT_URI)

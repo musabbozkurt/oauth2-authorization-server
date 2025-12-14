@@ -1,5 +1,7 @@
 package mb.oauth2authorizationserver.exception;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
@@ -23,16 +25,19 @@ public class LocalizedExceptionResponse extends ErrorResponse {
     @Setter(AccessLevel.PACKAGE)
     private static MessageSourceAccessor messages;
 
+    @JsonCreator
+    public LocalizedExceptionResponse(@JsonProperty("errorCode") String errorCode,
+                                      @JsonProperty("message") String message,
+                                      @JsonProperty("params") Collection<?> args) {
+        super(errorCode, StringUtils.isNotBlank(message) ? message : getMessage(errorCode, args), args);
+    }
+
     public LocalizedExceptionResponse(String errorCode) {
         super(errorCode, getMessage(errorCode, EMPTY_LIST));
     }
 
     public LocalizedExceptionResponse(String errorCode, Collection<?> args) {
         super(errorCode, getMessage(errorCode, args), args);
-    }
-
-    public LocalizedExceptionResponse(String errorCode, String message, Collection<?> args) {
-        super(errorCode, StringUtils.isNotBlank(message) ? message : getMessage(errorCode, args), args);
     }
 
     public LocalizedExceptionResponse(String errorCode, String message) {
@@ -55,7 +60,7 @@ public class LocalizedExceptionResponse extends ErrorResponse {
                     .toArray();
 
             return messages.getMessage(String.format(PREFIX, errorCode), argsArray);
-        } catch (Exception ex) {
+        } catch (Exception _) {
             return messages.getMessage(String.format(PREFIX, DEFAULT));
         }
     }

@@ -1,8 +1,5 @@
 package mb.oauth2authorizationserver.mapper;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -11,6 +8,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 import java.security.Principal;
 import java.util.HashMap;
@@ -21,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.any;
@@ -30,11 +29,11 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class CustomObjectMapperTest {
 
-    @Mock
-    private ObjectMapper objectMapper;
-
     @InjectMocks
     private CustomObjectMapper customObjectMapper;
+
+    @Mock
+    private ObjectMapper objectMapper;
 
     private ObjectMapper realObjectMapper;
 
@@ -57,7 +56,7 @@ class CustomObjectMapperTest {
     }
 
     @Test
-    void parseMap_ShouldReturnParsedMap_WhenInputDataIsValidJson() throws JsonProcessingException {
+    void parseMap_ShouldReturnParsedMap_WhenInputDataIsValidJson() {
         // Arrange
         String data = """
                 {
@@ -79,16 +78,13 @@ class CustomObjectMapperTest {
     }
 
     @Test
-    void parseMap_ShouldThrowIllegalArgumentException_WhenInputDataIsInvalidJson() throws JsonProcessingException {
+    void parseMap_ShouldReturnEmptyMap_WhenInputDataIsInvalidJson() {
         // Arrange
         String data = "{invalidJson}";
-        when(objectMapper.readValue(eq(data), any(TypeReference.class))).thenThrow(new JsonProcessingException("Invalid JSON") {
-        });
 
         // Act
         // Assertions
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> customObjectMapper.parseMap(data));
-        assertEquals("Invalid JSON", exception.getMessage());
+        assertEquals(0, customObjectMapper.parseMap(data).size());
     }
 
     @Test
@@ -105,27 +101,24 @@ class CustomObjectMapperTest {
     }
 
     @Test
-    void defaultParseMap_ShouldThrowIllegalArgumentException_WhenExceptionOccursDuringParsing() throws JsonProcessingException {
+    void defaultParseMap_ShouldReturnNull_WhenJsonIsInvalid() {
         // Arrange
         String invalidData = "{ invalidJson }";
-        when(objectMapper.readValue(eq(invalidData), any(TypeReference.class))).thenThrow(new JsonProcessingException("Invalid JSON") {
-        });
 
         // Act
         // Assertions
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> customObjectMapper.defaultParseMap(invalidData));
-        assertEquals("Invalid JSON", exception.getMessage());
+        assertNull(customObjectMapper.defaultParseMap(invalidData));
     }
 
     @Test
-    void parseMap_ShouldMapOAuth2AuthorizationRequest_WhenValidDataIsProvided() throws Exception {
+    void parseMap_ShouldMapOAuth2AuthorizationRequest_WhenValidDataIsProvided() {
         // Arrange
         String data = """
                 {
                   "%s": {
-                    "authorizationUri": "http://auth.com",
+                    "authorizationUri": "https://auth.com",
                     "clientId": "clientId",
-                    "redirectUri": "http://redirect.com",
+                    "redirectUri": "https://redirect.com",
                     "scopes": [
                       "scope1",
                       "scope2"
@@ -138,9 +131,9 @@ class CustomObjectMapperTest {
 
         Map<String, Object> rawMap = new HashMap<>();
         rawMap.put(OAuth2AuthorizationRequest.class.getName(), Map.of(
-                "authorizationUri", "http://auth.com",
+                "authorizationUri", "https://auth.com",
                 "clientId", "clientId",
-                "redirectUri", "http://redirect.com",
+                "redirectUri", "https://redirect.com",
                 "scopes", List.of("scope1", "scope2"),
                 "state", "stateValue",
                 "additionalParameters", new HashMap<>()
@@ -157,7 +150,7 @@ class CustomObjectMapperTest {
     }
 
     @Test
-    void parseMap_ShouldHandlePrincipalMapping_WhenPrincipalDataIsProvided() throws Exception {
+    void parseMap_ShouldHandlePrincipalMapping_WhenPrincipalDataIsProvided() {
         // Arrange
         String data = """
                 {
@@ -181,7 +174,7 @@ class CustomObjectMapperTest {
     }
 
     @Test
-    void defaultParseMap_ShouldReturnMap_WhenValidDataIsProvided() throws JsonProcessingException {
+    void defaultParseMap_ShouldReturnMap_WhenValidDataIsProvided() {
         // Arrange
         String data = """
                 {
@@ -203,7 +196,7 @@ class CustomObjectMapperTest {
     }
 
     @Test
-    void writeMap_ShouldReturnJsonString_WhenInputMapIsValid() throws JsonProcessingException {
+    void writeMap_ShouldReturnJsonString_WhenInputMapIsValid() {
         // Arrange
         Map<String, Object> data = Map.of("key1", "value1");
         String expectedJson = """
@@ -222,7 +215,7 @@ class CustomObjectMapperTest {
     }
 
     @Test
-    void writeMap_ShouldReturnJsonString_WhenInputMapIsValidAndHasMultipleRecords() throws JsonProcessingException {
+    void writeMap_ShouldReturnJsonString_WhenInputMapIsValidAndHasMultipleRecords() {
         // Arrange
         Map<String, Object> data = Map.of("key1", "value1", "key2", 2);
         String expectedJson = """
@@ -248,7 +241,7 @@ class CustomObjectMapperTest {
     }
 
     @Test
-    void writeMap_ShouldReturnNullString_WhenInputMapIsNull() throws JsonProcessingException {
+    void writeMap_ShouldReturnNullString_WhenInputMapIsNull() {
         // Arrange
         Map<String, Object> data = null;
         when(objectMapper.writeValueAsString(null)).thenReturn("null");
@@ -261,15 +254,12 @@ class CustomObjectMapperTest {
     }
 
     @Test
-    void writeMap_ShouldThrowIllegalArgumentException_WhenObjectMapperFails() throws JsonProcessingException {
+    void writeMap_ShouldReturnNull_WhenObjectMapperFails() {
         // Arrange
         Map<String, Object> data = Map.of("key", new Object());
-        when(objectMapper.writeValueAsString(data)).thenThrow(new JsonProcessingException("Serialization error") {
-        });
 
         // Act
         // Assertions
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> customObjectMapper.writeMap(data));
-        assertEquals("Serialization error", exception.getMessage());
+        assertNull(customObjectMapper.writeMap(data));
     }
 }

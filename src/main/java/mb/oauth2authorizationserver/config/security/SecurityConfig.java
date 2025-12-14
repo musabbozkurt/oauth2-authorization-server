@@ -6,34 +6,51 @@ import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import mb.oauth2authorizationserver.config.CustomLdapProperties;
 import mb.oauth2authorizationserver.config.security.builder.AuthorizationBuilderService;
 import mb.oauth2authorizationserver.config.security.converter.CustomPasswordAuthenticationConverter;
 import mb.oauth2authorizationserver.config.security.converter.JwtBearerGrantAuthenticationConverter;
+import mb.oauth2authorizationserver.config.security.handler.CustomSimpleUrlAuthenticationFailureHandler;
 import mb.oauth2authorizationserver.config.security.model.CustomPasswordUser;
 import mb.oauth2authorizationserver.config.security.provider.CustomPasswordAuthenticationProvider;
 import mb.oauth2authorizationserver.config.security.provider.CustomRefreshTokenAuthenticationProvider;
 import mb.oauth2authorizationserver.config.security.provider.JwtBearerGrantAuthenticationProvider;
+import mb.oauth2authorizationserver.config.security.service.impl.CustomOneTimeTokenServiceImpl;
 import mb.oauth2authorizationserver.config.security.service.impl.OAuth2AuthorizationServiceImpl;
+import mb.oauth2authorizationserver.config.security.service.impl.OneTimeTokenSuccessHandlerImpl;
 import mb.oauth2authorizationserver.config.security.service.impl.UserDetailsManagerImpl;
 import mb.oauth2authorizationserver.data.repository.AuthorizationRepository;
 import mb.oauth2authorizationserver.data.repository.UserRepository;
 import mb.oauth2authorizationserver.utils.SecurityUtils;
+import org.jspecify.annotations.NonNull;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.annotation.Order;
+import org.springframework.ldap.core.LdapTemplate;
+import org.springframework.ldap.core.support.BaseLdapPathContextSource;
+import org.springframework.ldap.core.support.LdapContextSource;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.authentication.event.AuthenticationFailureBadCredentialsEvent;
 import org.springframework.security.authentication.event.AuthenticationSuccessEvent;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.config.ldap.LdapBindAuthenticationManagerFactory;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
@@ -50,8 +67,6 @@ import org.springframework.security.oauth2.server.authorization.OAuth2Authorizat
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
-import org.springframework.security.oauth2.server.authorization.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
-import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.oauth2.server.authorization.token.DelegatingOAuth2TokenGenerator;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
@@ -61,12 +76,17 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Refr
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenGenerator;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.AuthenticationConverter;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.session.security.web.authentication.SpringSessionRememberMeServices;
 import org.thymeleaf.extras.springsecurity6.dialect.SpringSecurityDialect;
+import tools.jackson.databind.ObjectMapper;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -80,20 +100,33 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
+    private static final String[] ALLOWED_ENDPOINT_PATTERNS = {
+            "/images/**", "/css/**", "/js/**", "/fonts/**", "/qrcode/**", "/login/**", "/scan/**", "/authenticate/**",
+            "/oauth/token/revokeById/**", "/oauth/token/**", "/oauth2/token/**", "/oauth/check_token/**",
+            "/oauth/authorize/**", "/v3/api-docs/**", "/swagger-resources/**", "/configuration/ui",
+            "/configuration/security", "/swagger-ui/**", "/webjars/**", "/swagger-ui.html", "/oauth2/**", "/error/**",
+            "/actuator/**", "/ott/sent", "/login/ott", "/ott/submit", "/chat/**", "/vector-stores/**", "/mcp/message", "/files/**"
+    };
+    private static final String LOGIN_FORM_URL = "/login";
+    private static final String JSESSIONID = "JSESSIONID";
+    private static final String LOGOUT_URL = "/logout";
     private static final String AUTHORITIES = "authorities";
 
     private final AuthorizationRepository authorizationRepository;
     private final AuthorizationBuilderService authorizationBuilderService;
     private final UserRepository userRepository;
+    private final CustomLdapProperties customLdapProperties;
 
-    @Value(value = "${springdoc.api-docs.path}")
-    private String apiDocsPath;
+    @Value("${jwt.key.path:./keys/jwt.key}")
+    private String jwtKeyPath;
 
     @Bean
     @Order(1)
-    public SecurityFilterChain asSecurityFilterChain(HttpSecurity httpSecurity) throws Exception {
-        OAuth2AuthorizationServerConfigurer authorizationServerConfigurer = OAuth2AuthorizationServerConfigurer.authorizationServer();
+    public SecurityFilterChain asSecurityFilterChain(HttpSecurity httpSecurity,
+                                                     ObjectMapper objectMapper,
+                                                     @Qualifier("customAccessDeniedHandler") AccessDeniedHandler accessDeniedHandler) {
         OAuth2AuthorizationService oAuth2AuthorizationService = new OAuth2AuthorizationServiceImpl(authorizationRepository, authorizationBuilderService);
+        OAuth2AuthorizationServerConfigurer authorizationServerConfigurer = new OAuth2AuthorizationServerConfigurer();
 
         httpSecurity
                 .securityMatcher(authorizationServerConfigurer.getEndpointsMatcher())
@@ -112,8 +145,11 @@ public class SecurityConfig {
                         .maximumSessions(10)
                         .sessionRegistry(sessionRegistry()))
                 .rememberMe(me -> me.rememberMeServices(rememberMeServices()))
-                .oauth2ResourceServer(httpSecurityOAuth2ResourceServerConfigurer -> httpSecurityOAuth2ResourceServerConfigurer.jwt(Customizer.withDefaults()))
-                .exceptionHandling(e -> e.authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")))
+                .oauth2ResourceServer(auth2ResourceServerConfigurer -> {
+                    auth2ResourceServerConfigurer.authenticationEntryPoint(new AuthExceptionEntryPoint(objectMapper));
+                    auth2ResourceServerConfigurer.accessDeniedHandler(accessDeniedHandler);
+                    auth2ResourceServerConfigurer.jwt(Customizer.withDefaults());
+                }).exceptionHandling(e -> e.authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint(LOGIN_FORM_URL)))
                 .getConfigurer(OAuth2AuthorizationServerConfigurer.class)
                 .tokenEndpoint(tokenEndpoint -> tokenEndpoint
                         .accessTokenRequestConverter(new CustomPasswordAuthenticationConverter())
@@ -129,32 +165,67 @@ public class SecurityConfig {
 
     @Bean
     @Order(2)
-    public SecurityFilterChain appSecurityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain appSecurityFilterChain(HttpSecurity http,
+                                                      CustomOneTimeTokenServiceImpl customOneTimeTokenService,
+                                                      OneTimeTokenSuccessHandlerImpl oneTimeTokenSuccessHandler) {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
-                .formLogin(Customizer.withDefaults())
-                .oneTimeTokenLogin(Customizer.withDefaults())
-                .authenticationProvider(daoAuthenticationProvider())
-                .authorizeHttpRequests(authorizationManagerRequestMatcherRegistry -> authorizationManagerRequestMatcherRegistry
-                        .requestMatchers(
-                                "%s/**".formatted(apiDocsPath),
-                                "/swagger-resources/**",
-                                "/configuration/ui",
-                                "/configuration/security",
-                                "/swagger-ui/**",
-                                "/webjars/**",
-                                "/swagger-ui.html",
-                                "/actuator/**",
-                                "/oauth2/**",
-                                "/error/**",
-                                "/ott/sent",
-                                "/login/ott",
-                                "/chat/**",
-                                "/vector-stores/**",
-                                "/mcp/message")
+                .authorizeHttpRequests(requests -> requests
+                        .requestMatchers(ALLOWED_ENDPOINT_PATTERNS)
                         .permitAll()
                         .anyRequest()
                         .authenticated())
+                .formLogin(formLogin -> formLogin
+                        .loginPage(LOGIN_FORM_URL)
+                        .permitAll())
+                .oneTimeTokenLogin(oneTimeTokenLogin -> oneTimeTokenLogin
+                        .loginPage(LOGIN_FORM_URL)
+                        .tokenGenerationSuccessHandler(oneTimeTokenSuccessHandler)
+                        .tokenService(customOneTimeTokenService)
+                        .showDefaultSubmitPage(false)
+                        .permitAll())
+                .authenticationProvider(daoAuthenticationProvider())
+                .build();
+    }
+
+    /**
+     * The following method configures the security filter chain for MVC requests. It should be enabled, if there is login.html page is used for login.
+     * <p>
+     * {@code @Bean}
+     * {@code @Order(3)}
+     */
+    public SecurityFilterChain mvcRequestSecurityFilterChain(HttpSecurity http,
+                                                             @Qualifier("customSavedRequestAwareAuthenticationSuccessHandler") AuthenticationSuccessHandler customSavedRequestAwareAuthenticationSuccessHandler,
+                                                             CustomSimpleUrlAuthenticationFailureHandler customSimpleUrlAuthenticationFailureHandler) {
+        return http
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(requests -> requests
+                        .requestMatchers(ALLOWED_ENDPOINT_PATTERNS)
+                        .permitAll()
+                        .anyRequest()
+                        .authenticated())
+                .sessionManagement(management -> management
+                        .sessionFixation()
+                        .migrateSession()
+                        .sessionCreationPolicy(SessionCreationPolicy.ALWAYS)
+                        .maximumSessions(10)
+                        .sessionRegistry(sessionRegistry()))
+                .rememberMe(me -> me.rememberMeServices(rememberMeServices()))
+                .formLogin(login -> {
+                            login.authenticationDetailsSource(new CustomAuthenticationDetailsSource());
+                            login.loginPage(LOGIN_FORM_URL);
+                            login.successHandler(customSavedRequestAwareAuthenticationSuccessHandler);
+                            login.failureHandler(customSimpleUrlAuthenticationFailureHandler);
+                        }
+                )
+                .logout(logout -> {
+                    logout.logoutRequestMatcher(PathPatternRequestMatcher.withDefaults().matcher(LOGOUT_URL));
+                    logout.logoutSuccessUrl(LOGIN_FORM_URL);
+                    logout.deleteCookies(JSESSIONID);
+                    logout.invalidateHttpSession(true);
+                })
+                .oneTimeTokenLogin(Customizer.withDefaults())
+                .authenticationProvider(daoAuthenticationProvider())
                 .build();
     }
 
@@ -210,8 +281,7 @@ public class SecurityConfig {
      */
     @Bean
     public DaoAuthenticationProvider daoAuthenticationProvider() {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        provider.setUserDetailsService(userDetailsService());
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService());
         provider.setPasswordEncoder(passwordEncoder());
         return provider;
     }
@@ -284,19 +354,82 @@ public class SecurityConfig {
 
     @Bean
     public JWKSource<SecurityContext> jwkSource() {
-        RSAKey rsaKey = SecurityUtils.generateRsa();
+        RSAKey rsaKey = SecurityUtils.loadOrGenerateRsa(jwtKeyPath);
         JWKSet jwkSet = new JWKSet(rsaKey);
         return (jwkSelector, _) -> jwkSelector.select(jwkSet);
     }
 
     @Bean
-    ApplicationListener<AuthenticationSuccessEvent> successEvent() {
+    ApplicationListener<@NonNull AuthenticationSuccessEvent> successEvent() {
         return event -> log.info("Success login AuthenticationClassName: {} - AuthenticationName: {}", event.getAuthentication().getClass().getSimpleName(), event.getAuthentication().getName());
     }
 
     @Bean
-    ApplicationListener<AuthenticationFailureBadCredentialsEvent> failureEvent() {
+    ApplicationListener<@NonNull AuthenticationFailureBadCredentialsEvent> failureEvent() {
         return event -> log.info("Bad credentials login AuthenticationClassName: {} - AuthenticationName: {}", event.getAuthentication().getClass().getSimpleName(), event.getAuthentication().getName());
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = {"spring.ldap.urls", "spring.ldap.password", "spring.ldap.user-dn", "spring.ldap.user-search-base", "spring.ldap.user-search-filter"})
+    public LdapTemplate ldapTemplate() {
+        return new LdapTemplate(contextSource());
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = {"spring.ldap.urls", "spring.ldap.password", "spring.ldap.user-dn", "spring.ldap.user-search-base", "spring.ldap.user-search-filter"})
+    public LdapContextSource contextSource() {
+        LdapContextSource ldapContextSource = new LdapContextSource();
+        ldapContextSource.setUrl(customLdapProperties.getUrls()[0]);
+        ldapContextSource.setUserDn(customLdapProperties.getUserDn());
+        ldapContextSource.setPassword(customLdapProperties.getPassword());
+        return ldapContextSource;
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = {"spring.ldap.urls", "spring.ldap.password", "spring.ldap.user-dn", "spring.ldap.user-search-base", "spring.ldap.user-search-filter"})
+    public AuthenticationManager ldapAuthenticationManager(BaseLdapPathContextSource source) {
+        LdapBindAuthenticationManagerFactory factory = new LdapBindAuthenticationManagerFactory(source);
+        factory.setUserSearchBase(customLdapProperties.getUserSearchBase());
+        factory.setUserSearchFilter(customLdapProperties.getUserSearchFilter());
+        return factory.createAuthenticationManager();
+    }
+
+    @Bean
+    @Primary
+    public AuthenticationManager authenticationManager() throws Exception {
+        List<AuthenticationProvider> providers = new ArrayList<>();
+
+        // Add DAO authentication provider
+        providers.add(daoAuthenticationProvider());
+
+        // Add LDAP provider if configured
+        if (customLdapProperties.isValid()) {
+            try {
+                LdapBindAuthenticationManagerFactory factory = new LdapBindAuthenticationManagerFactory(contextSource());
+                factory.setUserSearchBase(customLdapProperties.getUserSearchBase());
+                factory.setUserSearchFilter(customLdapProperties.getUserSearchFilter());
+
+                // Create a wrapper provider for LDAP
+                AuthenticationProvider ldapProvider = new AuthenticationProvider() {
+                    private final AuthenticationManager ldapManager = factory.createAuthenticationManager();
+
+                    @Override
+                    public Authentication authenticate(@NonNull Authentication authentication) throws AuthenticationException {
+                        return ldapManager.authenticate(authentication);
+                    }
+
+                    @Override
+                    public boolean supports(@NonNull Class<?> authentication) {
+                        return UsernamePasswordAuthenticationToken.class.isAssignableFrom(authentication);
+                    }
+                };
+                providers.add(ldapProvider);
+            } catch (Exception e) {
+                log.warn("Failed to configure LDAP authentication, using only DAO authentication", e);
+            }
+        }
+
+        return new ProviderManager(providers);
     }
 
     private Consumer<List<AuthenticationProvider>> getProviders() {

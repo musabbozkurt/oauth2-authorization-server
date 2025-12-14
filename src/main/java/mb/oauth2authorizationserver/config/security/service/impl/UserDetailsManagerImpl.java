@@ -34,18 +34,22 @@ public class UserDetailsManagerImpl implements UserDetailsManager {
 
     @Override
     public void createUser(UserDetails user) {
+        // default implementation ignored
     }
 
     @Override
     public void updateUser(UserDetails user) {
+        // default implementation ignored
     }
 
     @Override
     public void deleteUser(String username) {
+        // default implementation ignored
     }
 
     @Override
     public void changePassword(String oldPassword, String newPassword) {
+        // default implementation ignored
     }
 
     @Override

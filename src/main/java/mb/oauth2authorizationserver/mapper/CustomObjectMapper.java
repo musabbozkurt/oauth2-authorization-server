@@ -1,7 +1,5 @@
 package mb.oauth2authorizationserver.mapper;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -9,6 +7,8 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 import java.security.Principal;
 import java.time.Instant;
@@ -18,6 +18,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Slf4j
 @Component
@@ -33,6 +34,10 @@ public class CustomObjectMapper {
         try {
             Map<String, Object> rawMap = objectMapper.readValue(data, new TypeReference<>() {
             });
+
+            if (Objects.isNull(rawMap)) {
+                return Map.of();
+            }
 
             Map<String, Object> result = new LinkedHashMap<>();
 
