@@ -81,6 +81,7 @@ import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.AuthenticationConverter;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.header.writers.XXssProtectionHeaderWriter;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
@@ -122,6 +123,55 @@ public class SecurityConfig {
     @Value("${jwt.key.path:./keys/jwt.key}")
     private String jwtKeyPath;
 
+    /**
+     * Configures the OAuth2 Authorization Server security filter chain with browser-level XSS protection headers.
+     *
+     * <h2>XSS Protection Headers</h2>
+     * <p>This method configures HTTP security headers to help prevent XSS attacks at the browser level:</p>
+     *
+     * <h3>X-XSS-Protection Header</h3>
+     * <p>Sets {@code X-XSS-Protection: 1; mode=block} which tells browsers to:</p>
+     * <ul>
+     *   <li>Enable their built-in XSS filter</li>
+     *   <li>Block the page entirely (rather than sanitize) if an attack is detected</li>
+     * </ul>
+     * <p><em>Note: This header is deprecated in modern browsers and largely ignored.
+     * Chrome removed support in 2019.</em></p>
+     *
+     * <h3>Content-Security-Policy Header</h3>
+     * <p>Sets {@code Content-Security-Policy: script-src 'self'} which:</p>
+     * <ul>
+     *   <li>Only allows JavaScript from your own domain to execute</li>
+     *   <li>Blocks inline scripts and scripts from external domains</li>
+     *   <li>Prevents injected {@code <script>} tags from running</li>
+     * </ul>
+     *
+     * <h2>Relationship to XssFilter</h2>
+     * <table border="1">
+     *   <caption>Defense Layers</caption>
+     *   <tr><th>Layer</th><th>Protection</th></tr>
+     *   <tr><td>{@link mb.oauth2authorizationserver.api.filter.XssFilter}</td>
+     *       <td>Sanitizes input before it reaches your application</td></tr>
+     *   <tr><td>Security Headers</td>
+     *       <td>Tells browsers to block malicious scripts from executing</td></tr>
+     * </table>
+     *
+     * <p>These are complementary defenses:</p>
+     * <ul>
+     *   <li>The filter prevents malicious data from being stored</li>
+     *   <li>The headers prevent execution if malicious content somehow gets rendered</li>
+     * </ul>
+     *
+     * <p>Both should be kept for defense-in-depth, though {@code XssFilter} provides the primary
+     * protection since {@code X-XSS-Protection} is deprecated.</p>
+     *
+     * @param httpSecurity        the {@link HttpSecurity} to configure
+     * @param objectMapper        the {@link ObjectMapper} for JSON serialization
+     * @param accessDeniedHandler the custom {@link AccessDeniedHandler} for access denied responses
+     * @return the configured {@link SecurityFilterChain}
+     * @see mb.oauth2authorizationserver.api.filter.XssFilter
+     * @see <a href="https://www.baeldung.com/spring-prevent-xss">Spring Prevent XSS</a>
+     */
     @Bean
     @Order(1)
     public SecurityFilterChain asSecurityFilterChain(HttpSecurity httpSecurity,
@@ -138,6 +188,11 @@ public class SecurityConfig {
                 .oidc(Customizer.withDefaults()); // Enable OpenID Connect 1.0
 
         httpSecurity
+                .headers(headers ->
+                        headers
+                                .xssProtection(xss -> xss.headerValue(XXssProtectionHeaderWriter.HeaderValue.ENABLED_MODE_BLOCK))
+                                .contentSecurityPolicy(cps -> cps.policyDirectives("script-src 'self'"))
+                )
                 .cors(AbstractHttpConfigurer::disable)
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(management -> management
