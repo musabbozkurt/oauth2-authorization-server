@@ -1,5 +1,6 @@
 package mb.oauth2authorizationserver.config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.util.TestPropertyValues;
 import org.springframework.context.ApplicationContextInitializer;
@@ -7,6 +8,9 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.testcontainers.containers.MinIOContainer;
 import org.testcontainers.utility.DockerImageName;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
+@Slf4j
 @TestConfiguration
 public class MinioTestConfiguration {
 
@@ -19,6 +23,18 @@ public class MinioTestConfiguration {
 
     static {
         minio.start();
+
+        assertThat(minio.isRunning()).isTrue();
+        assertThat(minio.getMappedPort(9000)).isGreaterThan(0);
+
+        // Register shutdown hook to stop the container when the JVM exits
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            if (minio.isRunning()) {
+                log.info("Stopping LLDAP container.");
+                minio.stop();
+                log.info("LLDAP container stopped.");
+            }
+        }));
     }
 
     public static class Initializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {

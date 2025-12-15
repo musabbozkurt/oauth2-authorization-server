@@ -25,6 +25,15 @@ public class LldapTestConfiguration {
 
         assertThat(lldapContainer.isRunning()).isTrue();
         assertThat(lldapContainer.getMappedPort(3890)).isGreaterThan(0);
+
+        // Register shutdown hook to stop the container when the JVM exits
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            if (lldapContainer.isRunning()) {
+                log.info("Stopping LLDAP container.");
+                lldapContainer.stop();
+                log.info("LLDAP container stopped.");
+            }
+        }));
     }
 
     public static class Initializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
