@@ -5,7 +5,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import mb.oauth2authorizationserver.exception.BaseException;
 import mb.oauth2authorizationserver.exception.OAuth2AuthorizationServerServiceErrorCode;
-import org.jspecify.annotations.NonNull;
 import org.springframework.security.authentication.ott.OneTimeToken;
 import org.springframework.security.web.authentication.ott.OneTimeTokenGenerationSuccessHandler;
 import org.springframework.security.web.util.UrlUtils;
@@ -23,7 +22,7 @@ public class OneTimeTokenSuccessHandlerImpl implements OneTimeTokenGenerationSuc
     private final FlashMapManager flashMapManager = new SessionFlashMapManager();
 
     @Override
-    public void handle(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, OneTimeToken oneTimeToken) {
+    public void handle(HttpServletRequest request, HttpServletResponse response, OneTimeToken oneTimeToken) {
         UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(UrlUtils.buildFullRequestUrl(request))
                 .replacePath(request.getContextPath())
                 .replaceQuery(null)

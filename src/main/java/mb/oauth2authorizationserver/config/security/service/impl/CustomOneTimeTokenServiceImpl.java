@@ -1,7 +1,6 @@
 package mb.oauth2authorizationserver.config.security.service.impl;
 
 import lombok.extern.slf4j.Slf4j;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.springframework.security.authentication.ott.DefaultOneTimeToken;
 import org.springframework.security.authentication.ott.GenerateOneTimeTokenRequest;
@@ -24,7 +23,6 @@ public class CustomOneTimeTokenServiceImpl implements OneTimeTokenService {
     private final Map<String, OneTimeToken> oneTimeTokens = new ConcurrentHashMap<>();
     private final Clock clock = Clock.systemUTC();
 
-    @NonNull
     @Override
     public OneTimeToken generate(GenerateOneTimeTokenRequest request) {
         String token = UUID.randomUUID().toString();
