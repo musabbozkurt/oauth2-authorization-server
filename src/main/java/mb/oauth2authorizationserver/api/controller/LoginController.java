@@ -31,6 +31,16 @@ public class LoginController {
         return "ott/sent";
     }
 
+    @GetMapping("/success")
+    public String success() {
+        return "ott/success";
+    }
+
+    @GetMapping("/dashboard")
+    public String dashboard() {
+        return "index";
+    }
+
     @GetMapping("/ott/submit")
     public String submit(Model model, @RequestParam("token") String token) {
         log.info("Received request to submit token: {}", token);
@@ -48,7 +58,7 @@ public class LoginController {
     public void logout(HttpServletRequest request, HttpServletResponse response) {
         securityService.logout();
 
-        new SecurityContextLogoutHandler().logout(request, null, null);
+        new SecurityContextLogoutHandler().logout(request, response, null);
         try {
             response.sendRedirect(request.getHeader("referer"));
         } catch (IOException e) {

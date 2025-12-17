@@ -9,6 +9,7 @@ import mb.oauth2authorizationserver.constants.ServiceConstants;
 import mb.oauth2authorizationserver.utils.ClientUtils;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.jspecify.annotations.NonNull;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -21,9 +22,9 @@ import java.io.IOException;
 public class ClientCookieFilter extends OncePerRequestFilter {
 
     @Override
-    protected void doFilterInternal(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse, FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(@NonNull HttpServletRequest httpServletRequest, @NonNull HttpServletResponse httpServletResponse, @NonNull FilterChain filterChain) throws ServletException, IOException {
         if (StringUtils.isBlank(ClientUtils.getDeviceId(httpServletRequest))) {
-            Cookie sessionCookie = new Cookie(ServiceConstants.CLIENT_DEVICE_COOKIE_NAME, RandomStringUtils.secure().next(10));
+            Cookie sessionCookie = new Cookie(ServiceConstants.CLIENT_DEVICE_COOKIE_NAME, RandomStringUtils.secure().nextAlphanumeric(10));
             sessionCookie.setSecure(true);
             sessionCookie.setPath("/");
             sessionCookie.setHttpOnly(true);

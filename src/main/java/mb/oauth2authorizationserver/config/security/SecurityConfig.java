@@ -42,17 +42,20 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.authentication.event.AuthenticationFailureBadCredentialsEvent;
 import org.springframework.security.authentication.event.AuthenticationSuccessEvent;
+import org.springframework.security.authorization.AuthorizationManagerFactories;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.config.ldap.LdapBindAuthenticationManagerFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.FactorGrantedAuthority;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -227,15 +230,19 @@ public class SecurityConfig {
                                                       OneTimeTokenSuccessHandlerImpl oneTimeTokenSuccessHandler,
                                                       ObjectMapper objectMapper,
                                                       @Qualifier("customAccessDeniedHandler") AccessDeniedHandler accessDeniedHandler) {
+        var mfa = AuthorizationManagerFactories.multiFactor().requireFactors(FactorGrantedAuthority.PASSWORD_AUTHORITY, FactorGrantedAuthority.OTT_AUTHORITY).build();
+
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers(ALLOWED_ENDPOINT_PATTERNS)
                         .permitAll()
+                        .requestMatchers("/dashboard").access(mfa.authenticated())
                         .anyRequest()
                         .authenticated())
                 .formLogin(formLogin -> formLogin
                         .loginPage(LOGIN_FORM_URL)
+                        .successHandler((_, response, _) -> response.sendRedirect("/"))
                         .permitAll())
                 .exceptionHandling(exception -> exception
                         .defaultAuthenticationEntryPointFor(new AuthExceptionEntryPoint(objectMapper), new MediaTypeRequestMatcher(MediaType.APPLICATION_JSON))
@@ -244,12 +251,14 @@ public class SecurityConfig {
                         .authenticationEntryPoint(new AuthExceptionEntryPoint(objectMapper))
                         .accessDeniedHandler(accessDeniedHandler)
                         .jwt(Customizer.withDefaults()))
+                // Not needed for OTT, but keeping session management consistent
+                .headers(httpSecurityHeaders -> httpSecurityHeaders.frameOptions(HeadersConfigurer.FrameOptionsConfig::disable))
+                .logout(Customizer.withDefaults())
                 .oneTimeTokenLogin(oneTimeTokenLogin -> oneTimeTokenLogin
-                        .loginPage(LOGIN_FORM_URL)
                         .tokenGenerationSuccessHandler(oneTimeTokenSuccessHandler)
                         .tokenService(customOneTimeTokenService)
                         .showDefaultSubmitPage(false)
-                        .permitAll())
+                        .successHandler((_, response, _) -> response.sendRedirect("/success")))
                 .authenticationProvider(daoAuthenticationProvider())
                 .build();
     }
@@ -260,6 +269,7 @@ public class SecurityConfig {
      * {@code @Bean}
      * {@code @Order(3)}
      */
+    @SuppressWarnings("unused")
     public SecurityFilterChain mvcRequestSecurityFilterChain(HttpSecurity http,
                                                              @Qualifier("customSavedRequestAwareAuthenticationSuccessHandler") AuthenticationSuccessHandler customSavedRequestAwareAuthenticationSuccessHandler,
                                                              CustomSimpleUrlAuthenticationFailureHandler customSimpleUrlAuthenticationFailureHandler) {
