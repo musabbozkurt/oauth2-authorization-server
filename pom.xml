@@ -515,12 +515,15 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <argLine>
+                        -Xmx4g
                         --enable-native-access=ALL-UNNAMED
                         --add-opens java.base/java.lang=ALL-UNNAMED
                         --add-opens java.base/java.util=ALL-UNNAMED
                         --add-opens java.base/java.nio=ALL-UNNAMED
                         -Djdk.attach.allowAttachSelf=true
                     </argLine>
+                    <!-- Exclude slow integration tests by default -->
+                    <excludedGroups>slow-integration</excludedGroups>
                 </configuration>
             </plugin>
         </plugins>

@@ -118,7 +118,7 @@ class ExcelServiceImplIntegrationTest {
     }
 
     @Test
-    @Tag("slow")
+    @Tag("slow-integration")
     @Timeout(value = 2, unit = TimeUnit.MINUTES)
     void readExcel_ShouldHandleVeryLargeDataset_When10MillionRowsProvided() throws IOException {
         // Arrange
