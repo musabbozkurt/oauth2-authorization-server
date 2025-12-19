@@ -7,9 +7,7 @@ import mb.oauth2authorizationserver.service.ExcelService;
 import org.dhatim.fastexcel.Workbook;
 import org.dhatim.fastexcel.Worksheet;
 import org.jspecify.annotations.NonNull;
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -25,7 +23,6 @@ import java.net.URI;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -115,24 +112,6 @@ class ExcelServiceImplIntegrationTest {
         assertFalse(result.isEmpty(), "Result should not be empty");
         assertTrue(result.getFirst().containsKey("Name"), "Should contain Name column");
         assertTrue(result.getFirst().containsKey("Age"), "Should contain Age column");
-    }
-
-    @Test
-    @Tag("slow-integration")
-    @Timeout(value = 2, unit = TimeUnit.MINUTES)
-    void readExcel_ShouldHandleVeryLargeDataset_When10MillionRowsProvided() throws IOException {
-        // Arrange
-        int rowCount = 10_000_000;
-        byte[] excelBytes = createLargeExcelBytes(rowCount);
-
-        // Act
-        List<Map<String, Object>> result = excelService.readExcel(new ByteArrayInputStream(excelBytes));
-
-        // Assertions
-        assertNotNull(result, "Result should not be null");
-        assertEquals(rowCount, result.size(), "Should have " + rowCount + " data rows");
-        assertEquals("0", result.getFirst().get("Index"), "First row index should be 0");
-        assertEquals("Value-" + (rowCount - 1), result.getLast().get("Data"), "Last row data should match");
     }
 
     @Test
@@ -386,24 +365,6 @@ class ExcelServiceImplIntegrationTest {
     }
 
     @Test
-    void writeExcel_ShouldHandleVeryLargeDataset_When10MillionRowsProvided() {
-        // Arrange
-        int rowCount = 10_000_000;
-        List<String> headers = List.of("Index", "Data");
-        List<Map<String, Object>> data = java.util.stream.IntStream.range(0, rowCount)
-                .parallel()
-                .mapToObj(i -> Map.<String, Object>of("Index", String.valueOf(i), "Data", "Value-" + i))
-                .toList();
-
-        // Act
-        byte[] excelBytes = excelService.writeExcel(data, headers);
-
-        // Assertions
-        assertNotNull(excelBytes, "Excel bytes should not be null");
-        assertTrue(excelBytes.length > 0, "Excel file should be generated");
-    }
-
-    @Test
     void writeExcel_ShouldHandleVeryLargeDataset_WhenMaxRowsProvided() {
         // Arrange - Excel max rows is 1,048,576 (use 1 million for safety)
         int rowCount = 1_000_000;
@@ -419,26 +380,6 @@ class ExcelServiceImplIntegrationTest {
         // Assertions
         assertNotNull(excelBytes, "Excel bytes should not be null");
         assertTrue(excelBytes.length > 0, "Excel file should be generated");
-    }
-
-    @Test
-    void writeAndReadExcel_ShouldPreserveData_When10MillionRowsRoundTrip() {
-        // Arrange
-        int rowCount = 10_000_000;
-        List<String> headers = List.of("Index", "Data");
-        List<Map<String, Object>> data = java.util.stream.IntStream.range(0, rowCount)
-                .parallel()
-                .mapToObj(i -> Map.<String, Object>of("Index", String.valueOf(i), "Data", "Value-" + i))
-                .toList();
-
-        // Act
-        byte[] excelBytes = excelService.writeExcel(data, headers);
-        List<Map<String, Object>> readBack = excelService.readExcel(new ByteArrayInputStream(excelBytes));
-
-        // Assertions
-        assertEquals(rowCount, readBack.size(), "Should have " + rowCount + " rows after round trip");
-        assertEquals("0", readBack.getFirst().get("Index"), "First index should match");
-        assertEquals("Value-999999", readBack.get(999999).get("Data"), "Sample row should match");
     }
 
     @Test
