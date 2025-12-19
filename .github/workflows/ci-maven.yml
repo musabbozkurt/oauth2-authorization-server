@@ -18,7 +18,7 @@ on:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-16-cores  # Or use 'ubuntu-latest-8-cores'
     env:
       TESTCONTAINERS_REUSE_ENABLE: true # https://java.testcontainers.org/features/reuse/
 
