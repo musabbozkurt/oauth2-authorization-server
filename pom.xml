@@ -34,6 +34,7 @@
         <commons-io.version>2.21.0</commons-io.version>
         <commons-compress.version>1.28.0</commons-compress.version>
         <org.owasp.encoder.version>1.4.0</org.owasp.encoder.version>
+        <fastexcel.version>0.14.0</fastexcel.version>
         <org.projectlombok.version>1.18.38</org.projectlombok.version>
         <spring-ai.version>2.0.0-M1</spring-ai.version>
         <testcontainers-bom.version>2.0.2</testcontainers-bom.version>
@@ -385,6 +386,18 @@
             <groupId>org.owasp.encoder</groupId>
             <artifactId>encoder</artifactId>
             <version>${org.owasp.encoder.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.dhatim</groupId>
+            <artifactId>fastexcel</artifactId>
+            <version>${fastexcel.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.dhatim</groupId>
+            <artifactId>fastexcel-reader</artifactId>
+            <version>${fastexcel.version}</version>
         </dependency>
     </dependencies>
 
