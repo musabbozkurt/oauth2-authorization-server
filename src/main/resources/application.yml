@@ -98,7 +98,20 @@ management:
         include: health, info, metrics, loggers, prometheus
   tracing:
     sampling:
-      probability: 1.0
+      probability: 1.0 # 100% sampling
     export:
       zipkin:
         endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
+  otlp:
+    metrics:
+      export:
+        url: http://localhost:4318/v1/metrics
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: http://localhost:4318/v1/traces
+    logging:
+      export:
+        otlp:
+          endpoint: http://localhost:4318/v1/logs

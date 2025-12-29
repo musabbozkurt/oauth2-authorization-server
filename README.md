@@ -42,6 +42,10 @@
     - Search for `mxbai-embed-large` and download it if it does not exist
     - Search for `mistral` and download it if it does not exist
     - Search for `deepseek-r1:7b` and download it if it does not exist
+- Grafana UI
+    - http://localhost:3001/
+    - username: `admin`
+    - password: `admin`
 
 #### Debugging Spring Boot Tests in IntelliJ IDEA
 
