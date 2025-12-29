@@ -49,7 +49,15 @@ springdoc:
 environment-namespace: server
 
 management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, loggers, prometheus
   tracing:
     export:
       zipkin:
+        enabled: false
+  otlp:
+    metrics:
+      export:
         enabled: false
