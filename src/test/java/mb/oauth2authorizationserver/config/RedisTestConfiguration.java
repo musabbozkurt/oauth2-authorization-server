@@ -13,7 +13,7 @@ public class RedisTestConfiguration {
 
     private static final Integer REDIS_PORT = 6379;
 
-    @Bean(destroyMethod = "stop")
+    @Bean
     @ServiceConnection(name = "redis")
     public RedisContainer redisContainer() {
         RedisContainer redisContainer = new RedisContainer(DockerImageName.parse("redis:8.4.0"))

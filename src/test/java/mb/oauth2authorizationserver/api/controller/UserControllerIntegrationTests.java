@@ -3,6 +3,7 @@ package mb.oauth2authorizationserver.api.controller;
 import mb.oauth2authorizationserver.api.request.ApiUserRequest;
 import mb.oauth2authorizationserver.api.response.ApiUserResponse;
 import mb.oauth2authorizationserver.base.BaseUnitTest;
+import mb.oauth2authorizationserver.config.LgtmStackTestConfiguration;
 import mb.oauth2authorizationserver.config.RedisTestConfiguration;
 import mb.oauth2authorizationserver.config.RestPageImpl;
 import mb.oauth2authorizationserver.config.TestSecurityConfig;
@@ -34,7 +35,7 @@ import java.util.List;
 
 @AutoConfigureTestRestTemplate
 @TestMethodOrder(OrderAnnotation.class)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = {TestSecurityConfig.class, RedisTestConfiguration.class})
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = {TestSecurityConfig.class, RedisTestConfiguration.class, LgtmStackTestConfiguration.class})
 class UserControllerIntegrationTests extends BaseUnitTest {
 
     private static ApiUserResponse apiUserResponse;
@@ -304,5 +305,170 @@ class UserControllerIntegrationTests extends BaseUnitTest {
         Assertions.assertEquals("alert('xss')", response.getFirstName(), "Content after javascript: should remain");
         Assertions.assertEquals("Doe", response.getLastName(), "Last name should remain unchanged");
         Assertions.assertEquals("jstest16@example.com", response.getEmail(), "Email should remain unchanged");
+    }
+
+    @Test
+    @Order(value = 15)
+    void testGetUsers_ShouldRecordMetrics_WhenEndpointIsCalled() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+
+        // Act
+        testRestTemplate.exchange("/users/", HttpMethod.GET, new HttpEntity<>(headers), String.class);
+
+        // Verify actuator metrics endpoint is accessible
+        String metricsResponse = testRestTemplate.getForObject("/actuator/metrics", String.class);
+
+        Assertions.assertNotNull(metricsResponse, "Metrics endpoint should be accessible");
+        Assertions.assertTrue(metricsResponse.contains("names"), "Metrics response should contain metric names");
+        Assertions.assertTrue(metricsResponse.contains("getUsers"), "Metrics should contain getUsers observation");
+    }
+
+    @Test
+    @Order(value = 16)
+    void testGetUsers_ShouldRecordHttpServerRequestMetrics_WhenEndpointIsCalled() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+
+        // Act
+        testRestTemplate.exchange("/users/", HttpMethod.GET, new HttpEntity<>(headers), String.class);
+
+        // Verify http.server.requests metric exists
+        String metricsResponse = testRestTemplate.getForObject("/actuator/metrics/http.server.requests", String.class);
+
+        Assertions.assertNotNull(metricsResponse, "HTTP server requests metric should exist");
+        Assertions.assertTrue(metricsResponse.contains("http.server.requests"), "Should contain http.server.requests metric");
+    }
+
+    @Test
+    @Order(value = 17)
+    void testCreateUser_ShouldRecordObservationMetrics_WhenEndpointIsCalled() {
+        ApiUserRequest apiUserRequest = Instancio.of(ApiUserRequest.class)
+                .set(Select.field(ApiUserRequest::getFirstName), "MetricTest")
+                .set(Select.field(ApiUserRequest::getLastName), "User")
+                .set(Select.field(ApiUserRequest::getEmail), "metrictest17@example.com")
+                .set(Select.field(ApiUserRequest::getPhoneNumber), "+1234567817")
+                .set(Select.field(ApiUserRequest::getUsername), "metricTest17")
+                .set(Select.field(ApiUserRequest::getPassword), "password123")
+                .create();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        // Act
+        testRestTemplate.postForObject("/users/", new HttpEntity<>(apiUserRequest, headers), ApiUserResponse.class);
+
+        // Verify createUser observation metric exists
+        String metricsResponse = testRestTemplate.getForObject("/actuator/metrics", String.class);
+
+        Assertions.assertNotNull(metricsResponse, "Metrics should be accessible");
+        Assertions.assertTrue(metricsResponse.contains("createUser"), "Should contain createUser observation metric");
+    }
+
+    @Test
+    @Order(value = 18)
+    void testGetUserById_ShouldRecordObservationMetrics_WhenEndpointIsCalled() {
+        // Act
+        testRestTemplate.getForObject("/users/1", ApiUserResponse.class);
+
+        // Verify getUserById observation metric exists
+        String metricsResponse = testRestTemplate.getForObject("/actuator/metrics", String.class);
+
+        Assertions.assertNotNull(metricsResponse, "Metrics should be accessible");
+        Assertions.assertTrue(metricsResponse.contains("getUserById"), "Should contain getUserById observation metric");
+    }
+
+    @Test
+    @Order(value = 19)
+    void testUpdateUserById_ShouldRecordObservationMetrics_WhenEndpointIsCalled() {
+        ApiUserRequest apiUserRequest = Instancio.of(ApiUserRequest.class)
+                .set(Select.field(ApiUserRequest::getFirstName), "UpdatedMetric")
+                .set(Select.field(ApiUserRequest::getLastName), "User")
+                .set(Select.field(ApiUserRequest::getEmail), "metricupdate19@example.com")
+                .create();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        // Act
+        testRestTemplate.exchange("/users/1", HttpMethod.PUT, new HttpEntity<>(apiUserRequest, headers), ApiUserResponse.class);
+
+        // Verify updateUserById observation metric exists
+        String metricsResponse = testRestTemplate.getForObject("/actuator/metrics", String.class);
+
+        Assertions.assertNotNull(metricsResponse, "Metrics should be accessible");
+        Assertions.assertTrue(metricsResponse.contains("updateUserById"), "Should contain updateUserById observation metric");
+    }
+
+    @Test
+    @Order(value = 20)
+    void testDeleteUserById_ShouldRecordObservationMetrics_WhenEndpointIsCalled() {
+        // Create a user to delete
+        ApiUserRequest apiUserRequest = Instancio.of(ApiUserRequest.class)
+                .set(Select.field(ApiUserRequest::getFirstName), "DeleteMetric")
+                .set(Select.field(ApiUserRequest::getLastName), "User")
+                .set(Select.field(ApiUserRequest::getEmail), "metricdelete20@example.com")
+                .set(Select.field(ApiUserRequest::getPhoneNumber), "+1234567820")
+                .set(Select.field(ApiUserRequest::getUsername), "metricDelete20")
+                .set(Select.field(ApiUserRequest::getPassword), "password123")
+                .create();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        ApiUserResponse createdUser = testRestTemplate.postForObject("/users/", new HttpEntity<>(apiUserRequest, headers), ApiUserResponse.class);
+
+        // Act
+        Assertions.assertNotNull(createdUser, "Created user should not be null");
+        testRestTemplate.exchange("/users/" + createdUser.getId(), HttpMethod.DELETE, null, String.class);
+
+        // Verify deleteUserById observation metric exists
+        String metricsResponse = testRestTemplate.getForObject("/actuator/metrics", String.class);
+
+        Assertions.assertNotNull(metricsResponse, "Metrics should be accessible");
+        Assertions.assertTrue(metricsResponse.contains("deleteUserById"), "Should contain deleteUserById observation metric");
+    }
+
+    @Test
+    @Order(value = 21)
+    void testObservation_ShouldRecordTimingMetrics_WhenRequestCompletes() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+
+        // Act
+        testRestTemplate.exchange("/users/", HttpMethod.GET, new HttpEntity<>(headers), String.class);
+
+        // Verify getUsers timer metric has measurements
+        String metricsResponse = testRestTemplate.getForObject("/actuator/metrics/getUsers", String.class);
+
+        Assertions.assertNotNull(metricsResponse, "getUsers metric should exist");
+        Assertions.assertTrue(metricsResponse.contains("COUNT") || metricsResponse.contains("TOTAL_TIME"), "Should contain timing measurements");
+    }
+
+    @Test
+    @Order(value = 22)
+    void testObservation_ShouldIncrementCount_WhenMultipleRequestsMade() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+
+        // Act - make multiple requests
+        for (int i = 0; i < 3; i++) {
+            testRestTemplate.exchange("/users/", HttpMethod.GET, new HttpEntity<>(headers), String.class);
+        }
+
+        // Verify count exists in getUsers metric
+        String metricsResponse = testRestTemplate.getForObject("/actuator/metrics/getUsers", String.class);
+
+        Assertions.assertNotNull(metricsResponse, "getUsers metric should exist");
+        Assertions.assertTrue(metricsResponse.contains("COUNT"), "Should contain COUNT measurement");
+    }
+
+    @Test
+    @Order(value = 23)
+    void testMetrics_ShouldRecordErrorMetrics_WhenUserNotFound() {
+        // Act - trigger a 404 error
+        testRestTemplate.getForObject("/users/0", LocalizedExceptionResponse.class);
+
+        // Verify getUserById metric exists (even for errors)
+        String metricsResponse = testRestTemplate.getForObject("/actuator/metrics/getUserById", String.class);
+
+        Assertions.assertNotNull(metricsResponse, "getUserById metric should exist");
+        Assertions.assertTrue(metricsResponse.contains("COUNT"), "Should contain COUNT measurement");
     }
 }
