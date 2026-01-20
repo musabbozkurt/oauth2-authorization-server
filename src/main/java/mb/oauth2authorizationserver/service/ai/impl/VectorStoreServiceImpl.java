@@ -1,8 +1,8 @@
-package mb.oauth2authorizationserver.service.impl;
+package mb.oauth2authorizationserver.service.ai.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import mb.oauth2authorizationserver.service.VectorStoreService;
+import mb.oauth2authorizationserver.service.ai.VectorStoreService;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.reader.pdf.ParagraphPdfDocumentReader;

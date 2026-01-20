@@ -1,4 +1,4 @@
-package mb.oauth2authorizationserver.api.controller;
+package mb.oauth2authorizationserver.api.controller.ai;
 
 import lombok.RequiredArgsConstructor;
 import mb.oauth2authorizationserver.api.response.ChatResponse;

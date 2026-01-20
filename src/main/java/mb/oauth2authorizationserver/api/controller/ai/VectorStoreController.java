@@ -1,7 +1,7 @@
-package mb.oauth2authorizationserver.api.controller;
+package mb.oauth2authorizationserver.api.controller.ai;
 
 import lombok.RequiredArgsConstructor;
-import mb.oauth2authorizationserver.service.VectorStoreService;
+import mb.oauth2authorizationserver.service.ai.VectorStoreService;
 import org.springframework.ai.document.Document;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;

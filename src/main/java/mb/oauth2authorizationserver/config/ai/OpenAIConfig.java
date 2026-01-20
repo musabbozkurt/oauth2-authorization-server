@@ -1,4 +1,4 @@
-package mb.oauth2authorizationserver.config;
+package mb.oauth2authorizationserver.config.ai;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
