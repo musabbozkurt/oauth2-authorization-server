@@ -1,0 +1,185 @@
+### Spring AI 2.0 - IntelliJ HTTP Client Tests
+### Base URL: http://localhost:9000
+
+###############################################################################
+### 1. OpenAI SDK Integration - Responses API
+###############################################################################
+
+### Responses API with Web Search
+# This uses OpenAI's Responses API directly (not available via Spring AI ChatClient)
+# The model automatically searches the web and returns citations
+POST http://localhost:9000/api/openai/responses/search
+Content-Type: application/json
+
+{
+  "query": "What are the latest developments in Spring AI?"
+}
+
+### Responses API - Another example
+POST http://localhost:9000/api/openai/responses/search
+Content-Type: application/json
+
+{
+  "query": "What is the current price of Bitcoin?"
+}
+
+### Basic Chat (uses Spring AI ChatClient)
+POST http://localhost:9000/api/openai/chat
+Content-Type: text/plain
+
+Tell me a joke about Java programming
+
+###############################################################################
+### 2. Anthropic Claude - Citations API
+###############################################################################
+
+### Citations - Get sourced responses from documents
+POST http://localhost:9000/api/anthropic/citations
+Content-Type: application/json
+
+{
+  "document": "The Eiffel Tower was completed in 1889. It stands 330 meters tall.",
+  "title": "Eiffel Tower Facts",
+  "question": "When was it built and how tall is it?"
+}
+
+### Citations - Longer document example
+POST http://localhost:9000/api/anthropic/citations
+Content-Type: application/json
+
+{
+  "document": "Spring AI 2.0 introduces several new features. The OpenAI SDK integration provides the Responses API with web search. Anthropic Claude now supports citations and document generation skills. Google Gemini is available through the GenAI starter. Redis can be used for persistent chat memory.",
+  "title": "Spring AI 2.0 Features",
+  "question": "What are the new features in Spring AI 2.0?"
+}
+
+###############################################################################
+### 3. Anthropic Claude - Skills API (Document Generation)
+###############################################################################
+
+### Generate Excel spreadsheet
+POST http://localhost:9000/api/anthropic/skills/excel
+Content-Type: application/json
+
+{
+  "prompt": "Create a budget spreadsheet with income and expenses"
+}
+
+### Generate PowerPoint presentation
+POST http://localhost:9000/api/anthropic/skills/powerpoint
+Content-Type: application/json
+
+{
+  "prompt": "Create a 3-slide presentation about Spring AI"
+}
+
+### Generate Word document
+POST http://localhost:9000/api/anthropic/skills/word
+Content-Type: application/json
+
+{
+  "prompt": "Create a project proposal document for a web application"
+}
+
+### Generate PDF document
+POST http://localhost:9000/api/anthropic/skills/pdf
+Content-Type: application/json
+
+{
+  "prompt": "Create a report summarizing quarterly sales data. Generate some fake data for a company called Dan's Coffee House"
+}
+
+### Download generated file (replace {fileId} with actual ID from response)
+GET http://localhost:9000/api/anthropic/files/{{fileId}}
+
+###############################################################################
+### 4. Google GenAI (Gemini)
+###############################################################################
+
+### Basic Chat
+POST http://localhost:9000/api/google/chat
+Content-Type: application/json
+
+{
+  "message": "Explain quantum computing in simple terms"
+}
+
+### Chat with Safety Ratings
+POST http://localhost:9000/api/google/chat/safe
+Content-Type: application/json
+
+{
+  "message": "Tell me about AI safety"
+}
+
+### Thinking Mode - Dynamic budget (default, -1)
+POST http://localhost:9000/api/google/chat/think
+Content-Type: application/json
+
+{
+  "message": "What is 25 * 47 + 83 - 19? Show your reasoning."
+}
+
+### Thinking Mode - High budget (more reasoning tokens)
+POST http://localhost:9000/api/google/chat/think
+Content-Type: application/json
+
+{
+  "message": "Explain the proof of Fermat's Last Theorem at a high level",
+  "thinkingBudget": 8000
+}
+
+### Thinking Mode - Disabled (no thinking, fastest)
+POST http://localhost:9000/api/google/chat/think
+Content-Type: application/json
+
+{
+  "message": "What is the capital of France?",
+  "thinkingBudget": 0
+}
+
+###############################################################################
+### 5. Redis Chat Memory
+### Note: Requires Redis running (docker compose up -d)
+###############################################################################
+
+### Start a conversation - introduce yourself
+POST http://localhost:9000/api/redis/chat/user123
+Content-Type: application/json
+
+{
+  "message": "My name is Dan"
+}
+
+### Continue the conversation - test memory
+POST http://localhost:9000/api/redis/chat/user123
+Content-Type: application/json
+
+{
+  "message": "What is my name?"
+}
+
+### Ask another question in same conversation
+POST http://localhost:9000/api/redis/chat/user123
+Content-Type: application/json
+
+{
+  "message": "Can you summarize our conversation so far?"
+}
+
+### Start a different user conversation
+POST http://localhost:9000/api/redis/chat/user456
+Content-Type: application/json
+
+{
+  "message": "Hello, I'm Bob and I'm interested in Spring Boot"
+}
+
+### Get Conversation History
+GET http://localhost:9000/api/redis/history/user123
+
+### List Active Conversations
+GET http://localhost:9000/api/redis/conversations
+
+### Clear Conversation History
+DELETE http://localhost:9000/api/redis/history/user123

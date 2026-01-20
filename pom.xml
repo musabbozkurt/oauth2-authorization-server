@@ -26,6 +26,7 @@
         <spring-boot-thin-layout.version>1.0.31.RELEASE</spring-boot-thin-layout.version>
         <org.mapstruct.version>1.6.3</org.mapstruct.version>
         <opentelemetry-logback-appender-1.0.version>2.23.0-alpha</opentelemetry-logback-appender-1.0.version>
+        <protobuf.version>4.33.4</protobuf.version>
         <logstash-logback-encoder.version>9.0</logstash-logback-encoder.version>
         <webmagic-core.version>1.0.3</webmagic-core.version>
         <software.amazon.awssdk.s3.version>2.32.27</software.amazon.awssdk.s3.version>
@@ -70,11 +71,6 @@
 
         <dependency>
             <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-starter-model-openai</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-starter-model-ollama</artifactId>
         </dependency>
 
@@ -96,6 +92,30 @@
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-starter-mcp-server-webmvc</artifactId>
+        </dependency>
+
+        <!-- Official OpenAI Java SDK integration -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-openai-sdk</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-anthropic</artifactId>
+        </dependency>
+
+        <!-- NEW in 2.0: Google GenAI (Gemini) integration -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-google-genai</artifactId>
+        </dependency>
+
+        <!-- NEW in 2.0: Redis Chat Memory for persistent conversations -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-chat-memory-repository-redis</artifactId>
+            <version>${spring-ai.version}</version>
         </dependency>
 
         <dependency>
@@ -344,6 +364,13 @@
             <version>${opentelemetry-logback-appender-1.0.version}</version>
         </dependency>
 
+        <!-- Required for OTLP metrics export -->
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java</artifactId>
+            <version>${protobuf.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>net.logstash.logback</groupId>
             <artifactId>logstash-logback-encoder</artifactId>
@@ -576,4 +603,15 @@
             </build>
         </profile>
     </profiles>
+
+    <repositories>
+        <repository>
+            <id>spring-milestones</id>
+            <name>Spring Milestones</name>
+            <url>https://repo.spring.io/milestone</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
 </project>

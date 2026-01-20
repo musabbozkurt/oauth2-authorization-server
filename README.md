@@ -9,7 +9,13 @@
 
 #### How to Run and Test
 
-- Run `export DEEPSEEK_API_KEY=your_api_key_here` command to set DeepSeek API key
+- Run the following commands to set environment variables for AI model API keys
+    - ```bash
+        export OPENAI_API_KEY=your_api_key_here
+        export DEEPSEEK_API_KEY=your_api_key_here
+        export ANTHROPIC_API_KEY=your_api_key_here      # Optional
+        export GOOGLE_GENAI_API_KEY=your_api_key_here   # Optional
+        ```
 - Run `docker-compose up -d` command to run necessary services
 - Run `mvn test` or `mvn clean install` or `mvn clean package` or `./mvnw clean install` command to run all the tests
 - Run `mvn spring-boot:run` command to run the application
@@ -140,6 +146,7 @@
     - ![What_is_Retrieval_Augmented_Generation_(RAG)_What_is_Not_RAG.png](docs/What_is_Retrieval_Augmented_Generation_%28RAG%29_What_is_Not_RAG.png)
 - [Run AI Models Locally: Zero API Keys, Zero Fees with Docker Desktop Model Runner](https://www.youtube.com/watch?v=6E6JFLMHcoQ)
     - [Docker Model Runner](https://docs.docker.com/desktop/features/model-runner/)
+- [Spring AI 2.0 M1 with Spring Boot 4 Integration](https://www.youtube.com/watch?v=daPwd4DnEfA)
 - [A Step-by-Step Guide for Installing and Using AppMap for Java](https://appmap.io/blog/2021/09/07/mapping-java-applications-tutorial/)
     - [AppMap Maven plugin](https://appmap.io/docs/reference/appmap-maven-plugin)
     - [AppMap: Free AI Architect IntelliJ Plugin](https://plugins.jetbrains.com/plugin/16701-appmap-free-ai-architect)

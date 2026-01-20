@@ -3,6 +3,8 @@ package mb.oauth2authorizationserver.api.controller.ai;
 import lombok.RequiredArgsConstructor;
 import mb.oauth2authorizationserver.service.ai.VectorStoreService;
 import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -13,6 +15,7 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/vector-stores")
+@ConditionalOnBean(VectorStore.class)
 public class VectorStoreController {
 
     private final VectorStoreService vectorStoreService;

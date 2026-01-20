@@ -40,6 +40,43 @@ spring:
         options:
           model: ai/gemma3:4B-Q4_K_M
         base-url: http://localhost:12434/engines/llama.cpp
+    # NEW in 2.0: Official OpenAI Java SDK
+    openai-sdk:
+      api-key: ${OPENAI_API_KEY:openai-api-key}
+      chat:
+        options:
+          model: gpt-4o
+      # Multi-provider support (same code, different backend):
+      # Azure OpenAI:
+      #   base-url: https://<deployment>.openai.azure.com
+      #   microsoft-deployment-name: <deployment-name>
+      # GitHub Models:
+      #   base-url: https://models.inference.ai.azure.com
+      #   api-key: github_pat_XXX
+
+    # NEW in 2.0: Anthropic Citations & Skills API
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY:anthropic-api-key}
+      timeout: 600s
+      chat:
+        options:
+          model: claude-sonnet-4-5
+
+    # NEW in 2.0: Google GenAI (Gemini) integration
+    google:
+      genai:
+        api-key: ${GOOGLE_GENAI_API_KEY:google-api-key}
+        chat:
+          options:
+            model: gemini-2.0-flash
+
+    # NEW in 2.0: Redis Chat Memory configuration
+    chat:
+      memory:
+        repository:
+          redis:
+            key-prefix: "spring-ai-chat:"
+            time-to-live: 1h
     ollama:
       chat:
         model: deepseek-r1:7b

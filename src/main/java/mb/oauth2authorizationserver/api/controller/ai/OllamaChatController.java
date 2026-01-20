@@ -2,6 +2,7 @@ package mb.oauth2authorizationserver.api.controller.ai;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -11,6 +12,7 @@ import reactor.core.publisher.Flux;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/chat/ollama")
+@ConditionalOnBean(name = "ollamaChatClient")
 public class OllamaChatController {
 
     private final ChatClient ollamaChatClient;
