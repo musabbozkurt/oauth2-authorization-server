@@ -1,4 +1,4 @@
-package mb.oauth2authorizationserver.service;
+package mb.oauth2authorizationserver.service.ai;
 
 public interface WeatherService {
 

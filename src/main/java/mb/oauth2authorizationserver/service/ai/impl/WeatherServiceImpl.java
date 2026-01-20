@@ -1,9 +1,9 @@
-package mb.oauth2authorizationserver.service.impl;
+package mb.oauth2authorizationserver.service.ai.impl;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.extern.slf4j.Slf4j;
-import mb.oauth2authorizationserver.service.WeatherService;
+import mb.oauth2authorizationserver.service.ai.WeatherService;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Service;
@@ -59,11 +59,17 @@ public class WeatherServiceImpl implements WeatherService {
                 .retrieve()
                 .body(Points.class);
 
-        var forecast = restClient.get().uri(Optional.ofNullable(points).orElseThrow().properties().forecast()).retrieve().body(Forecast.class);
+        String forecastUrl = Optional.ofNullable(points)
+                .map(Points::properties)
+                .map(Points.Props::forecast)
+                .orElseThrow(() -> new IllegalStateException("Unable to retrieve forecast URL for the given location"));
 
-        return Optional.ofNullable(forecast).orElseThrow()
-                .properties()
-                .periods()
+        var forecast = restClient.get().uri(forecastUrl).retrieve().body(Forecast.class);
+
+        return Optional.ofNullable(forecast)
+                .map(Forecast::properties)
+                .map(Forecast.Props::periods)
+                .orElseThrow(() -> new IllegalStateException("Unable to retrieve forecast periods"))
                 .stream()
                 .map(p -> String.format(TEMPERATURE_WIND_FORECAST, p.name(), p.temperature(), p.temperatureUnit(), p.windSpeed(), p.windDirection(), p.detailedForecast()))
                 .collect(Collectors.joining());
@@ -80,8 +86,9 @@ public class WeatherServiceImpl implements WeatherService {
     public String getAlerts(@ToolParam(description = "Two-letter US state code (e.g. CA, NY") String state) {
         Alert alert = restClient.get().uri("/alerts/active/area/{state}", state).retrieve().body(Alert.class);
 
-        return Optional.ofNullable(alert).orElseThrow()
-                .features()
+        return Optional.ofNullable(alert)
+                .map(Alert::features)
+                .orElseThrow(() -> new IllegalStateException("Unable to retrieve alerts for state: " + state))
                 .stream()
                 .map(f -> String.format(EVENT_AREA_SEVERITY_DESCRIPTION_INSTRUCTIONS, f.properties().event(), f.properties.areaDesc(), f.properties.severity(), f.properties.description(), f.properties.instruction()))
                 .collect(Collectors.joining("\n"));

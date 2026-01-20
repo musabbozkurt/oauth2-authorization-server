@@ -1,8 +1,9 @@
-package mb.oauth2authorizationserver.api.controller;
+package mb.oauth2authorizationserver.api.controller.ai;
 
 import lombok.RequiredArgsConstructor;
 import mb.oauth2authorizationserver.api.response.ChatResponse;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/chat/gemma3")
+@ConditionalOnBean(name = "gemma3ChatClient")
 public class Gemma3ChatController {
 
     private final ChatClient gemma3ChatClient;

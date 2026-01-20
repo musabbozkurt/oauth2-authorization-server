@@ -1,4 +1,4 @@
-package mb.oauth2authorizationserver.ai;
+package mb.oauth2authorizationserver.config.ai;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;

@@ -1,4 +1,4 @@
-package mb.oauth2authorizationserver.ai;
+package mb.oauth2authorizationserver.config.ai;
 
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.modelcontextprotocol.client.transport.ServerParameters;

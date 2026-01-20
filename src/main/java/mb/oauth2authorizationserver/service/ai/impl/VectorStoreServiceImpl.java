@@ -1,8 +1,8 @@
-package mb.oauth2authorizationserver.service.impl;
+package mb.oauth2authorizationserver.service.ai.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import mb.oauth2authorizationserver.service.VectorStoreService;
+import mb.oauth2authorizationserver.service.ai.VectorStoreService;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.reader.pdf.ParagraphPdfDocumentReader;
@@ -11,6 +11,7 @@ import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.core.io.Resource;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -21,6 +22,7 @@ import java.util.Map;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@ConditionalOnBean(VectorStore.class)
 public class VectorStoreServiceImpl implements VectorStoreService {
 
     private final VectorStore vectorStore;

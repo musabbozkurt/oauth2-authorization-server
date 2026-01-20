@@ -1,4 +1,4 @@
-package mb.oauth2authorizationserver.service;
+package mb.oauth2authorizationserver.service.ai;
 
 import org.springframework.ai.document.Document;
 

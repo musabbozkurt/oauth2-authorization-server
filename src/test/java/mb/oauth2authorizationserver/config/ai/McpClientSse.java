@@ -1,4 +1,4 @@
-package mb.oauth2authorizationserver.ai;
+package mb.oauth2authorizationserver.config.ai;
 
 import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
 

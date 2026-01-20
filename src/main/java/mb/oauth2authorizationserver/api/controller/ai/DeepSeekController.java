@@ -1,7 +1,8 @@
-package mb.oauth2authorizationserver.api.controller;
+package mb.oauth2authorizationserver.api.controller.ai;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -10,22 +11,23 @@ import reactor.core.publisher.Flux;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/chat/ollama")
-public class OllamaChatController {
+@RequestMapping("/chat/deep-seek")
+@ConditionalOnBean(name = "openAIChatClient")
+public class DeepSeekController {
 
-    private final ChatClient ollamaChatClient;
+    private final ChatClient openAIChatClient;
 
     @GetMapping("/{question}")
-    public String ollama(@PathVariable String question) {
-        return ollamaChatClient.prompt()
+    public String deepSeek(@PathVariable String question) {
+        return openAIChatClient.prompt()
                 .user(question)
                 .call()
                 .content();
     }
 
     @GetMapping("/{question}/stream")
-    public Flux<String> ollamaStream(@PathVariable String question) {
-        return ollamaChatClient.prompt()
+    public Flux<String> deepSeekStream(@PathVariable String question) {
+        return openAIChatClient.prompt()
                 .user(question)
                 .stream()
                 .content();
