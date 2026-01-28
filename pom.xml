@@ -21,6 +21,7 @@
         <mariadb-java-client.version>3.5.6</mariadb-java-client.version>
         <ojdbc17.version>23.26.0.0.0</ojdbc17.version>
         <archunit-junit5.version>1.4.1</archunit-junit5.version>
+        <taikai.version>1.48.0</taikai.version>
         <instancio-junit.version>5.5.1</instancio-junit.version>
         <springdoc-openapi-starter-webmvc-ui.version>3.0.0</springdoc-openapi-starter-webmvc-ui.version>
         <spring-boot-thin-layout.version>1.0.31.RELEASE</spring-boot-thin-layout.version>
@@ -42,6 +43,9 @@
         <testcontainers-bom.version>2.0.2</testcontainers-bom.version>
         <jackson-bom.version>3.0.3</jackson-bom.version>
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
+        <!-- NullAway for compile-time null checking -->
+        <error-prone.version>2.46.0</error-prone.version>
+        <nullaway.version>0.13.1</nullaway.version>
         <jacoco.version>0.8.14</jacoco.version>
         <appmap-maven-plugin.version>1.3.0</appmap-maven-plugin.version>
     </properties>
@@ -320,6 +324,13 @@
         </dependency>
 
         <dependency>
+            <groupId>com.enofex</groupId>
+            <artifactId>taikai</artifactId>
+            <version>${taikai.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.instancio</groupId>
             <artifactId>instancio-junit</artifactId>
             <version>${instancio-junit.version}</version>
@@ -503,8 +514,56 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
+                    <fork>true</fork>
                     <compilerArgs>
                         <arg>--enable-preview</arg>
+                        <arg>-proc:full</arg>
+                        <arg>-XDcompilePolicy=simple</arg>
+                        <arg>-XDshould-stop.ifError=FLOW</arg>
+                        <!-- NullAway Configuration -->
+                        <arg>
+                            <!-- Enable ErrorProne compiler plugin -->
+                            -Xplugin:ErrorProne \
+                            <!-- Disable all checks, only use NullAway -->
+                            -XepDisableAllChecks \
+                            <!-- Treat NullAway violations as errors -->
+                            -Xep:NullAway:ERROR \
+                            <!-- Only check @NullMarked classes -->
+                            -XepOpt:NullAway:OnlyNullMarked=true \
+                            <!-- Enable JSpecify compatibility -->
+                            -XepOpt:NullAway:JSpecifyMode=true \
+                            <!-- Respect @NonNullApi from supertypes -->
+                            -XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true \
+                            <!-- Validate Optional.get() calls -->
+                            -XepOpt:NullAway:CheckOptionalEmptiness=true \
+                        </arg>
+                        <!-- JVM module exports/opens required for ErrorProne to access compiler internals -->
+                        <!-- Compiler API access -->
+                        <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
+                        <!-- Reflective API access -->
+                        <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
+                        <!-- File handling -->
+                        <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED</arg>
+                        <!-- Main compiler entry -->
+                        <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED</arg>
+                        <!-- Language model elements -->
+                        <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED</arg>
+                        <!-- Source code parser -->
+                        <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED</arg>
+                        <!-- Annotation processing -->
+                        <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED</arg>
+                        <!-- AST tree nodes -->
+                        <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED</arg>
+                        <!-- Compiler utilities -->
+                        <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED</arg>
+                        <!-- Symbol and type info -->
+                        <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED</arg>
+                        <!-- Compilation phases -->
+                        <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED</arg>
+                        <!-- Reflective code access -->
+                        <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED</arg>
+                        <!-- Reflective comp access -->
+                        <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED</arg>
                     </compilerArgs>
                     <annotationProcessorPaths>
                         <path>
@@ -520,6 +579,16 @@
                             <groupId>org.projectlombok</groupId>
                             <artifactId>lombok-mapstruct-binding</artifactId>
                             <version>${lombok-mapstruct-binding.version}</version>
+                        </path>
+                        <path>
+                            <groupId>com.google.errorprone</groupId>
+                            <artifactId>error_prone_core</artifactId>
+                            <version>${error-prone.version}</version>
+                        </path>
+                        <path>
+                            <groupId>com.uber.nullaway</groupId>
+                            <artifactId>nullaway</artifactId>
+                            <version>${nullaway.version}</version>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>
