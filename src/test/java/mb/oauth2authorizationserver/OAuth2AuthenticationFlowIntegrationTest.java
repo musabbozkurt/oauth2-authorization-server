@@ -91,7 +91,7 @@ class OAuth2AuthenticationFlowIntegrationTest {
 
     @Test
     void getGrantTypePasswordToken_ShouldSucceed_WhenUsernameAndPasswordAreValid() throws Exception {
-        generateAndValidateGrantTypePasswordTokenAndGetJsonObjectWhenUsernameAndPasswordAreValid();
+        Assertions.assertNotNull(generateAndValidateGrantTypePasswordTokenAndGetJsonObjectWhenUsernameAndPasswordAreValid());
     }
 
     @Test
@@ -127,7 +127,7 @@ class OAuth2AuthenticationFlowIntegrationTest {
 
     @Test
     void getOAuthAuthorize_ShouldGenerateAuthorizationCode_WhenRequestIsValidAndRequireProofKeyIsDisabledInClientSettingsToDisablePKCE() throws Exception {
-        generateAndValidateAuthorizationCodeWhenRequestIsValidAndRequireProofKeyIsDisabledInClientSettingsToDisablePKCE();
+        Assertions.assertNotNull(generateAndValidateAuthorizationCodeWhenRequestIsValidAndRequireProofKeyIsDisabledInClientSettingsToDisablePKCE());
     }
 
     @Test
@@ -217,7 +217,7 @@ class OAuth2AuthenticationFlowIntegrationTest {
 
     @Test
     void checkToken_ShouldReturnTokenInfo_WhenInactiveValidTokenIsProvided() throws Exception {
-        introspectTokenAndGetJsonObject("paste-your-token-to-check-token-is-active-or-inactive", false);
+        Assertions.assertNotNull(introspectTokenAndGetJsonObject("paste-your-token-to-check-token-is-active-or-inactive", false));
     }
 
     @Test

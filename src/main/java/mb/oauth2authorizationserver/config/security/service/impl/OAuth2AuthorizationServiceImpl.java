@@ -3,6 +3,7 @@ package mb.oauth2authorizationserver.config.security.service.impl;
 import mb.oauth2authorizationserver.config.security.builder.AuthorizationBuilderService;
 import mb.oauth2authorizationserver.data.entity.Authorization;
 import mb.oauth2authorizationserver.data.repository.AuthorizationRepository;
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
@@ -36,14 +37,16 @@ public class OAuth2AuthorizationServiceImpl implements OAuth2AuthorizationServic
         this.authorizationRepository.deleteById(authorization.getId());
     }
 
+    @Nullable
     @Override
     public OAuth2Authorization findById(String id) {
         Assert.hasText(id, "id cannot be empty");
         return this.authorizationRepository.findById(id).map(authorizationBuilderService::toObject).orElse(null);
     }
 
+    @Nullable
     @Override
-    public OAuth2Authorization findByToken(String token, OAuth2TokenType tokenType) {
+    public OAuth2Authorization findByToken(String token, @Nullable OAuth2TokenType tokenType) {
         Assert.hasText(token, "token cannot be empty");
 
         Optional<Authorization> result;

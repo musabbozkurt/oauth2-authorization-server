@@ -2,6 +2,7 @@ package mb.oauth2authorizationserver.config.security.service.impl;
 
 import mb.oauth2authorizationserver.config.security.builder.RegisteredClientBuilderService;
 import mb.oauth2authorizationserver.data.repository.ClientRepository;
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.stereotype.Service;
@@ -26,12 +27,14 @@ public class RegisteredClientRepositoryImpl implements RegisteredClientRepositor
         this.clientRepository.save(registeredClientBuilderService.toEntity(registeredClient));
     }
 
+    @Nullable
     @Override
     public RegisteredClient findById(String id) {
         Assert.hasText(id, "id cannot be empty");
         return this.clientRepository.findById(id).map(registeredClientBuilderService::toObject).orElse(null);
     }
 
+    @Nullable
     @Override
     public RegisteredClient findByClientId(String clientId) {
         Assert.hasText(clientId, "clientId cannot be empty");
