@@ -57,7 +57,7 @@ class LoginControllerTest {
         // Act
         // Assertions
         mockMvc.perform(get("/non-existent"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -66,7 +66,7 @@ class LoginControllerTest {
         // Act
         // Assertions
         mockMvc.perform(get("/ott/invalid"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound());
     }
 
     @Test

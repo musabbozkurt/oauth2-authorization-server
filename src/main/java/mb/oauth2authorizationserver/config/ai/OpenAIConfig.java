@@ -1,5 +1,7 @@
 package mb.oauth2authorizationserver.config.ai;
 
+import com.anthropic.client.AnthropicClient;
+import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.google.genai.Client;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
@@ -62,6 +64,13 @@ public class OpenAIConfig {
     @ConditionalOnBean(AnthropicChatModel.class)
     public ChatClient anthropicChatClient(AnthropicChatModel chatModel) {
         return ChatClient.builder(chatModel).build();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnBean(AnthropicChatModel.class)
+    public AnthropicClient anthropicClient(@Value("${spring.ai.anthropic.api-key}") String apiKey) {
+        return AnthropicOkHttpClient.builder().apiKey(apiKey).build();
     }
 
     @Bean

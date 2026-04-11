@@ -1,10 +1,10 @@
 package mb.oauth2authorizationserver.config.ai;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.modelcontextprotocol.client.transport.ServerParameters;
 import io.modelcontextprotocol.client.transport.StdioClientTransport;
-import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
+import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import mb.oauth2authorizationserver.utils.FileUtils;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * With stdio transport, the MCP server is automatically started by the client. Server jar should be built first.

@@ -1,4 +1,36 @@
 services:
+
+  # ── Application (only with: docker compose --profile start_application up -d --build) ──
+  oauth2-authorization-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: oauth2-authorization-server
+    profiles:
+      - start_application
+    ports:
+      - "9000:9000"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mariadb://mariadb:3306/oauth2_authorization_server
+      DB_USERNAME: mb_test
+      DB_PASSWORD: 'test'
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_LDAP_URL: ldap://lldap:3890
+      MINIO_ENDPOINT: http://minio:9000
+      ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      OTEL_EXPORTER_OTLP_METRICS_URL: http://grafana-lgtm:4318/v1/metrics
+      OTEL_EXPORTER_OTLP_TRACES_URL: http://grafana-lgtm:4318/v1/traces
+      OTEL_EXPORTER_OTLP_LOGS_URL: http://grafana-lgtm:4318/v1/logs
+    depends_on:
+      - mariadb
+      - redis
+      - lldap
+    restart: unless-stopped
+    networks:
+      - oauth2-network
+
+  # ── Infrastructure services (always started with: docker compose up -d) ──────
   mariadb:
     image: mariadb:12.1.2
     container_name: mariadb
@@ -95,12 +127,16 @@ services:
       - "9091:9000"
       - "9001:9001"
     command: server /data --console-address :9001
+    networks:
+      - oauth2-network
 
   zipkin:
     image: openzipkin/zipkin:3
     container_name: zipkin
     ports:
       - "9411:9411"
+    networks:
+      - oauth2-network
 
   grafana-lgtm:
     image: 'grafana/otel-lgtm:0.13.0'
@@ -110,6 +146,8 @@ services:
       - "4317:4317"   # OTLP gRPC receiver
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
+    networks:
+      - oauth2-network
 
 volumes:
   ollama: { }

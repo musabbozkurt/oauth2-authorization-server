@@ -1,0 +1,34 @@
+# Build output
+target/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# Git
+.git/
+.gitignore
+.github/
+
+# Docker (don't let changes to these trigger a source rebuild)
+Dockerfile
+DockerfileForAOTCache
+DockerfileForProjectCRaC
+docker-compose.yml
+
+# Docs & scripts (not needed for Maven build)
+docs/
+tmp/
+*.md
+appmap.yml
+
+# Runtime files (not needed at build time)
+keys/
+
+# OS
+.DS_Store
+Thumbs.db

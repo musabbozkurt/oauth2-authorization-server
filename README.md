@@ -16,9 +16,22 @@
         export ANTHROPIC_API_KEY=your_api_key_here      # Optional
         export GOOGLE_GENAI_API_KEY=your_api_key_here   # Optional
         ```
-- Run `docker-compose up -d` command to run necessary services
-- Run `mvn test` or `mvn clean install` or `mvn clean package` or `./mvnw clean install` command to run all the tests
-- Run `mvn spring-boot:run` command to run the application
+- ```bash
+    cd oauth2-authorization-server
+    
+    # Run tests on the host (requires Docker for Testcontainers)
+    mvn clean verify
+    
+    # Build and start the application together with all infrastructure services
+    docker compose --profile start_application up -d --build
+    
+    # Start only infrastructure services (Redis, MariaDB, LDAP, Ollama, etc.)
+    docker compose up -d
+    
+    # For local development without Docker (requires infrastructure services running via docker compose up -d)
+    ./mvnw spring-boot:run   # or: mvn spring-boot:run
+  ```
+
 - Import the followings to test in Postman
     - [OAuth2 Authorization Server.postman_collection.json](docs/postman/OAuth2%20Authorization%20Server.postman_collection.json)
     - [OAuth2 Authorization Server.postman_environment.json](docs/postman/OAuth2%20Authorization%20Server.postman_environment.json)

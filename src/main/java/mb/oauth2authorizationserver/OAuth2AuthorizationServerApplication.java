@@ -9,14 +9,12 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.web.config.EnableSpringDataWebSupport;
 import org.springframework.scheduling.annotation.EnableAsync;
-import org.springframework.session.data.redis.config.annotation.web.http.EnableRedisIndexedHttpSession;
 
 import static org.springframework.data.web.config.EnableSpringDataWebSupport.PageSerializationMode.VIA_DTO;
 
 @Slf4j
 @EnableAsync
 @SpringBootApplication
-@EnableRedisIndexedHttpSession
 @EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO)
 public class OAuth2AuthorizationServerApplication {
 
