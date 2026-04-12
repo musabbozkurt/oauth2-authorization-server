@@ -68,7 +68,22 @@ jobs:
         with:
           ref: master
 
+      - name: Check if update PR already exists
+        id: pr-exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          OPEN_PRS=$(gh pr list --head automated/dependency-updates --state open --json number --jq 'length')
+          if [ "$OPEN_PRS" -gt 0 ]; then
+            echo "An open dependency update PR already exists. Skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No open dependency update PR found. Proceeding."
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set up JDK 25
+        if: steps.pr-exists.outputs.skip == 'false'
         uses: actions/setup-java@v5
         with:
           java-version: '25'
@@ -76,12 +91,14 @@ jobs:
           cache: maven
 
       - name: Apply all version updates
+        if: steps.pr-exists.outputs.skip == 'false'
         run: |
           mvn -B versions:update-parent -DgenerateBackupPoms=false --file pom.xml
           mvn -B versions:update-properties -DgenerateBackupPoms=false --file pom.xml
           mvn -B versions:use-latest-releases -DgenerateBackupPoms=false --file pom.xml
 
       - name: Check if pom.xml changed
+        if: steps.pr-exists.outputs.skip == 'false'
         id: diff
         run: |
           if git diff --quiet pom.xml; then
@@ -109,11 +126,11 @@ jobs:
           fi
 
       - name: Verify build compiles
-        if: steps.diff.outputs.has_changes == 'true'
+        if: steps.pr-exists.outputs.skip == 'false' && steps.diff.outputs.has_changes == 'true'
         run: mvn -B compile --file pom.xml
 
       - name: Create Pull Request
-        if: steps.diff.outputs.has_changes == 'true'
+        if: steps.pr-exists.outputs.skip == 'false' && steps.diff.outputs.has_changes == 'true'
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
