@@ -76,7 +76,7 @@ public class FileController {
                             .builder()
                             .bucket(minioConfigProperties.getBucket())
                             .object(filename)
-                            .stream(file.getInputStream(), file.getSize(), -1) // -1 indicates unknown part size
+                            .stream(file.getInputStream(), file.getSize(), -1L) // -1 indicates unknown part size
                             .build()
             );
         } catch (Exception _) {
