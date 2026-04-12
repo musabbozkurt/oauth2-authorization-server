@@ -20,7 +20,7 @@ on:
   pull_request:
     branches: [ "master" ]
   schedule:
-    - cron: '*/5 * * * *' # Every 5 minutes (set to '0 8 * * 1' for weekly Monday 08:00 UTC)
+    - cron: '0 0 * * 0' # Every Sunday at midnight
 
 permissions:
   contents: write
