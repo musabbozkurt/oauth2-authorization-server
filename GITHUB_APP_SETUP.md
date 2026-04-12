@@ -1,9 +1,9 @@
 # GITHUB_APP_SETUP.md
 
-## Setting Up a GitHub App Token for Dependency Version Update Workflow
+## Setting Up a GitHub App Token for MB Dependency Version Update Workflow
 
-This document provides comprehensive instructions for implementing a GitHub App Token in your Dependency Version Update
-workflow.
+This document provides comprehensive instructions for implementing a GitHub App Token in your MB Dependency Version
+Update workflow.
 
 ### 1. Create the GitHub App
 
@@ -50,7 +50,7 @@ example of how to do that:
 #### Example Workflow YAML
 
 ```yaml
-name: Dependency Version Update Workflow
+name: MB Dependency Version Update Workflow
 
 on:
   schedule:

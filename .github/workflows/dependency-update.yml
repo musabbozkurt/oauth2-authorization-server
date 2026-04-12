@@ -1,5 +1,5 @@
 # =============================================================================
-# Dependency Version Update
+# MB Dependency Version Update
 # =============================================================================
 # Detects outdated Maven dependencies (parent POM, properties, direct deps)
 # using the versions-maven-plugin configured in pom.xml with version-rules.xml.
@@ -10,7 +10,7 @@
 #   schedule/dispatch  → Applies updates, verifies compile, creates a PR
 # =============================================================================
 
-name: Dependency Version Update
+name: MB Dependency Version Update
 
 on:
   workflow_dispatch:
@@ -121,9 +121,9 @@ jobs:
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
             {
               echo 'body<<EOF'
-              echo '## 🔄 Dependency Version Updates'
+              echo '## 🔄 MB Dependency Version Updates'
               echo ''
-              echo 'This PR was automatically created by the **Dependency Version Update** workflow.'
+              echo 'This PR was automatically created by the **MB Dependency Version Update** workflow.'
               echo ''
               echo '### Changes'
               echo '```diff'
