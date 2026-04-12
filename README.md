@@ -130,6 +130,27 @@
 - Run `mvn spring-boot:run` command to run the application
 - Use Swagger UI to test the application
 
+#### Dependency Version Management
+
+Dependency versions are managed via
+the [Maven Versions Plugin](https://www.mojohaus.org/versions/versions-maven-plugin/) and a `version-rules.xml` filter
+that excludes alpha/beta/RC/SNAPSHOT releases.
+
+**Local — using the helper script:**
+
+```bash
+./docs/scripts/update-versions.sh check           # Show all outdated versions (parent + props + deps + plugins)
+./docs/scripts/update-versions.sh update          # Auto-update everything and review with: git diff pom.xml
+./docs/scripts/update-versions.sh update-props    # Update only <properties> versions (safest)
+./docs/scripts/update-versions.sh update-parent   # Update only spring-boot-starter-parent
+./docs/scripts/update-versions.sh revert          # Revert pom.xml from backup
+```
+
+**CI/CD — automated PR creation:**
+
+The [Dependency Version Update](.github/workflows/dependency-update.yml) workflow runs every Monday (and on-demand),
+checks for updates, verifies the build compiles, and creates a PR automatically.
+
 #### References
 
 - [Spring Boot 3 Tutorial Security OAuth2 Spring Authorization Server Save login data to a database](https://www.youtube.com/watch?v=rVAqh-VDw2o)
