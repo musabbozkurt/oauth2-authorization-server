@@ -1,14 +1,20 @@
 package mb.oauth2authorizationserver.api.controller.ai;
 
+import com.anthropic.client.AnthropicClient;
+import com.anthropic.core.http.HttpResponse;
+import com.anthropic.models.beta.files.FileMetadata;
+import com.anthropic.models.beta.files.FileRetrieveMetadataParams;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.anthropic.AnthropicChatModel;
 import org.springframework.ai.anthropic.AnthropicChatOptions;
+import org.springframework.ai.anthropic.AnthropicCitationDocument;
+import org.springframework.ai.anthropic.AnthropicSkill;
+import org.springframework.ai.anthropic.AnthropicSkillsResponseHelper;
 import org.springframework.ai.anthropic.Citation;
-import org.springframework.ai.anthropic.SkillsResponseHelper;
-import org.springframework.ai.anthropic.api.AnthropicApi;
-import org.springframework.ai.anthropic.api.CitationDocument;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.http.HttpHeaders;
@@ -21,7 +27,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * NEW IN SPRING AI 2.0: Anthropic Claude Advanced Features
@@ -35,12 +43,12 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/anthropic")
-@ConditionalOnBean(name = "anthropicChatClient")
+@ConditionalOnBean(name = {"anthropicChatClient", "anthropicClient"})
 public class AnthropicController {
 
     private final AnthropicChatModel chatModel;
     private final ChatClient anthropicChatClient;
-    private final AnthropicApi anthropicApi;
+    private final AnthropicClient anthropicClient; // official SDK bean, replaces AnthropicApi
 
     /**
      * NEW IN 2.0: Citations API - Claude references specific parts of your document.
@@ -48,7 +56,7 @@ public class AnthropicController {
      */
     @PostMapping("/citations")
     public CitationsResponse citations(@RequestBody CitationRequest request) {
-        CitationDocument document = CitationDocument.builder()
+        AnthropicCitationDocument document = AnthropicCitationDocument.builder()
                 .plainText(request.document())
                 .title(request.title())
                 .citationsEnabled(true)
@@ -67,7 +75,7 @@ public class AnthropicController {
             return new CitationsResponse("No response from Anthropic API", List.of());
         }
 
-        return new CitationsResponse(response.getResult().getOutput().getText(), extractCitations(response));
+        return new CitationsResponse(Optional.ofNullable(response.getResult()).map(Generation::getOutput).map(AssistantMessage::getText).orElse(null), extractCitations(response));
     }
 
     /**
@@ -76,11 +84,11 @@ public class AnthropicController {
      */
     @PostMapping("/skills/{type}")
     public SkillResponse generateDocument(@PathVariable String type, @RequestBody SkillRequest request) {
-        AnthropicApi.AnthropicSkill skill = switch (type.toLowerCase()) {
-            case "excel" -> AnthropicApi.AnthropicSkill.XLSX;
-            case "powerpoint" -> AnthropicApi.AnthropicSkill.PPTX;
-            case "word" -> AnthropicApi.AnthropicSkill.DOCX;
-            case "pdf" -> AnthropicApi.AnthropicSkill.PDF;
+        AnthropicSkill skill = switch (type.toLowerCase()) {
+            case "excel" -> AnthropicSkill.XLSX;
+            case "powerpoint" -> AnthropicSkill.PPTX;
+            case "word" -> AnthropicSkill.DOCX;
+            case "pdf" -> AnthropicSkill.PDF;
             default -> throw new IllegalArgumentException("Supported types: excel, powerpoint, word, pdf");
         };
 
@@ -90,23 +98,29 @@ public class AnthropicController {
                         AnthropicChatOptions.builder()
                                 .model("claude-sonnet-4-5")
                                 .maxTokens(16384)
-                                .anthropicSkill(skill)
+                                .skill(skill)
                                 .build()
                 )
         );
 
-        return new SkillResponse(response.getResult().getOutput().getText(), extractFileIds(response), type);
+        return new SkillResponse(Optional.ofNullable(response.getResult()).map(Generation::getOutput).map(AssistantMessage::getText).orElse(null), extractFileIds(response), type);
     }
 
     @GetMapping("/files/{fileId}")
-    public ResponseEntity<byte[]> downloadFile(@PathVariable String fileId) {
-        AnthropicApi.FileMetadata metadata = anthropicApi.getFileMetadata(fileId);
-        byte[] content = anthropicApi.downloadFile(fileId);
+    public ResponseEntity<byte[]> downloadFile(@PathVariable String fileId) throws IOException {
+        // Metadata retrieval
+        FileMetadata metadata = anthropicClient.beta().files()
+                .retrieveMetadata(FileRetrieveMetadataParams.builder().fileId(fileId).build());
 
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"%s\"".formatted(metadata.filename()))
-                .contentType(MediaType.parseMediaType(metadata.mimeType()))
-                .body(content);
+        // Binary download — method is download(), not retrieveContent()
+        try (HttpResponse httpResponse = anthropicClient.beta().files().download(fileId)) {
+            byte[] content = httpResponse.body().readAllBytes();
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"%s\"".formatted(metadata.filename()))
+                    .contentType(MediaType.parseMediaType(metadata.mimeType()))
+                    .body(content);
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -116,7 +130,7 @@ public class AnthropicController {
     }
 
     private List<String> extractFileIds(ChatResponse response) {
-        return SkillsResponseHelper.extractFileIds(response);
+        return AnthropicSkillsResponseHelper.extractFileIds(response);
     }
 
     public record CitationRequest(String document, String title, String question) {

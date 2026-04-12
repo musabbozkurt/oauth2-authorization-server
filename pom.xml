@@ -17,7 +17,7 @@
 
     <properties>
         <java.version>25</java.version>
-        <spring-ai.version>2.0.0-M1</spring-ai.version>
+        <spring-ai.version>2.0.0-M4</spring-ai.version>
         <thymeleaf-extras-springsecurity6.version>3.1.3.RELEASE</thymeleaf-extras-springsecurity6.version>
         <mariadb-java-client.version>3.5.7</mariadb-java-client.version>
         <ojdbc17.version>23.26.1.0.0</ojdbc17.version>
@@ -25,6 +25,7 @@
         <taikai.version>1.60.0</taikai.version>
         <instancio-junit.version>6.0.0-RC1</instancio-junit.version>
         <springdoc-openapi-starter-webmvc-ui.version>3.0.2</springdoc-openapi-starter-webmvc-ui.version>
+        <swagger-openapiv3.version>2.2.47</swagger-openapiv3.version>
         <spring-boot-thin-layout.version>1.0.31.RELEASE</spring-boot-thin-layout.version>
         <org.mapstruct.version>1.7.0.Beta1</org.mapstruct.version>
         <opentelemetry-logback-appender-1.0.version>2.25.0-alpha</opentelemetry-logback-appender-1.0.version>
@@ -347,6 +348,27 @@
             <version>${springdoc-openapi-starter-webmvc-ui.version}</version>
         </dependency>
 
+        <!-- Align all Swagger artifacts to the same version (springdoc 3.0.2 pulls mismatched versions) -->
+        <dependency>
+            <groupId>io.swagger.core.v3</groupId>
+            <artifactId>swagger-core-jakarta</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.swagger.core.v3</groupId>
+            <artifactId>swagger-models-jakarta</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.swagger.core.v3</groupId>
+            <artifactId>swagger-annotations-jakarta</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.swagger.core.v3</groupId>
+            <artifactId>swagger-annotations</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.mapstruct</groupId>
             <artifactId>mapstruct</artifactId>
@@ -485,6 +507,14 @@
                 <groupId>tools.jackson</groupId>
                 <artifactId>jackson-bom</artifactId>
                 <version>${jackson-bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>io.swagger.core.v3</groupId>
+                <artifactId>swagger-bom</artifactId>
+                <version>${swagger-openapiv3.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

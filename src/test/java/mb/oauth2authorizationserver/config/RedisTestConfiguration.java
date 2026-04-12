@@ -5,6 +5,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.session.config.SessionRepositoryCustomizer;
+import org.springframework.session.data.redis.RedisIndexedSessionRepository;
 import org.testcontainers.utility.DockerImageName;
 
 @Slf4j
@@ -24,5 +27,16 @@ public class RedisTestConfiguration {
         log.info("Redis server started. isCreated: {}, isRunning: {}", redisContainer.isCreated(), redisContainer.isRunning());
 
         return redisContainer;
+    }
+
+    /**
+     * Disables the per-minute session cleanup scheduler during tests.
+     * Without this, the scheduler fires during context shutdown after
+     * LettuceConnectionFactory has already been stopped, causing
+     * IllegalStateException: LettuceConnectionFactory has been STOPPED.
+     */
+    @Bean
+    public SessionRepositoryCustomizer<RedisIndexedSessionRepository> disableCleanupCron() {
+        return repository -> repository.setCleanupCron(Scheduled.CRON_DISABLED);
     }
 }

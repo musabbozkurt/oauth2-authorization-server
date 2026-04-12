@@ -1,40 +1,31 @@
 package mb.oauth2authorizationserver.config;
 
-import com.nimbusds.jose.jwk.source.JWKSource;
-import org.mockito.Mockito;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
-import org.springframework.security.core.session.SessionRegistry;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 
+/**
+ * Test security configuration that disables all Spring Security filters.
+ * <p>
+ * Does NOT re-declare {@code jwtDecoder}, {@code jwkSource}, or {@code sessionRegistry} —
+ * those are provided by the real {@code SecurityConfig} and work without Redis or external keys.
+ * {@code FindByIndexNameSessionRepository} is provided by {@code RedisTestConfiguration}.
+ */
 @TestConfiguration
 @EnableWebSecurity
 @EnableMethodSecurity(prePostEnabled = false)
 public class TestSecurityConfig {
 
+    /**
+     * Disables all Spring Security filters so controller tests run without authentication.
+     *
+     * @return a customizer that ignores all request paths
+     */
     @Bean
     public WebSecurityCustomizer webSecurityCustomizer() {
         return web -> web.ignoring().requestMatchers(PathPatternRequestMatcher.withDefaults().matcher("/**"));
-    }
-
-    @Bean
-    @Primary
-    public JwtDecoder jwtDecoder() {
-        return Mockito.mock(JwtDecoder.class);
-    }
-
-    @Bean
-    public JWKSource<?> jwkSource() {
-        return Mockito.mock(JWKSource.class);
-    }
-
-    @Bean
-    public SessionRegistry sessionRegistry() {
-        return Mockito.mock(SessionRegistry.class);
     }
 }

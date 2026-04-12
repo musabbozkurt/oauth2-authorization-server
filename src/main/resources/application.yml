@@ -8,6 +8,11 @@ spring:
     password: ${DB_PASSWORD:test}
     driver-class-name: org.mariadb.jdbc.Driver
 
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+
   flyway:
     enabled: true
     baseline-version: 0
@@ -73,10 +78,10 @@ spring:
     # NEW in 2.0: Redis Chat Memory configuration
     chat:
       memory:
-        repository:
-          redis:
-            key-prefix: "spring-ai-chat:"
-            time-to-live: 1h
+        redis:
+          key-prefix: "spring-ai-chat:"
+          time-to-live: 1h
+
     ollama:
       chat:
         model: deepseek-r1:7b
@@ -142,13 +147,13 @@ management:
   otlp:
     metrics:
       export:
-        url: http://localhost:4318/v1/metrics
+        url: ${OTEL_EXPORTER_OTLP_METRICS_URL:http://localhost:4318/v1/metrics}
   opentelemetry:
     tracing:
       export:
         otlp:
-          endpoint: http://localhost:4318/v1/traces
+          endpoint: ${OTEL_EXPORTER_OTLP_TRACES_URL:http://localhost:4318/v1/traces}
     logging:
       export:
         otlp:
-          endpoint: http://localhost:4318/v1/logs
+          endpoint: ${OTEL_EXPORTER_OTLP_LOGS_URL:http://localhost:4318/v1/logs}

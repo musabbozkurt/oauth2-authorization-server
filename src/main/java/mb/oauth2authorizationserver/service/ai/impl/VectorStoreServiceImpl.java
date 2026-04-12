@@ -47,7 +47,7 @@ public class VectorStoreServiceImpl implements VectorStoreService {
     @Override
     public void loadPdf() {
         var pdfReader = new ParagraphPdfDocumentReader(marketPdf);
-        TextSplitter textSplitter = new TokenTextSplitter();
+        TextSplitter textSplitter = TokenTextSplitter.builder().build();
         vectorStore.accept(textSplitter.apply(pdfReader.get()));
         log.info("VectorStore loaded with PDF content");
     }
