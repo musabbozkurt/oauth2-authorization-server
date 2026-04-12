@@ -148,7 +148,7 @@ that excludes alpha/beta/RC/SNAPSHOT releases.
 
 **CI/CD — automated PR creation:**
 
-The [Dependency Version Update](.github/workflows/dependency-update.yml) workflow runs every Monday (and on-demand),
+The [MB Dependency Version Update](.github/workflows/dependency-update.yml) workflow runs every Monday (and on-demand),
 checks for updates, verifies the build compiles, and creates a PR automatically.
 
 #### References
