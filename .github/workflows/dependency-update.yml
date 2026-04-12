@@ -13,10 +13,17 @@ name: Dependency Version Update
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ "master" ]
+    paths: [ ".github/workflows/dependency-update.yml" ]
   pull_request:
     branches: [ "master" ]
   schedule:
     - cron: '*/5 * * * *' # Every 5 minutes (set to '0 8 * * 1' for weekly Monday 08:00 UTC)
+
+permissions:
+  contents: write
+  pull-requests: write
 
 # ---------------------------------------------------------------------------
 # Job 1: Read-only version check (runs only on pull_request)
@@ -55,12 +62,8 @@ jobs:
   # Job 2: Apply updates + create PR (runs only on schedule / workflow_dispatch)
   # ---------------------------------------------------------------------------
   update-and-pr:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: write
-      pull-requests: write
 
     steps:
       - name: Checkout master
