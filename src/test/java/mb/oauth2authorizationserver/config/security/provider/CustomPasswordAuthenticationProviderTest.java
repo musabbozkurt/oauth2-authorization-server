@@ -1,6 +1,13 @@
 package mb.oauth2authorizationserver.config.security.provider;
 
 import mb.oauth2authorizationserver.config.security.CustomPasswordAuthenticationToken;
+import mb.oauth2authorizationserver.config.security.builder.AuthorizationBuilderService;
+import mb.oauth2authorizationserver.config.security.service.CustomAuthenticationService;
+import mb.oauth2authorizationserver.config.security.service.TokenService;
+import mb.oauth2authorizationserver.config.security.service.UserLoginAttemptService;
+import mb.oauth2authorizationserver.constants.ErrorMessageConstants;
+import mb.oauth2authorizationserver.data.entity.Authority;
+import mb.oauth2authorizationserver.data.entity.SecurityUser;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -9,13 +16,9 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClaimAccessor;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
@@ -36,7 +39,6 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Toke
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -69,7 +71,16 @@ class CustomPasswordAuthenticationProviderTest {
     private UserDetailsService userDetailsService;
 
     @Mock
-    private BCryptPasswordEncoder bCryptPasswordEncoder;
+    private TokenService tokenService;
+
+    @Mock
+    private AuthorizationBuilderService authorizationBuilderService;
+
+    @Mock
+    private UserLoginAttemptService userLoginAttemptService;
+
+    @Mock
+    private CustomAuthenticationService customAuthenticationService;
 
     private OAuth2ClientAuthenticationToken clientPrincipal;
 
@@ -81,7 +92,10 @@ class CustomPasswordAuthenticationProviderTest {
                 authorizationService,
                 tokenGenerator,
                 userDetailsService,
-                bCryptPasswordEncoder
+                tokenService,
+                authorizationBuilderService,
+                userLoginAttemptService,
+                customAuthenticationService
         );
 
         RegisteredClient registeredClient = RegisteredClient.withId("test-client-id")
@@ -170,13 +184,13 @@ class CustomPasswordAuthenticationProviderTest {
         String username = "user@example.com";
         String password = "wrongPassword";
         CustomPasswordAuthenticationToken authentication = createCustomPasswordAuthenticationToken(username, password);
-        User user = createMockUser(username);
+        SecurityUser user = createMockUser(username);
 
         when(userDetailsService.loadUserByUsername(username)).thenReturn(user);
-        when(bCryptPasswordEncoder.matches(password, "encodedPassword")).thenReturn(false);
+        when(customAuthenticationService.authenticate(password, user)).thenReturn(false);
 
         OAuth2AuthenticationException ex = assertThrows(OAuth2AuthenticationException.class, () -> customPasswordAuthenticationProvider.authenticate(authentication));
-        assertEquals(OAuth2ErrorCodes.ACCESS_DENIED, ex.getError().getErrorCode());
+        assertEquals(ErrorMessageConstants.PASSWORD_MISMATCH, ex.getError().getErrorCode());
     }
 
     @Test
@@ -186,14 +200,17 @@ class CustomPasswordAuthenticationProviderTest {
         CustomPasswordAuthenticationToken authentication = createCustomPasswordAuthenticationToken(username, password);
 
         // Create a user with a different username than what was requested
-        List<GrantedAuthority> authorities = List.of(
-                new SimpleGrantedAuthority("read"),
-                new SimpleGrantedAuthority("write")
-        );
-        User user = new User("different@example.com", "encodedPassword", authorities);
+        SecurityUser user = SecurityUser.builder()
+                .username("different@example.com")
+                .password("encodedPassword")
+                .firstName("John")
+                .lastName("Doe")
+                .email("different@test.com")
+                .phoneNumber("1234567890")
+                .authorities(Set.of(Authority.builder().authority("read").defaultAuthority(false).build()))
+                .build();
 
         when(userDetailsService.loadUserByUsername(username)).thenReturn(user);
-        when(bCryptPasswordEncoder.matches(password, "encodedPassword")).thenReturn(true);
 
         OAuth2AuthenticationException ex = assertThrows(OAuth2AuthenticationException.class, () -> customPasswordAuthenticationProvider.authenticate(authentication));
         assertEquals(OAuth2ErrorCodes.ACCESS_DENIED, ex.getError().getErrorCode());
@@ -204,13 +221,13 @@ class CustomPasswordAuthenticationProviderTest {
         String username = "user@example.com";
         String password = "correctPassword";
         CustomPasswordAuthenticationToken authentication = createCustomPasswordAuthenticationToken(username, password);
-        User user = createMockUser(username);
+        SecurityUser user = createMockUser(username);
 
         OAuth2AccessToken generatedAccessToken = createOAuth2AccessToken();
         OAuth2RefreshToken generatedRefreshToken = createOAuth2RefreshToken();
 
         when(userDetailsService.loadUserByUsername(username)).thenReturn(user);
-        when(bCryptPasswordEncoder.matches(password, "encodedPassword")).thenReturn(true);
+        when(customAuthenticationService.authenticate(password, user)).thenReturn(true);
         when(tokenGenerator.generate(any())).thenReturn(generatedAccessToken, generatedRefreshToken);
 
         Authentication result = customPasswordAuthenticationProvider.authenticate(authentication);
@@ -228,7 +245,7 @@ class CustomPasswordAuthenticationProviderTest {
         String username = "user@example.com";
         String password = "correctPassword";
         CustomPasswordAuthenticationToken authentication = createCustomPasswordAuthenticationToken(username, password);
-        User user = createMockUser(username);
+        SecurityUser user = createMockUser(username);
 
         OAuth2RefreshToken generatedRefreshToken = createOAuth2RefreshToken();
 
@@ -236,10 +253,9 @@ class CustomPasswordAuthenticationProviderTest {
         when(claimAccessorToken.getTokenValue()).thenReturn("access-token-value");
         when(claimAccessorToken.getIssuedAt()).thenReturn(Instant.now());
         when(claimAccessorToken.getExpiresAt()).thenReturn(Instant.now().plusSeconds(3600));
-        when(((ClaimAccessor) claimAccessorToken).getClaims()).thenReturn(Map.of("sub", username));
 
         when(userDetailsService.loadUserByUsername(username)).thenReturn(user);
-        when(bCryptPasswordEncoder.matches(password, "encodedPassword")).thenReturn(true);
+        when(customAuthenticationService.authenticate(password, user)).thenReturn(true);
         when(tokenGenerator.generate(any())).thenReturn(claimAccessorToken, generatedRefreshToken);
 
         Authentication result = customPasswordAuthenticationProvider.authenticate(authentication);
@@ -254,14 +270,15 @@ class CustomPasswordAuthenticationProviderTest {
         String username = "user@example.com";
         String password = "correctPassword";
         CustomPasswordAuthenticationToken authentication = createCustomPasswordAuthenticationToken(username, password);
-        User user = createMockUser(username);
+        SecurityUser user = createMockUser(username);
 
         when(userDetailsService.loadUserByUsername(username)).thenReturn(user);
-        when(bCryptPasswordEncoder.matches(password, "encodedPassword")).thenReturn(true);
+        when(customAuthenticationService.authenticate(password, user)).thenReturn(true);
         when(tokenGenerator.generate(any())).thenReturn(null);
 
         OAuth2AuthenticationException ex = assertThrows(OAuth2AuthenticationException.class, () -> customPasswordAuthenticationProvider.authenticate(authentication));
         assertEquals(OAuth2ErrorCodes.SERVER_ERROR, ex.getError().getErrorCode());
+        assertNotNull(ex.getError().getDescription());
         assertTrue(ex.getError().getDescription().contains("access token"));
         verify(authorizationService, never()).save(any());
     }
@@ -271,13 +288,13 @@ class CustomPasswordAuthenticationProviderTest {
         String username = "user@example.com";
         String password = "correctPassword";
         CustomPasswordAuthenticationToken authentication = createCustomPasswordAuthenticationToken(username, password);
-        User user = createMockUser(username);
+        SecurityUser user = createMockUser(username);
 
         OAuth2AccessToken generatedAccessToken = createOAuth2AccessToken();
         OAuth2Token invalidRefreshToken = mock(OAuth2Token.class);
 
         when(userDetailsService.loadUserByUsername(username)).thenReturn(user);
-        when(bCryptPasswordEncoder.matches(password, "encodedPassword")).thenReturn(true);
+        when(customAuthenticationService.authenticate(password, user)).thenReturn(true);
         when(tokenGenerator.generate(any())).thenReturn(generatedAccessToken, invalidRefreshToken);
 
         OAuth2AuthenticationException ex = assertThrows(OAuth2AuthenticationException.class, () -> customPasswordAuthenticationProvider.authenticate(authentication));
@@ -308,11 +325,11 @@ class CustomPasswordAuthenticationProviderTest {
         additionalParameters.put("password", password);
         CustomPasswordAuthenticationToken authentication = new CustomPasswordAuthenticationToken(clientWithoutRefresh, Set.of("read"), additionalParameters);
 
-        User user = createMockUser(username);
+        SecurityUser user = createMockUser(username);
         OAuth2AccessToken generatedAccessToken = createOAuth2AccessToken();
 
         when(userDetailsService.loadUserByUsername(username)).thenReturn(user);
-        when(bCryptPasswordEncoder.matches(password, "encodedPassword")).thenReturn(true);
+        when(customAuthenticationService.authenticate(password, user)).thenReturn(true);
         when(tokenGenerator.generate(any())).thenReturn(generatedAccessToken);
 
         Authentication result = customPasswordAuthenticationProvider.authenticate(authentication);
@@ -347,11 +364,11 @@ class CustomPasswordAuthenticationProviderTest {
         additionalParameters.put("password", password);
         CustomPasswordAuthenticationToken authentication = new CustomPasswordAuthenticationToken(clientWithNoneMethod, Set.of("read"), additionalParameters);
 
-        User user = createMockUser(username);
+        SecurityUser user = createMockUser(username);
         OAuth2AccessToken generatedAccessToken = createOAuth2AccessToken();
 
         when(userDetailsService.loadUserByUsername(username)).thenReturn(user);
-        when(bCryptPasswordEncoder.matches(password, "encodedPassword")).thenReturn(true);
+        when(customAuthenticationService.authenticate(password, user)).thenReturn(true);
         when(tokenGenerator.generate(any())).thenReturn(generatedAccessToken);
 
         Authentication result = customPasswordAuthenticationProvider.authenticate(authentication);
@@ -369,17 +386,24 @@ class CustomPasswordAuthenticationProviderTest {
         String password = "correctPassword";
         CustomPasswordAuthenticationToken authentication = createCustomPasswordAuthenticationToken(username, password);
 
-        List<GrantedAuthority> authorities = List.of(
-                new SimpleGrantedAuthority("read"),
-                new SimpleGrantedAuthority("admin")
-        );
-        User user = new User(username, "encodedPassword", authorities);
+        SecurityUser user = SecurityUser.builder()
+                .username(username)
+                .password("encodedPassword")
+                .firstName("John")
+                .lastName("Doe")
+                .email(username + "@test.com")
+                .phoneNumber("1234567890")
+                .authorities(Set.of(
+                        Authority.builder().authority("read").defaultAuthority(false).build(),
+                        Authority.builder().authority("admin").defaultAuthority(false).build()
+                ))
+                .build();
 
         OAuth2AccessToken generatedAccessToken = createOAuth2AccessToken();
         OAuth2RefreshToken generatedRefreshToken = createOAuth2RefreshToken();
 
         when(userDetailsService.loadUserByUsername(username)).thenReturn(user);
-        when(bCryptPasswordEncoder.matches(password, "encodedPassword")).thenReturn(true);
+        when(customAuthenticationService.authenticate(password, user)).thenReturn(true);
         when(tokenGenerator.generate(any())).thenReturn(generatedAccessToken, generatedRefreshToken);
 
         Authentication result = customPasswordAuthenticationProvider.authenticate(authentication);
@@ -414,12 +438,26 @@ class CustomPasswordAuthenticationProviderTest {
         return new CustomPasswordAuthenticationToken(clientPrincipal, Set.of("read", "write"), additionalParameters);
     }
 
-    private User createMockUser(String username) {
-        List<GrantedAuthority> authorities = List.of(
-                new SimpleGrantedAuthority("read"),
-                new SimpleGrantedAuthority("write")
+    private SecurityUser createMockUser(String username) {
+        // Create the custom Authority entities instead of SimpleGrantedAuthority
+        Set<Authority> authorities = Set.of(
+                Authority.builder().authority("read").defaultAuthority(false).build(),
+                Authority.builder().authority("write").defaultAuthority(false).build()
         );
-        return new User(username, "encodedPassword", authorities);
+
+        return SecurityUser.builder()
+                .username(username)
+                .password("encodedPassword")
+                .firstName("John")              // Added because nullable = false
+                .lastName("Doe")                // Added because nullable = false
+                .email(username + "@test.com")  // Added because nullable = false
+                .phoneNumber("1234567890")      // Added because nullable = false
+                .authorities(authorities)       // Now matches Set<Authority>
+                .enabled(true)
+                .accountNonLocked(true)
+                .accountNonExpired(true)
+                .credentialsNonExpired(true)
+                .build();
     }
 
     private OAuth2AccessToken createOAuth2AccessToken() {

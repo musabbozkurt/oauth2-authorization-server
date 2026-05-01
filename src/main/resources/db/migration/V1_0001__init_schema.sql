@@ -13,8 +13,8 @@ create index if not exists vector_store_embedding_idx on oauth2_authorization_se
 create table if not exists oauth2_authorization_server.authorities
 (
     id                bigint not null auto_increment,
-    authority         varchar(255),
-    default_authority bit default false,
+    authority         varchar(255) not null,
+    default_authority bit not null default false,
     primary key (id)
 );
 
@@ -63,6 +63,10 @@ create table if not exists oauth2_authorization_server.client
     redirect_uris                 varchar(1000),
     scopes                        varchar(1000),
     token_settings                varchar(2000),
+    authorities                   varchar(1000),
+    access_token_validity         int,
+    refresh_token_validity        int,
+    authorization_code_validity   int,
     primary key (id)
 );
 
@@ -154,6 +158,15 @@ VALUES (2, 2);
 
 INSERT INTO oauth2_authorization_server.users_authorities(users_id, authorities_id)
 VALUES (3, 1);
+
+create table if not exists oauth2_authorization_server.user_login_attempts
+(
+    id          bigint       not null auto_increment,
+    login_status varchar(255),
+    user_id     bigint,
+    login_date  datetime(6),
+    primary key (id)
+);
 
 INSERT INTO oauth2_authorization_server.client(id, authorization_grant_types, client_authentication_methods, client_id,
                                                client_id_issued_at, client_name, client_secret,

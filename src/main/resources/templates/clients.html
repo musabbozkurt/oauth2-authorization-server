@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Clients</title>
+</head>
+<body>
+<div class="min-h-screen bg-gray-50">
+    <header class="bg-white shadow">
+        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center">
+                <h1 class="text-3xl font-bold text-gray-900">Clients</h1>
+                <nav class="space-x-4">
+                    <a class="text-gray-600 hover:text-gray-900" href="/admin">Home</a>
+                    <a class="text-gray-600 hover:text-gray-900" href="/admin/users">Users</a>
+                    <a class="text-gray-600 hover:text-gray-900 font-semibold" href="/admin/clients">Clients</a>
+                    <a class="text-gray-600 hover:text-gray-900" href="/admin/tokens">Tokens</a>
+                    <a class="text-gray-600 hover:text-gray-900" href="/admin/sessions">Sessions</a>
+                    <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+                            onclick="window.location.href='/logout'">Logout
+                    </button>
+                </nav>
+            </div>
+        </div>
+    </header>
+    <main class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <div class="mb-4 p-3 bg-green-100 text-green-800 rounded" th:if="${message}" th:text="${message}"></div>
+        <div class="mb-4 p-3 bg-red-100 text-red-800 rounded" th:if="${error}" th:text="${error}"></div>
+        <div class="mb-4 flex justify-between items-center">
+            <form class="flex space-x-2" method="get" th:action="@{/admin/clients}">
+                <label class="sr-only" for="searchClientId">Search by Client ID</label>
+                <input class="border border-gray-300 rounded px-3 py-2 text-sm" id="searchClientId"
+                       name="searchClientId"
+                       placeholder="Search by Client ID" th:value="${searchClientId}" type="text">
+                <button class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm" type="submit">
+                    Search
+                </button>
+            </form>
+            <a class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded" href="/admin/clients/add">Add
+                Client</a>
+        </div>
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client ID</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client Name</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grant Types</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Access Token (s)</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                <tr th:each="c : ${clients.content}">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" th:text="${c.clientId}"></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600" th:text="${c.clientName}"></td>
+                    <td class="px-6 py-4 text-sm text-gray-600 max-w-xs truncate"
+                        th:text="${c.authorizationGrantTypes}"></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600"
+                        th:text="${c.accessTokenValidity}"></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                        <a class="text-blue-600 hover:text-blue-800 font-medium"
+                           th:href="@{/admin/clients/{id}/edit(id=${c.clientId})}">Edit</a>
+                        <button class="text-red-600 hover:text-red-800 font-medium"
+                                onclick="deleteClient(this.dataset.id)"
+                                th:data-id="${c.clientId}">Delete
+                        </button>
+                    </td>
+                </tr>
+                <tr th:if="${clients.content.isEmpty()}">
+                    <td class="px-6 py-4 text-center text-gray-500" colspan="5">No clients found</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-4 flex justify-between items-center" th:if="${clients.totalPages > 1}">
+            <span class="text-sm text-gray-600"
+                  th:text="'Page ' + (${clients.number} + 1) + ' of ' + ${clients.totalPages}"></span>
+            <div class="space-x-2">
+                <a class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                   th:href="@{/admin/clients(page=${clients.number - 1}, searchClientId=${searchClientId})}"
+                   th:if="${clients.number > 0}">Previous</a>
+                <a class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                   th:href="@{/admin/clients(page=${clients.number + 1}, searchClientId=${searchClientId})}"
+                   th:if="${clients.number + 1 < clients.totalPages}">Next</a>
+            </div>
+        </div>
+    </main>
+</div>
+<script>
+    function deleteClient(clientId) {
+        if (!confirm('Delete client "' + clientId + '"?')) return;
+        fetch('/admin/clients/' + clientId, {method: 'DELETE'}).then(function (r) {
+            if (r.ok) location.reload(); else alert('Failed');
+        });
+    }
+</script>
+</body>
+</html>

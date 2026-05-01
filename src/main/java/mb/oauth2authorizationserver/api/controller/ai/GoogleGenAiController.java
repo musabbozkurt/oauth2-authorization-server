@@ -3,6 +3,7 @@ package mb.oauth2authorizationserver.api.controller.ai;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -59,7 +60,13 @@ public class GoogleGenAiController {
             return new SafeResponse("No response from Google GenAI chat safe API", List.of());
         }
 
-        String content = response.getResult().getOutput().getText();
+        Generation responseResult = response.getResult();
+
+        if (responseResult == null) {
+            return new SafeResponse("No response from Google GenAI chat safe API", List.of());
+        }
+
+        String content = responseResult.getOutput().getText();
 
         // Extract safety ratings from metadata if available
         var safetyRatings = response.getMetadata().get("safetyRatings");
@@ -93,7 +100,13 @@ public class GoogleGenAiController {
             return new ThinkingResponse("No response from Google GenAI API", null, budget);
         }
 
-        String content = response.getResult().getOutput().getText();
+        Generation responseResult = response.getResult();
+
+        if (responseResult == null) {
+            return new ThinkingResponse("No response from Google GenAI API", null, budget);
+        }
+
+        String content = responseResult.getOutput().getText();
 
         // Extract thinking/reasoning from metadata if available
         var thoughts = response.getMetadata().get("thoughts");

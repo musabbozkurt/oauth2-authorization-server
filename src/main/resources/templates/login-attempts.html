@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Login Attempts</title>
+</head>
+<body>
+<div class="min-h-screen bg-gray-50">
+    <header class="bg-white shadow">
+        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center">
+                <h1 class="text-3xl font-bold text-gray-900">Login Attempts</h1>
+                <nav class="space-x-4">
+                    <a class="text-gray-600 hover:text-gray-900" href="/admin">Home</a>
+                    <a class="text-gray-600 hover:text-gray-900" href="/admin/users">Users</a>
+                    <a class="text-gray-600 hover:text-gray-900" href="/admin/clients">Clients</a>
+                    <a class="text-gray-600 hover:text-gray-900" href="/admin/tokens">Tokens</a>
+                    <a class="text-gray-600 hover:text-gray-900" href="/admin/sessions">Sessions</a>
+                    <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+                            onclick="window.location.href='/logout'">Logout
+                    </button>
+                </nav>
+            </div>
+        </div>
+    </header>
+    <main class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <div class="mb-4 flex justify-between items-center">
+            <form class="flex space-x-2" method="get" th:action="@{/admin/login-attempts}">
+                <label class="sr-only" for="searchUserId">Search by User ID</label>
+                <input class="border border-gray-300 rounded px-3 py-2 text-sm" id="searchUserId" name="searchUserId"
+                       placeholder="Search by User ID" th:value="${searchUserId}" type="text">
+                <button class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm" type="submit">
+                    Search
+                </button>
+            </form>
+        </div>
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User ID</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Login Date</th>
+                </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                <tr th:each="a : ${attempts.content}">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" th:text="${a.id}"></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600" th:text="${a.userId}"></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <span class="px-2 py-1 rounded text-xs font-medium"
+                              th:classappend="${a.loginStatus.name() == 'SUCCESS'} ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+                              th:text="${a.loginStatus}"></span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600" th:text="${a.loginDate}"></td>
+                </tr>
+                <tr th:if="${attempts.content.isEmpty()}">
+                    <td class="px-6 py-4 text-center text-gray-500" colspan="4">No login attempts found</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-4 flex justify-between items-center" th:if="${attempts.totalPages > 1}">
+            <span class="text-sm text-gray-600"
+                  th:text="'Page ' + (${attempts.number} + 1) + ' of ' + ${attempts.totalPages}"></span>
+            <div class="space-x-2">
+                <a class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                   th:href="@{/admin/login-attempts(page=${attempts.number - 1}, searchUserId=${searchUserId})}"
+                   th:if="${attempts.number > 0}">Previous</a>
+                <a class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                   th:href="@{/admin/login-attempts(page=${attempts.number + 1}, searchUserId=${searchUserId})}"
+                   th:if="${attempts.number + 1 < attempts.totalPages}">Next</a>
+            </div>
+        </div>
+    </main>
+</div>
+</body>
+</html>

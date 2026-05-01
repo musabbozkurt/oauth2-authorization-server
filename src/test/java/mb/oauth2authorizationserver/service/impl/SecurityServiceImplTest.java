@@ -19,7 +19,6 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.session.SessionInformation;
 import org.springframework.security.core.session.SessionRegistry;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.session.FindByIndexNameSessionRepository;
 
 import java.util.Arrays;
@@ -325,11 +324,10 @@ class SecurityServiceImplTest {
         // Arrange
         String username = "testuser";
         String password = "password";
-        UserDetails userDetails = mock(UserDetails.class);
         UsernamePasswordAuthenticationToken token = mock(UsernamePasswordAuthenticationToken.class);
 
-        when(userDetailsService.loadUserByUsername(username)).thenReturn(userDetails);
-        when(userDetails.getAuthorities()).thenReturn(Collections.emptyList());
+        when(userDetailsService.loadUserByUsername(username)).thenReturn(securityUser);
+        when(securityUser.getAuthorities()).thenReturn(Collections.emptyList());
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(token);
 
         try (MockedStatic<SecurityContextHolder> securityContextHolderMock = mockStatic(SecurityContextHolder.class)) {

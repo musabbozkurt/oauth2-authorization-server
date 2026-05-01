@@ -1,11 +1,15 @@
 package mb.oauth2authorizationserver.data.repository;
 
 import mb.oauth2authorizationserver.data.entity.Authorization;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 public interface AuthorizationRepository extends JpaRepository<Authorization, String> {
@@ -23,4 +27,14 @@ public interface AuthorizationRepository extends JpaRepository<Authorization, St
 
     @Modifying
     void deleteByAccessTokenValue(String accessToken);
+
+    Page<Authorization> findAllByOrderByAccessTokenIssuedAtDesc(Pageable pageable);
+
+    List<Authorization> findByPrincipalName(String username);
+
+    Optional<Authorization> findByRegisteredClientIdAndPrincipalNameAndAuthorizationGrantType(String clientId, String username, String authorizationGrantType);
+
+    @Modifying
+    @Query("DELETE FROM Authorization a WHERE a.accessTokenExpiresAt < :now")
+    long deleteExpiredTokens(@Param("now") Instant now);
 }

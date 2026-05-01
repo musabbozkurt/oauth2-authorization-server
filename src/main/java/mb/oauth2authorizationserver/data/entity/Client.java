@@ -7,6 +7,8 @@ import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import mb.oauth2authorizationserver.model.enums.AuthorityType;
+import mb.oauth2authorizationserver.model.enums.GrantType;
 
 import java.time.Instant;
 
@@ -29,7 +31,7 @@ public class Client {
     private String clientAuthenticationMethods;
 
     @Column(length = 1000)
-    private String authorizationGrantTypes;
+    private String authorizationGrantTypes = GrantType.getAllTypesAsString();
 
     @Column(length = 1000)
     private String redirectUris;
@@ -42,4 +44,13 @@ public class Client {
 
     @Column(length = 2000)
     private String tokenSettings;
+
+    @Column(length = 1000)
+    private String authorities = AuthorityType.getAllTypesAsString();
+
+    private Integer accessTokenValidity = 3600;
+
+    private Integer refreshTokenValidity = 7200;
+
+    private Integer authorizationCodeValidity = 300;
 }

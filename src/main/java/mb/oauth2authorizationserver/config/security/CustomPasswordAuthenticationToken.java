@@ -2,6 +2,7 @@ package mb.oauth2authorizationserver.config.security;
 
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import mb.oauth2authorizationserver.constants.ServiceConstants;
 import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
@@ -27,9 +28,9 @@ public class CustomPasswordAuthenticationToken extends OAuth2AuthorizationGrantA
     public CustomPasswordAuthenticationToken(Authentication clientPrincipal,
                                              @Nullable Set<String> scopes,
                                              @Nullable Map<String, Object> additionalParameters) {
-        super(new AuthorizationGrantType("custom_password"), clientPrincipal, additionalParameters);
-        this.username = (String) Objects.requireNonNull(additionalParameters).get("username");
-        this.password = (String) additionalParameters.get("password");
+        super(new AuthorizationGrantType(ServiceConstants.CUSTOM_PASSWORD), clientPrincipal, additionalParameters);
+        this.username = (String) Objects.requireNonNull(additionalParameters).get(ServiceConstants.USERNAME);
+        this.password = (String) additionalParameters.get(ServiceConstants.PASSWORD);
         this.scopes = Collections.unmodifiableSet(scopes != null ? new HashSet<>(scopes) : Collections.emptySet());
     }
 }

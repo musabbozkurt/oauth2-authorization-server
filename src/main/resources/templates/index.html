@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 
 <head>
     <meta charset="UTF-8">
     <meta content="width=device-width, initial-scale=1" name="viewport">
     <script src="https://cdn.tailwindcss.com"></script>
-    <title>Index Page</title>
+    <title>Admin Dashboard</title>
 </head>
 
 <body>
@@ -13,13 +13,15 @@
     <header class="bg-white shadow">
         <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center">
-                <h1 class="text-3xl font-bold text-gray-900">Welcome</h1>
+                <h1 class="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
                 <nav class="space-x-4">
-                    <a class="text-gray-600 hover:text-gray-900" href="#">Home</a>
-                    <a class="text-gray-600 hover:text-gray-900" href="#">About</a>
-                    <a class="text-gray-600 hover:text-gray-900" href="#">Contact</a>
+                    <a class="text-gray-600 hover:text-gray-900 font-semibold" href="/admin">Home</a>
+                    <a class="text-gray-600 hover:text-gray-900" href="/admin/users">Users</a>
+                    <a class="text-gray-600 hover:text-gray-900" href="/admin/clients">Clients</a>
+                    <a class="text-gray-600 hover:text-gray-900" href="/admin/tokens">Tokens</a>
+                    <a class="text-gray-600 hover:text-gray-900" href="/admin/sessions">Sessions</a>
                     <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
-                            id="logout-button" onclick="logout()">Logout
+                            onclick="window.location.href='/logout'">Logout
                     </button>
                 </nav>
             </div>
@@ -27,18 +29,31 @@
     </header>
 
     <main class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-2xl font-semibold mb-4">Super Secret Home Page</h2>
-            <p class="text-gray-600">
-                If you are seeing this text it means you have been authenticated!
-            </p>
+        <div class="mb-4 p-3 bg-red-100 text-red-800 rounded" th:if="${error}" th:text="${error}"></div>
+        <div class="mb-4 p-3 bg-green-100 text-green-800 rounded" th:if="${message}" th:text="${message}"></div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <a class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition" href="/admin/users">
+                <h2 class="text-xl font-semibold text-gray-900 mb-2">Users</h2>
+                <p class="text-gray-600 text-sm">Manage system users</p>
+            </a>
+            <a class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition" href="/admin/clients">
+                <h2 class="text-xl font-semibold text-gray-900 mb-2">Clients</h2>
+                <p class="text-gray-600 text-sm">Manage OAuth2 clients</p>
+            </a>
+            <a class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition" href="/admin/tokens">
+                <h2 class="text-xl font-semibold text-gray-900 mb-2">Tokens</h2>
+                <p class="text-gray-600 text-sm">View and revoke tokens</p>
+            </a>
+            <a class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition" href="/admin/sessions">
+                <h2 class="text-xl font-semibold text-gray-900 mb-2">Sessions</h2>
+                <p class="text-gray-600 text-sm">Active user sessions</p>
+            </a>
+            <a class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition" href="/admin/login-attempts">
+                <h2 class="text-xl font-semibold text-gray-900 mb-2">Login Attempts</h2>
+                <p class="text-gray-600 text-sm">View login history</p>
+            </a>
         </div>
     </main>
 </div>
-<script>
-    function logout() {
-        window.location.href = '/logout';
-    }
-</script>
 </body>
 </html>

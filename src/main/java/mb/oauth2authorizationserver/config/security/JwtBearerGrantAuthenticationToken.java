@@ -27,8 +27,8 @@ public class JwtBearerGrantAuthenticationToken extends OAuth2AuthorizationGrantA
                                              Authentication clientPrincipal,
                                              @Nullable Set<String> scopes,
                                              @Nullable Map<String, Object> additionalParameters) {
-        super(AuthorizationGrantType.JWT_BEARER, clientPrincipal, additionalParameters);
         Assert.hasText(assertion, "assertion cannot be empty");
+        super(AuthorizationGrantType.JWT_BEARER, clientPrincipal, additionalParameters);
         this.assertion = assertion;
         this.scopes = Collections.unmodifiableSet(scopes != null ? new HashSet<>(scopes) : Collections.emptySet());
     }

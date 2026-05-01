@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Users</title>
+</head>
+<body>
+<div class="min-h-screen bg-gray-50">
+    <header class="bg-white shadow">
+        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center">
+                <h1 class="text-3xl font-bold text-gray-900">Users</h1>
+                <nav class="space-x-4">
+                    <a class="text-gray-600 hover:text-gray-900" href="/admin">Home</a>
+                    <a class="text-gray-600 hover:text-gray-900 font-semibold" href="/admin/users">Users</a>
+                    <a class="text-gray-600 hover:text-gray-900" href="/admin/clients">Clients</a>
+                    <a class="text-gray-600 hover:text-gray-900" href="/admin/tokens">Tokens</a>
+                    <a class="text-gray-600 hover:text-gray-900" href="/admin/sessions">Sessions</a>
+                    <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+                            onclick="window.location.href='/logout'">Logout
+                    </button>
+                </nav>
+            </div>
+        </div>
+    </header>
+    <main class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <div class="mb-4 p-3 bg-green-100 text-green-800 rounded" th:if="${message}" th:text="${message}"></div>
+        <div class="mb-4 p-3 bg-red-100 text-red-800 rounded" th:if="${error}" th:text="${error}"></div>
+        <div class="mb-4 flex justify-between items-center">
+            <form class="flex space-x-2 items-center" method="get" th:action="@{/admin/users}">
+                <label class="sr-only" for="searchName">First Name</label>
+                <input class="border border-gray-300 rounded px-3 py-2 text-sm" id="searchName" name="searchName"
+                       placeholder="First Name" th:value="${searchName}" type="text">
+                <label class="sr-only" for="searchLastName">Last Name</label>
+                <input class="border border-gray-300 rounded px-3 py-2 text-sm" id="searchLastName"
+                       name="searchLastName"
+                       placeholder="Last Name" th:value="${searchLastName}" type="text">
+                <label class="text-sm text-gray-600"><input name="showAll" th:checked="${showAll}" type="checkbox"
+                                                            value="true"> Show Disabled</label>
+                <input name="sort" th:value="${currentSort}" type="hidden">
+                <input name="direction" th:value="${currentDirection}" type="hidden">
+                <button class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm" type="submit">
+                    Search
+                </button>
+            </form>
+            <a class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded" href="/admin/users/add">Add
+                User</a>
+        </div>
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        <a th:href="@{/admin/users(sort='firstName', direction=${currentSort == 'firstName' and currentDirection == 'ASC' ? 'DESC' : 'ASC'}, showAll=${showAll}, searchName=${searchName}, searchLastName=${searchLastName})}">First
+                            Name</a>
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        <a th:href="@{/admin/users(sort='lastName', direction=${currentSort == 'lastName' and currentDirection == 'ASC' ? 'DESC' : 'ASC'}, showAll=${showAll}, searchName=${searchName}, searchLastName=${searchLastName})}">Last
+                            Name</a>
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Username</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Enabled</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                <tr th:each="u : ${users.content}">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" th:text="${u.id}"></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600" th:text="${u.firstName}"></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600" th:text="${u.lastName}"></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600" th:text="${u.username}"></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600" th:text="${u.email}"></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <span class="px-2 py-1 rounded text-xs font-medium"
+                              th:classappend="${u.enabled} ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+                              th:text="${u.enabled} ? 'Yes' : 'No'"></span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                        <a class="text-blue-600 hover:text-blue-800 font-medium"
+                           th:href="@{/admin/users/{id}/edit(id=${u.id})}">Edit</a>
+                        <button class="text-red-600 hover:text-red-800 font-medium"
+                                onclick="deleteUser(this.dataset.id)"
+                                th:data-id="${u.id}">Delete
+                        </button>
+                    </td>
+                </tr>
+                <tr th:if="${users.content.isEmpty()}">
+                    <td class="px-6 py-4 text-center text-gray-500" colspan="7">No users found</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-4 flex justify-between items-center" th:if="${users.totalPages > 1}">
+            <span class="text-sm text-gray-600"
+                  th:text="'Page ' + (${users.number} + 1) + ' of ' + ${users.totalPages}"></span>
+            <div class="space-x-2">
+                <a class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                   th:href="@{/admin/users(page=${users.number - 1}, showAll=${showAll}, sort=${currentSort}, direction=${currentDirection}, searchName=${searchName}, searchLastName=${searchLastName})}"
+                   th:if="${users.number > 0}">Previous</a>
+                <a class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                   th:href="@{/admin/users(page=${users.number + 1}, showAll=${showAll}, sort=${currentSort}, direction=${currentDirection}, searchName=${searchName}, searchLastName=${searchLastName})}"
+                   th:if="${users.number + 1 < users.totalPages}">Next</a>
+            </div>
+        </div>
+    </main>
+</div>
+<script>
+    function deleteUser(userId) {
+        if (!confirm('Delete this user?')) return;
+        fetch('/admin/users/' + userId, {method: 'DELETE'}).then(function (r) {
+            if (r.ok) location.reload(); else alert('Failed');
+        });
+    }
+</script>
+</body>
+</html>

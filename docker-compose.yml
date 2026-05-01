@@ -59,10 +59,10 @@ services:
     networks:
       - oauth2-network
 
-  redis-insight:
+  redis-insight-service:
     image: redis/redisinsight:latest
     restart: always
-    container_name: redis-insight
+    container_name: redis-insight-service
     ports:
       - "5540:5540"
     volumes:

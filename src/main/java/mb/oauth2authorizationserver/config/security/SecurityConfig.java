@@ -12,13 +12,19 @@ import mb.oauth2authorizationserver.config.security.converter.CustomPasswordAuth
 import mb.oauth2authorizationserver.config.security.converter.JwtBearerGrantAuthenticationConverter;
 import mb.oauth2authorizationserver.config.security.handler.CustomSimpleUrlAuthenticationFailureHandler;
 import mb.oauth2authorizationserver.config.security.model.CustomPasswordUser;
+import mb.oauth2authorizationserver.config.security.provider.CustomAuthenticationProvider;
 import mb.oauth2authorizationserver.config.security.provider.CustomPasswordAuthenticationProvider;
 import mb.oauth2authorizationserver.config.security.provider.CustomRefreshTokenAuthenticationProvider;
 import mb.oauth2authorizationserver.config.security.provider.JwtBearerGrantAuthenticationProvider;
+import mb.oauth2authorizationserver.config.security.service.CustomAuthenticationService;
+import mb.oauth2authorizationserver.config.security.service.TokenService;
+import mb.oauth2authorizationserver.config.security.service.UserLoginAttemptService;
 import mb.oauth2authorizationserver.config.security.service.impl.CustomOneTimeTokenServiceImpl;
 import mb.oauth2authorizationserver.config.security.service.impl.OAuth2AuthorizationServiceImpl;
 import mb.oauth2authorizationserver.config.security.service.impl.OneTimeTokenSuccessHandlerImpl;
 import mb.oauth2authorizationserver.config.security.service.impl.UserDetailsManagerImpl;
+import mb.oauth2authorizationserver.constants.ServiceConstants;
+import mb.oauth2authorizationserver.data.entity.SecurityUser;
 import mb.oauth2authorizationserver.data.repository.AuthorizationRepository;
 import mb.oauth2authorizationserver.data.repository.UserRepository;
 import mb.oauth2authorizationserver.utils.SecurityUtils;
@@ -93,7 +99,6 @@ import org.thymeleaf.extras.springsecurity6.dialect.SpringSecurityDialect;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -111,7 +116,7 @@ public class SecurityConfig {
             "/oauth/token/revokeById/**", "/oauth/token/**", "/oauth2/token/**", "/oauth/check_token/**",
             "/oauth/authorize/**", "/v3/api-docs/**", "/swagger-resources/**", "/configuration/ui",
             "/configuration/security", "/swagger-ui/**", "/webjars/**", "/swagger-ui.html", "/oauth2/**", "/error/**",
-            "/actuator/**", "/ott/sent", "/login/ott", "/ott/submit", "/chat/**", "/vector-stores/**", "/mcp/message", "/files/**"
+            "/actuator/**", "/ott/sent", "/login/ott", "/ott/**", "/ott/submit", "/chat/**", "/vector-stores/**", "/mcp/message", "/files/**"
     };
     private static final String LOGIN_FORM_URL = "/login";
     private static final String JSESSIONID = "JSESSIONID";
@@ -179,7 +184,10 @@ public class SecurityConfig {
     @Order(1)
     public SecurityFilterChain asSecurityFilterChain(HttpSecurity httpSecurity,
                                                      ObjectMapper objectMapper,
-                                                     @Qualifier("customAccessDeniedHandler") AccessDeniedHandler accessDeniedHandler) {
+                                                     @Qualifier("customAccessDeniedHandler") AccessDeniedHandler accessDeniedHandler,
+                                                     TokenService tokenService,
+                                                     UserLoginAttemptService userLoginAttemptService,
+                                                     CustomAuthenticationService customAuthenticationService) {
         OAuth2AuthorizationService oAuth2AuthorizationService = new OAuth2AuthorizationServiceImpl(authorizationRepository, authorizationBuilderService);
         OAuth2AuthorizationServerConfigurer authorizationServerConfigurer = new OAuth2AuthorizationServerConfigurer();
 
@@ -213,7 +221,7 @@ public class SecurityConfig {
                 .getConfigurer(OAuth2AuthorizationServerConfigurer.class)
                 .tokenEndpoint(tokenEndpoint -> tokenEndpoint
                         .accessTokenRequestConverter(new CustomPasswordAuthenticationConverter())
-                        .authenticationProvider(new CustomPasswordAuthenticationProvider(oAuth2AuthorizationService, tokenGenerator(), userDetailsService(), passwordEncoder()))
+                        .authenticationProvider(new CustomPasswordAuthenticationProvider(oAuth2AuthorizationService, tokenGenerator(), userDetailsService(), tokenService, authorizationBuilderService, userLoginAttemptService, customAuthenticationService))
                         .authenticationProvider(new CustomRefreshTokenAuthenticationProvider(oAuth2AuthorizationService, tokenGenerator()))
                         .accessTokenRequestConverter(new JwtBearerGrantAuthenticationConverter())
                         .authenticationProvider(new JwtBearerGrantAuthenticationProvider(oAuth2AuthorizationService, tokenGenerator()))
@@ -229,7 +237,8 @@ public class SecurityConfig {
                                                       CustomOneTimeTokenServiceImpl customOneTimeTokenService,
                                                       OneTimeTokenSuccessHandlerImpl oneTimeTokenSuccessHandler,
                                                       ObjectMapper objectMapper,
-                                                      @Qualifier("customAccessDeniedHandler") AccessDeniedHandler accessDeniedHandler) {
+                                                      @Qualifier("customAccessDeniedHandler") AccessDeniedHandler accessDeniedHandler,
+                                                      @Qualifier("customAuthenticationProvider") CustomAuthenticationProvider customAuthenticationProvider) {
         var mfa = AuthorizationManagerFactories.multiFactor().requireFactors(FactorGrantedAuthority.PASSWORD_AUTHORITY, FactorGrantedAuthority.OTT_AUTHORITY).build();
 
         return http
@@ -259,7 +268,7 @@ public class SecurityConfig {
                         .tokenService(customOneTimeTokenService)
                         .showDefaultSubmitPage(false)
                         .successHandler((_, response, _) -> response.sendRedirect("/success")))
-                .authenticationProvider(daoAuthenticationProvider())
+                .authenticationProvider(customAuthenticationProvider)
                 .build();
     }
 
@@ -406,17 +415,28 @@ public class SecurityConfig {
                 Set<String> authorities = principal.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.toSet());
                 context.getClaims().claim(AUTHORITIES, authorities).claim("user", principal.getName());
             }
-            if (principal.getDetails() instanceof CustomPasswordUser(
-                    String username, Collection<GrantedAuthority> grantedAuthorities
-            )) {
-                Set<String> authorities = grantedAuthorities
-                        .stream()
-                        .map(GrantedAuthority::getAuthority)
-                        .collect(Collectors.toSet());
-                if (context.getTokenType().getValue().equals("access_token")) {
-                    context.getClaims()
-                            .claim(AUTHORITIES, authorities)
-                            .claim("user", username);
+            if (principal.getDetails() instanceof CustomPasswordUser(SecurityUser user)) {
+                if (new AuthorizationGrantType(ServiceConstants.CUSTOM_PASSWORD).equals(context.getAuthorizationGrantType())) {
+                    updateContextClaims(context, user);
+                }
+            } else if (AuthorizationGrantType.REFRESH_TOKEN.equals(context.getAuthorizationGrantType())
+                    && Objects.nonNull(context.getAuthorization())
+                    && Objects.nonNull(context.getAuthorization().getAttributes())) {
+                String username = String.valueOf(context.getAuthorization().getAttributes().get(ServiceConstants.USERNAME_WITH_UNDERSCORE));
+                try {
+                    SecurityUser user = (SecurityUser) userDetailsService().loadUserByUsername(username);
+                    updateContextClaims(context, user);
+                } catch (Exception _) {
+                    log.warn("Failed to load user for refresh token claims: {}", username);
+                }
+            } else if (AuthorizationGrantType.AUTHORIZATION_CODE.equals(context.getAuthorizationGrantType())
+                    && Objects.nonNull(context.getAuthorization())
+                    && Objects.nonNull(context.getAuthorization().getPrincipalName())) {
+                try {
+                    SecurityUser user = (SecurityUser) userDetailsService().loadUserByUsername(context.getAuthorization().getPrincipalName());
+                    updateContextClaims(context, user);
+                } catch (Exception _) {
+                    log.warn("Failed to load user for authorization code claims: {}", context.getAuthorization().getPrincipalName());
                 }
             }
             customizeRefreshToken(context, principal);
@@ -514,6 +534,16 @@ public class SecurityConfig {
 
     private Consumer<List<AuthenticationConverter>> getConverters() {
         return a -> a.forEach(authenticationConverter -> log.info("authenticationConverter: {}", authenticationConverter));
+    }
+
+    private void updateContextClaims(JwtEncodingContext context, SecurityUser user) {
+        context.getClaims()
+                .claim(ServiceConstants.USERNAME_WITH_UNDERSCORE, user.getUsername())
+                .claim(ServiceConstants.SCOPE, context.getRegisteredClient().getScopes())
+                .claim(ServiceConstants.ORGANIZATION, user.getFirstName() + " " + user.getLastName())
+                .claim(ServiceConstants.USER_FULL_NAME, user.getFirstName() + " " + user.getLastName())
+                .claim(ServiceConstants.USER_ID, user.getId())
+                .claim(ServiceConstants.CLIENT_ID_WITH_UNDERSCORE, context.getRegisteredClient().getClientId());
     }
 
     private void customizeRefreshToken(JwtEncodingContext context, Authentication principal) {
