@@ -25,6 +25,8 @@ import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Random;
 import java.util.UUID;
 
 @Slf4j
@@ -32,6 +34,8 @@ import java.util.UUID;
 public final class SecurityUtils {
 
     public static final String ERROR_URI = "https://datatracker.ietf.org/doc/html/rfc6749#section-5.2";
+
+    private static final Random RANDOM = new Random();
 
     public static RSAKey loadOrGenerateRsa(String jwtKeyPath) {
         File keyFile = new File(jwtKeyPath);
@@ -73,8 +77,9 @@ public final class SecurityUtils {
 
     public static OAuth2ClientAuthenticationToken getAuthenticatedClientElseThrowInvalidClient(Authentication authentication) {
         OAuth2ClientAuthenticationToken clientPrincipal = null;
-        if (OAuth2ClientAuthenticationToken.class.isAssignableFrom(authentication.getPrincipal().getClass())) {
-            clientPrincipal = (OAuth2ClientAuthenticationToken) authentication.getPrincipal();
+        Object authenticationPrincipal = authentication.getPrincipal();
+        if (Objects.nonNull(authenticationPrincipal) && OAuth2ClientAuthenticationToken.class.isAssignableFrom(authenticationPrincipal.getClass())) {
+            clientPrincipal = (OAuth2ClientAuthenticationToken) authenticationPrincipal;
         }
         if (clientPrincipal != null && clientPrincipal.isAuthenticated()) {
             return clientPrincipal;
@@ -99,5 +104,13 @@ public final class SecurityUtils {
             throw new IllegalStateException(ex);
         }
         return keyPair;
+    }
+
+    public static String generateRandomHex(int length) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < length / 2; i++) {
+            sb.append(String.format("%02x", RANDOM.nextInt(256)));
+        }
+        return sb.toString();
     }
 }

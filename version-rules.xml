@@ -18,15 +18,4 @@
         <ignoreVersion type="regex">.*-SNAPSHOT</ignoreVersion>
         <ignoreVersion type="regex">.*[-.]milestone[-.]?\d*</ignoreVersion>
     </ignoreVersions>
-
-    <rules>
-        <!-- Example: pin a specific artifact to a major version range -->
-        <!--
-        <rule groupId="org.springframework.boot" artifactId="spring-boot-starter-parent">
-            <ignoreVersions>
-                <ignoreVersion type="regex">5\..*</ignoreVersion>
-            </ignoreVersions>
-        </rule>
-        -->
-    </rules>
 </ruleset>

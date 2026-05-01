@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Add Client</title>
+</head>
+<body>
+<div class="min-h-screen bg-gray-50">
+    <header class="bg-white shadow">
+        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center">
+                <h1 class="text-3xl font-bold text-gray-900">Add Client</h1>
+                <a class="text-gray-600 hover:text-gray-900" href="/admin/clients">Back to Clients</a>
+            </div>
+        </div>
+    </header>
+    <main class="max-w-3xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <div class="mb-4 p-3 bg-red-100 text-red-800 rounded" th:if="${error}" th:text="${error}"></div>
+        <div class="bg-white rounded-lg shadow p-6">
+            <form method="post" th:action="@{/admin/clients/add}" th:object="${client}">
+                <div class="grid grid-cols-1 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="clientId">Client ID</label>
+                        <input class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm" id="clientId"
+                               required th:field="*{clientId}" type="text">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="clientName">Client Name</label>
+                        <input class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                               id="clientName" th:field="*{clientName}" type="text">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="secretField">Client Secret</label>
+                        <div class="flex space-x-2">
+                            <input class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono"
+                                   id="secretField" readonly th:field="*{clientSecret}" type="text">
+                            <button class="mt-1 bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded text-sm"
+                                    onclick="document.getElementById('secretField').value = document.getElementById('generatedSecret').value"
+                                    type="button">
+                                Regenerate
+                            </button>
+                        </div>
+                        <input id="generatedSecret" th:value="${secret}" type="hidden">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="authorizationGrantTypes">Authorization
+                            Grant Types</label>
+                        <input class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                               id="authorizationGrantTypes" th:field="*{authorizationGrantTypes}" type="text">
+                        <p class="mt-1 text-xs text-gray-500">Available: <span th:each="g,iter : ${grants}"
+                                                                               th:text="${iter.last ? g : g + ', '}"></span>
+                        </p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="redirectUris">Redirect URIs</label>
+                        <input class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                               id="redirectUris" th:field="*{redirectUris}" type="text">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="authorities">Authorities</label>
+                        <input class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                               id="authorities" th:field="*{authorities}" type="text">
+                        <p class="mt-1 text-xs text-gray-500">Available: <span th:each="a,iter : ${auths}"
+                                                                               th:text="${iter.last ? a : a + ', '}"></span>
+                        </p>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700" for="accessTokenValidity">Access
+                                Token (s)</label>
+                            <input class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                                   id="accessTokenValidity" th:field="*{accessTokenValidity}" type="number">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700" for="refreshTokenValidity">Refresh
+                                Token (s)</label>
+                            <input class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                                   id="refreshTokenValidity" th:field="*{refreshTokenValidity}" type="number">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700" for="authorizationCodeValidity">Auth
+                                Code (s)</label>
+                            <input class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                                   id="authorizationCodeValidity" th:field="*{authorizationCodeValidity}" type="number">
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-6">
+                    <button class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded"
+                            type="submit">Save
+                    </button>
+                </div>
+            </form>
+        </div>
+    </main>
+</div>
+</body>
+</html>

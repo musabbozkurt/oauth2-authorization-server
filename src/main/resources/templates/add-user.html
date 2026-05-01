@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Add User</title>
+</head>
+<body>
+<div class="min-h-screen bg-gray-50">
+    <header class="bg-white shadow">
+        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center">
+                <h1 class="text-3xl font-bold text-gray-900">Add User</h1>
+                <a class="text-gray-600 hover:text-gray-900" href="/admin/users">Back to Users</a>
+            </div>
+        </div>
+    </header>
+    <main class="max-w-3xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <div class="mb-4 p-3 bg-red-100 text-red-800 rounded" th:if="${error}" th:text="${error}"></div>
+        <div class="bg-white rounded-lg shadow p-6">
+            <form method="post" th:action="@{/admin/users/add}" th:object="${user}">
+                <div class="grid grid-cols-1 gap-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700" for="firstName">First Name</label>
+                            <input class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                                   id="firstName" th:field="*{firstName}" type="text">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700" for="lastName">Last Name</label>
+                            <input class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                                   id="lastName" th:field="*{lastName}" type="text">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="username">Username</label>
+                        <input class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm" id="username"
+                               required th:field="*{username}" type="text">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="email">Email</label>
+                        <input class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm" id="email"
+                               th:field="*{email}" type="email">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="phoneNumber">Phone Number</label>
+                        <input class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                               id="phoneNumber" th:field="*{phoneNumber}" type="text">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700" for="password">Password</label>
+                        <div class="relative">
+                            <input class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 text-sm pr-10"
+                                   id="password" th:field="*{password}" type="password">
+                            <button class="absolute inset-y-0 right-0 flex items-center pr-3 mt-1"
+                                    onclick="togglePassword('password', this)"
+                                    type="button">
+                                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor"
+                                     viewBox="0 0 24 24">
+                                    <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round"
+                                          stroke-linejoin="round"
+                                          stroke-width="2"/>
+                                    <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                          stroke-linecap="round" stroke-linejoin="round"
+                                          stroke-width="2"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex space-x-6">
+                        <label class="flex items-center space-x-2 text-sm text-gray-700">
+                            <input th:field="*{enabled}" type="checkbox">
+                            <span>Enabled</span>
+                        </label>
+                        <label class="flex items-center space-x-2 text-sm text-gray-700">
+                            <input th:field="*{accountNonLocked}" type="checkbox">
+                            <span>Account Non-Locked</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="mt-6">
+                    <button class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded"
+                            type="submit">Save
+                    </button>
+                </div>
+            </form>
+        </div>
+    </main>
+</div>
+<script>
+    function togglePassword(inputId, btn) {
+        var input = document.getElementById(inputId);
+        if (input.type === 'password') {
+            input.type = 'text';
+            btn.innerHTML = '<svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878l4.242 4.242M21 21l-3.12-3.12"/></svg>';
+        } else {
+            input.type = 'password';
+            btn.innerHTML = '<svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>';
+        }
+    }
+</script>
+</body>
+</html>
