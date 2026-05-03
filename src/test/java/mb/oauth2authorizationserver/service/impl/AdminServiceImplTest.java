@@ -85,24 +85,24 @@ class AdminServiceImplTest {
 
     @Test
     void revokeToken_ShouldRemoveToken_WhenTokenExists() {
-        Long tokenId = 1L;
+        String tokenId = "1";
         Authorization token = new Authorization();
-        when(tokenService.findById(String.valueOf(tokenId))).thenReturn(Optional.of(token));
+        when(tokenService.findById(tokenId)).thenReturn(Optional.of(token));
 
         adminService.revokeToken(tokenId);
 
-        verify(tokenService).findById(String.valueOf(tokenId));
+        verify(tokenService).findById(tokenId);
         verify(tokenService).remove(token);
     }
 
     @Test
     void revokeToken_ShouldDoNothing_WhenTokenDoesNotExist() {
-        Long tokenId = 1L;
-        when(tokenService.findById(String.valueOf(tokenId))).thenReturn(Optional.empty());
+        String tokenId = "1";
+        when(tokenService.findById(tokenId)).thenReturn(Optional.empty());
 
         adminService.revokeToken(tokenId);
 
-        verify(tokenService).findById(String.valueOf(tokenId));
+        verify(tokenService).findById(tokenId);
         verify(tokenService, never()).remove(any());
     }
 
@@ -124,6 +124,16 @@ class AdminServiceImplTest {
 
         assertEquals(0L, result);
         verify(tokenService).revokeExpiredTokens();
+    }
+
+    @Test
+    void revokeAllTokens_ShouldReturnRevokedCount_WhenTokensExist() {
+        when(tokenService.revokeAllTokens()).thenReturn(10L);
+
+        long result = adminService.revokeAllTokens();
+
+        assertEquals(10L, result);
+        verify(tokenService).revokeAllTokens();
     }
 
     // ── Client ─────────────────────────────────────────────

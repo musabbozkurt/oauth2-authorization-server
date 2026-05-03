@@ -22,10 +22,13 @@ services:
       OTEL_EXPORTER_OTLP_METRICS_URL: http://grafana-lgtm:4318/v1/metrics
       OTEL_EXPORTER_OTLP_TRACES_URL: http://grafana-lgtm:4318/v1/traces
       OTEL_EXPORTER_OTLP_LOGS_URL: http://grafana-lgtm:4318/v1/logs
+      SPRING_AI_OLLAMA_BASE_URL: http://ollama:11434
+      SPRING_AI_OLLAMA_INIT_PULL_MODEL_STRATEGY: never
     depends_on:
       - mariadb
       - redis
       - lldap
+      - ollama
     restart: unless-stopped
     networks:
       - oauth2-network
@@ -79,6 +82,8 @@ services:
       - ollama:/root/.ollama
     tty: true
     restart: unless-stopped
+    networks:
+      - oauth2-network
 
   open-webui:
     image: ghcr.io/open-webui/open-webui:main

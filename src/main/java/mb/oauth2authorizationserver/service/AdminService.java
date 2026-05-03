@@ -20,9 +20,11 @@ public interface AdminService {
     // ── Token ──
     Page<Authorization> findAllTokens(Pageable pageable);
 
-    void revokeToken(Long tokenId);
+    void revokeToken(String tokenId);
 
     long revokeAllExpiredTokens();
+
+    long revokeAllTokens();
 
     // ── Client ──
     Page<Client> findAllClients(Pageable pageable);

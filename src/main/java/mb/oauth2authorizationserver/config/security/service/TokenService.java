@@ -15,6 +15,8 @@ public interface TokenService {
 
     long revokeExpiredTokens();
 
+    long revokeAllTokens();
+
     void save(Authorization authorization);
 
     Optional<Authorization> findById(String id);

@@ -41,6 +41,14 @@ public class TokenServiceImpl implements TokenService {
     }
 
     @Override
+    @Transactional
+    public long revokeAllTokens() {
+        long count = authorizationRepository.count();
+        authorizationRepository.deleteAll();
+        return count;
+    }
+
+    @Override
     public void save(Authorization authorization) {
         authorizationRepository.save(authorization);
     }

@@ -79,7 +79,7 @@ class AdminControllerTest {
 
     @Test
     void revokeToken_ShouldReturnSuccessMessage_WhenTokenExists() {
-        Long tokenId = 1L;
+        String tokenId = "1";
 
         ResponseEntity<String> responseEntity = adminController.revokeToken(tokenId);
 
@@ -95,6 +95,16 @@ class AdminControllerTest {
 
         verify(adminService).revokeAllExpiredTokens();
         assertEquals("Revoked 5 expired tokens", responseEntity.getBody());
+    }
+
+    @Test
+    void revokeAllTokens_ShouldReturnSuccessMessageWithCount_WhenTokensExist() {
+        when(adminService.revokeAllTokens()).thenReturn(10L);
+
+        ResponseEntity<String> responseEntity = adminController.revokeAllTokens();
+
+        verify(adminService).revokeAllTokens();
+        assertEquals("Revoked 10 tokens", responseEntity.getBody());
     }
 
     @Test

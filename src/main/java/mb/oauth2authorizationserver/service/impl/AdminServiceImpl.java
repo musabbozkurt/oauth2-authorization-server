@@ -60,14 +60,20 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     @Transactional
-    public void revokeToken(Long tokenId) {
-        tokenService.findById(String.valueOf(tokenId)).ifPresent(tokenService::remove);
+    public void revokeToken(String tokenId) {
+        tokenService.findById(tokenId).ifPresent(tokenService::remove);
     }
 
     @Override
     @Transactional
     public long revokeAllExpiredTokens() {
         return tokenService.revokeExpiredTokens();
+    }
+
+    @Override
+    @Transactional
+    public long revokeAllTokens() {
+        return tokenService.revokeAllTokens();
     }
 
     // ── Client ─────────────────────────────────────────────
