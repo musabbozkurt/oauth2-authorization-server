@@ -56,7 +56,7 @@ public class AdminController {
     }
 
     @PostMapping(value = "/admin/tokens/{tokenId}/revoke", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<String> revokeToken(@PathVariable Long tokenId) {
+    public ResponseEntity<String> revokeToken(@PathVariable String tokenId) {
         adminService.revokeToken(tokenId);
         return ResponseEntity.ok("Token revoked successfully");
     }
@@ -65,6 +65,12 @@ public class AdminController {
     public ResponseEntity<String> revokeAllExpiredTokens() {
         long revokedCount = adminService.revokeAllExpiredTokens();
         return ResponseEntity.ok("Revoked " + revokedCount + " expired tokens");
+    }
+
+    @PostMapping(value = "/admin/tokens/all/revoke", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<String> revokeAllTokens() {
+        long revokedCount = adminService.revokeAllTokens();
+        return ResponseEntity.ok("Revoked " + revokedCount + " tokens");
     }
 
     // ── Clients ────────────────────────────────────────────

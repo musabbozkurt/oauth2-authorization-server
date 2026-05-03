@@ -12,6 +12,7 @@ spring:
     redis:
       host: ${SPRING_DATA_REDIS_HOST:localhost}
       port: ${SPRING_DATA_REDIS_PORT:6379}
+      client-type: jedis
 
   flyway:
     enabled: true
@@ -85,6 +86,9 @@ spring:
     ollama:
       chat:
         model: deepseek-r1:7b
+      base-url: ${SPRING_AI_OLLAMA_BASE_URL:http://localhost:11434}
+      init:
+        pull-model-strategy: ${SPRING_AI_OLLAMA_INIT_PULL_MODEL_STRATEGY:never}
     vectorstore:
       mariadb:
         initialize-schema: true
