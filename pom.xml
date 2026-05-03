@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.0.5</version>
+        <version>4.0.6</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
@@ -18,30 +18,30 @@
     <properties>
         <java.version>25</java.version>
         <spring-ai.version>2.0.0-M4</spring-ai.version>
-        <thymeleaf-extras-springsecurity6.version>3.1.4.RELEASE</thymeleaf-extras-springsecurity6.version>
+        <thymeleaf-extras-springsecurity6.version>3.1.5.RELEASE</thymeleaf-extras-springsecurity6.version>
         <mariadb-java-client.version>3.5.8</mariadb-java-client.version>
         <ojdbc17.version>23.26.1.0.0</ojdbc17.version>
         <archunit-junit5.version>1.4.2</archunit-junit5.version>
-        <taikai.version>1.61.0</taikai.version>
+        <taikai.version>1.62.0</taikai.version>
         <instancio-junit.version>6.0.0-RC1</instancio-junit.version>
         <springdoc-openapi-starter-webmvc-ui.version>3.0.3</springdoc-openapi-starter-webmvc-ui.version>
-        <swagger-openapiv3.version>2.2.48</swagger-openapiv3.version>
+        <swagger-openapiv3.version>2.2.49</swagger-openapiv3.version>
         <spring-boot-thin-layout.version>1.0.31.RELEASE</spring-boot-thin-layout.version>
         <org.mapstruct.version>1.7.0.Beta1</org.mapstruct.version>
         <opentelemetry-logback-appender-1.0.version>2.25.0-alpha</opentelemetry-logback-appender-1.0.version>
         <protobuf.version>4.34.1</protobuf.version>
         <logstash-logback-encoder.version>9.0</logstash-logback-encoder.version>
         <webmagic-core.version>1.0.3</webmagic-core.version>
-        <software.amazon.awssdk.s3.version>2.42.36</software.amazon.awssdk.s3.version>
+        <software.amazon.awssdk.s3.version>2.44.0</software.amazon.awssdk.s3.version>
         <minio.version>9.0.0</minio.version>
         <okhttp-urlconnection.version>5.3.2</okhttp-urlconnection.version>
         <uap-java.version>1.6.1</uap-java.version>
-        <commons-io.version>2.21.0</commons-io.version>
+        <commons-io.version>2.22.0</commons-io.version>
         <commons-compress.version>1.28.0</commons-compress.version>
         <org.owasp.encoder.version>1.4.0</org.owasp.encoder.version>
         <fastexcel.version>0.20.0</fastexcel.version>
-        <testcontainers-bom.version>2.0.4</testcontainers-bom.version>
-        <jackson-bom.version>3.1.2</jackson-bom.version>
+        <testcontainers-bom.version>2.0.5</testcontainers-bom.version>
+        <jackson-bom.version>3.1.3</jackson-bom.version>
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
         <!-- NullAway for compile-time null checking -->
         <error-prone.version>2.48.0</error-prone.version>
