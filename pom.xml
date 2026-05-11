@@ -18,6 +18,7 @@
     <properties>
         <java.version>25</java.version>
         <spring-ai.version>2.0.0-M4</spring-ai.version>
+        <redisson-spring-boot-starter.version>4.3.1</redisson-spring-boot-starter.version>
         <thymeleaf-extras-springsecurity6.version>3.1.5.RELEASE</thymeleaf-extras-springsecurity6.version>
         <mariadb-java-client.version>3.5.8</mariadb-java-client.version>
         <ojdbc17.version>23.26.1.0.0</ojdbc17.version>
@@ -161,6 +162,12 @@
         <dependency>
             <groupId>redis.clients</groupId>
             <artifactId>jedis</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.redisson</groupId>
+            <artifactId>redisson-spring-boot-starter</artifactId>
+            <version>${redisson-spring-boot-starter.version}</version>
         </dependency>
 
         <dependency>

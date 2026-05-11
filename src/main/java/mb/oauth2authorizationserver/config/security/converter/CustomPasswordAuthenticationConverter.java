@@ -24,7 +24,7 @@ import java.util.Set;
 
 public class CustomPasswordAuthenticationConverter implements AuthenticationConverter {
 
-    private static final List<String> ALLOWED_GRANT_TYPES = List.of("password", "custom_password");
+    private static final List<String> ALLOWED_GRANT_TYPES = List.of(ServiceConstants.PASSWORD, ServiceConstants.CUSTOM_PASSWORD);
 
     @Nullable
     @Override

@@ -6,6 +6,7 @@ import mb.oauth2authorizationserver.config.security.service.CustomAuthentication
 import mb.oauth2authorizationserver.config.security.service.TokenService;
 import mb.oauth2authorizationserver.config.security.service.UserLoginAttemptService;
 import mb.oauth2authorizationserver.constants.ErrorMessageConstants;
+import mb.oauth2authorizationserver.constants.ServiceConstants;
 import mb.oauth2authorizationserver.data.entity.Authority;
 import mb.oauth2authorizationserver.data.entity.SecurityUser;
 import org.junit.jupiter.api.AfterEach;
@@ -101,7 +102,7 @@ class CustomPasswordAuthenticationProviderTest {
         RegisteredClient registeredClient = RegisteredClient.withId("test-client-id")
                 .clientId("test-client")
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
-                .authorizationGrantType(new AuthorizationGrantType("custom_password"))
+                .authorizationGrantType(new AuthorizationGrantType(ServiceConstants.CUSTOM_PASSWORD))
                 .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
                 .scope("read")
                 .scope("write")
@@ -308,7 +309,7 @@ class CustomPasswordAuthenticationProviderTest {
         RegisteredClient clientWithoutRefreshToken = RegisteredClient.withId("test-client-id")
                 .clientId("test-client")
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
-                .authorizationGrantType(new AuthorizationGrantType("custom_password"))
+                .authorizationGrantType(new AuthorizationGrantType(ServiceConstants.CUSTOM_PASSWORD))
                 .scope("read")
                 .tokenSettings(TokenSettings.builder()
                         .accessTokenTimeToLive(Duration.ofHours(1))
@@ -346,7 +347,7 @@ class CustomPasswordAuthenticationProviderTest {
         RegisteredClient clientWithNoneAuth = RegisteredClient.withId("test-client-id")
                 .clientId("test-client")
                 .clientAuthenticationMethod(ClientAuthenticationMethod.NONE)
-                .authorizationGrantType(new AuthorizationGrantType("custom_password"))
+                .authorizationGrantType(new AuthorizationGrantType(ServiceConstants.CUSTOM_PASSWORD))
                 .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
                 .scope("read")
                 .tokenSettings(TokenSettings.builder()

@@ -35,7 +35,7 @@ class CustomPasswordTest extends BaseUnitTest {
         log.info("Start exchangeAccessTokenUsingCustomPassword test");
 
         MvcResult mvcResult = this.mvc.perform(post(DEFAULT_TOKEN_ENDPOINT_URI)
-                        .param(OAuth2ParameterNames.GRANT_TYPE, new AuthorizationGrantType("custom_password").getValue())
+                        .param(OAuth2ParameterNames.GRANT_TYPE, new AuthorizationGrantType(ServiceConstants.CUSTOM_PASSWORD).getValue())
                         .param(ServiceConstants.USERNAME, "User")
                         .param(ServiceConstants.PASSWORD, "password")
                         .header(HttpHeaders.AUTHORIZATION, "Basic " + encodeBasicAuth("client", "secret")))

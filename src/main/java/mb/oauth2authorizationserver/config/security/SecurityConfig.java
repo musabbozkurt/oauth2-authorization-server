@@ -29,6 +29,7 @@ import mb.oauth2authorizationserver.data.repository.AuthorizationRepository;
 import mb.oauth2authorizationserver.data.repository.UserRepository;
 import mb.oauth2authorizationserver.utils.SecurityUtils;
 import org.jspecify.annotations.NonNull;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -187,8 +188,9 @@ public class SecurityConfig {
                                                      @Qualifier("customAccessDeniedHandler") AccessDeniedHandler accessDeniedHandler,
                                                      TokenService tokenService,
                                                      UserLoginAttemptService userLoginAttemptService,
-                                                     CustomAuthenticationService customAuthenticationService) {
-        OAuth2AuthorizationService oAuth2AuthorizationService = new OAuth2AuthorizationServiceImpl(authorizationRepository, authorizationBuilderService);
+                                                     CustomAuthenticationService customAuthenticationService,
+                                                     RedissonClient redissonClient) {
+        OAuth2AuthorizationService oAuth2AuthorizationService = new OAuth2AuthorizationServiceImpl(authorizationRepository, authorizationBuilderService, redissonClient);
         OAuth2AuthorizationServerConfigurer authorizationServerConfigurer = new OAuth2AuthorizationServerConfigurer();
 
         httpSecurity
