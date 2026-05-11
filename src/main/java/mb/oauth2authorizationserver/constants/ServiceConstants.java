@@ -40,10 +40,12 @@ public final class ServiceConstants {
     public static final String ADD_USER = "add-user";
 
     public static final String ACCESS_TOKEN_COOKIE_NAME = "st";
-    public static final String CUSTOM_PASSWORD = "password";
+    public static final String CUSTOM_PASSWORD = "custom_password";
 
     public static final String CLIENT_SAVED = "Client saved";
     public static final String CLIENT_UPDATED = "Client updated";
     public static final String USER_SAVED = "User saved";
     public static final String USER_UPDATED = "User updated";
+
+    public static final String AUTHORIZATION_LOCK = "oauth2-authorization-server:authorizationLock:%s:%s:%s";
 }

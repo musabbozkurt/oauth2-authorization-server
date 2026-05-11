@@ -25,10 +25,14 @@ services:
       SPRING_AI_OLLAMA_BASE_URL: http://ollama:11434
       SPRING_AI_OLLAMA_INIT_PULL_MODEL_STRATEGY: never
     depends_on:
-      - mariadb
-      - redis
-      - lldap
-      - ollama
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      lldap:
+        condition: service_started
+      ollama:
+        condition: service_started
     restart: unless-stopped
     networks:
       - oauth2-network
@@ -46,6 +50,12 @@ services:
       - data:/var/lib/mysql
     ports:
       - "3306:3306"
+    healthcheck:
+      test: [ "CMD", "healthcheck.sh", "--connect", "--innodb_initialized" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
     networks:
       - oauth2-network
@@ -144,7 +154,7 @@ services:
       - oauth2-network
 
   grafana-lgtm:
-    image: 'grafana/otel-lgtm:0.13.0'
+    image: 'grafana/otel-lgtm:0.27.1'
     ports:
       - "3001:3000"   # Grafana UI
       - "4318:4318"   # OTLP HTTP receiver

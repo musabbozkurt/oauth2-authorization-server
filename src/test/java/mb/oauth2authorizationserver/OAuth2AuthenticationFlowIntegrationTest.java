@@ -2,6 +2,8 @@ package mb.oauth2authorizationserver;
 
 import lombok.extern.slf4j.Slf4j;
 import mb.oauth2authorizationserver.config.RedisTestConfiguration;
+import mb.oauth2authorizationserver.constants.ServiceConstants;
+import mb.oauth2authorizationserver.data.repository.AuthorizationRepository;
 import mb.oauth2authorizationserver.data.repository.ClientRepository;
 import mb.oauth2authorizationserver.model.enums.GrantType;
 import org.apache.commons.lang3.StringUtils;
@@ -20,14 +22,19 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
@@ -35,7 +42,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @Slf4j
-@Transactional
 @AutoConfigureMockMvc
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = RedisTestConfiguration.class)
 class OAuth2AuthenticationFlowIntegrationTest {
@@ -57,6 +63,9 @@ class OAuth2AuthenticationFlowIntegrationTest {
 
     @Autowired
     private JwtDecoder jwtDecoder;
+
+    @Autowired
+    private AuthorizationRepository authorizationRepository;
 
     @Test
     void getGrantTypeClientCredentialsToken_ShouldSucceed_WhenClientIsValid() throws Exception {
@@ -93,6 +102,48 @@ class OAuth2AuthenticationFlowIntegrationTest {
     @Test
     void getGrantTypePasswordToken_ShouldSucceed_WhenUsernameAndPasswordAreValid() throws Exception {
         Assertions.assertNotNull(generateAndValidateGrantTypePasswordTokenAndGetJsonObjectWhenUsernameAndPasswordAreValid());
+    }
+
+    @Test
+    void getGrantTypePasswordToken_ShouldNotCreateDuplicateTokens_WhenConcurrentRequestsAreSent() throws Exception {
+        // Arrange — clear any existing tokens for this user
+        authorizationRepository.deleteAll(authorizationRepository.findByPrincipalName(USER));
+
+        int concurrentRequests = 5;
+        try (ExecutorService executor = Executors.newFixedThreadPool(concurrentRequests)) {
+            CountDownLatch startLatch = new CountDownLatch(1);
+            List<Future<Integer>> futures = new ArrayList<>();
+
+            // Act — send concurrent password grant requests simultaneously
+            for (int i = 0; i < concurrentRequests; i++) {
+                futures.add(executor.submit(() -> {
+                    startLatch.await(); // wait until all threads are ready
+                    return mockMvc.perform(MockMvcRequestBuilders.post("/oauth2/token")
+                                    .param("grant_type", ServiceConstants.CUSTOM_PASSWORD)
+                                    .param("username", USER)
+                                    .param("password", PASSWORD)
+                                    .header("Authorization", generateBasicAuthHeader()))
+                            .andReturn()
+                            .getResponse()
+                            .getStatus();
+                }));
+            }
+            startLatch.countDown(); // release all threads at once
+
+            // Wait for all requests to complete
+            for (Future<Integer> future : futures) {
+                int status = future.get();
+                assertEquals(200, status, "All concurrent login requests should succeed");
+            }
+        }
+
+        // Assertions — count tokens in database for this user with custom_password grant type
+        long tokenCount = authorizationRepository.findByPrincipalName(USER)
+                .stream()
+                .filter(token -> ServiceConstants.CUSTOM_PASSWORD.equals(token.getAuthorizationGrantType()))
+                .count();
+
+        assertEquals(1, tokenCount, "There should be exactly 1 token — no duplicates");
     }
 
     @Test
@@ -261,7 +312,7 @@ class OAuth2AuthenticationFlowIntegrationTest {
         // Arrange
         // Act
         String response = mockMvc.perform(MockMvcRequestBuilders.post("/oauth2/token")
-                        .param("grant_type", "custom_password")
+                        .param("grant_type", ServiceConstants.CUSTOM_PASSWORD)
                         .param("username", USER)
                         .param("password", PASSWORD)
                         .header("Authorization", generateBasicAuthHeader()))

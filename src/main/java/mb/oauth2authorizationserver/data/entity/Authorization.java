@@ -10,6 +10,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.util.Objects;
 
 @Data
 @Entity
@@ -79,4 +80,12 @@ public class Authorization {
     @Lob
     @Column(length = 2000)
     private String oidcIdTokenClaims;
+
+    public boolean isExpired() {
+        return Objects.nonNull(accessTokenExpiresAt) && Instant.now().isAfter(accessTokenExpiresAt);
+    }
+
+    public boolean isRefreshTokenExpired() {
+        return Objects.nonNull(refreshTokenExpiresAt) && Instant.now().isAfter(refreshTokenExpiresAt);
+    }
 }

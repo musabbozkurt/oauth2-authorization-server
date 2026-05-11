@@ -150,7 +150,7 @@ public class CustomPasswordAuthenticationProvider implements AuthenticationProvi
 
                     OAuth2Authorization.Builder authorizationBuilder = OAuth2Authorization.withRegisteredClient(registeredClient)
                             .attribute(Principal.class.getName(), clientPrincipal)
-                            .principalName(clientPrincipal.getName())
+                            .principalName(username)
                             .authorizationGrantType(new AuthorizationGrantType(ServiceConstants.CUSTOM_PASSWORD))
                             .authorizedScopes(authorizedScopes);
 
