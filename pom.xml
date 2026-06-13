@@ -688,7 +688,33 @@
                 <configuration>
                     <!-- Ignore milestone, alpha, beta, RC versions by default -->
                     <rulesUri>file://${project.basedir}/version-rules.xml</rulesUri>
+                    <allowMajorUpdates>true</allowMajorUpdates>
+                    <allowMinorUpdates>true</allowMinorUpdates>
                 </configuration>
+                <!-- Display available version updates during 'mvn clean install' (validate phase, read-only) -->
+                <executions>
+                    <execution>
+                        <id>display-parent-updates</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>display-parent-updates</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>display-property-updates</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>display-property-updates</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>display-dependency-updates</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>display-dependency-updates</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
