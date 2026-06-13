@@ -26,6 +26,9 @@ public class RedisTestConfiguration {
         redisContainer.start();
         log.info("Redis server started. isCreated: {}, isRunning: {}", redisContainer.isCreated(), redisContainer.isRunning());
 
+        System.setProperty("spring.ai.chat.memory.redis.host", redisContainer.getHost());
+        System.setProperty("spring.ai.chat.memory.redis.port", String.valueOf(redisContainer.getMappedPort(REDIS_PORT)));
+
         return redisContainer;
     }
 

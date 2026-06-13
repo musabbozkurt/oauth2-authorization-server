@@ -24,10 +24,10 @@ public class CustomMcpClient {
                 .tools()
                 .forEach(tool -> log.info("Tool: {}, description: {}, schema: {}", tool.name(), tool.description(), tool.inputSchema()));
 
-        CallToolResult weatherForecastResult = client.callTool(new CallToolRequest("getWeatherForecastByLocation", Map.of("latitude", "47.6062", "longitude", "-122.3321")));
+        CallToolResult weatherForecastResult = client.callTool(CallToolRequest.builder("getWeatherForecastByLocation").arguments(Map.of("latitude", "47.6062", "longitude", "-122.3321")).build());
         log.info("Weather Forecast: {}", weatherForecastResult);
 
-        CallToolResult alertResult = client.callTool(new CallToolRequest("getAlerts", Map.of("state", "NY")));
+        CallToolResult alertResult = client.callTool(CallToolRequest.builder("getAlerts").arguments(Map.of("state", "NY")).build());
         log.info("Alert Response = {}", alertResult);
 
         client.closeGracefully();

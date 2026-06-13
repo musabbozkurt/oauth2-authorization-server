@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.0.6</version>
+        <version>4.1.0</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
@@ -17,32 +17,33 @@
 
     <properties>
         <java.version>25</java.version>
-        <spring-ai.version>2.0.0-M4</spring-ai.version>
+        <spring-ai.version>2.0.0-M8</spring-ai.version>
+        <spring-ai.old.version>2.0.0-M4</spring-ai.old.version>
         <redisson-spring-boot-starter.version>4.5.0</redisson-spring-boot-starter.version>
         <thymeleaf-extras-springsecurity6.version>3.1.5.RELEASE</thymeleaf-extras-springsecurity6.version>
-        <mariadb-java-client.version>3.5.8</mariadb-java-client.version>
+        <mariadb-java-client.version>3.5.9</mariadb-java-client.version>
         <ojdbc17.version>23.26.2.0.0</ojdbc17.version>
         <archunit-junit5.version>1.4.2</archunit-junit5.version>
-        <taikai.version>1.63.0</taikai.version>
+        <taikai.version>1.64.0</taikai.version>
         <instancio-junit.version>6.0.0-RC1</instancio-junit.version>
         <springdoc-openapi-starter-webmvc-ui.version>3.0.3</springdoc-openapi-starter-webmvc-ui.version>
-        <swagger-openapiv3.version>2.2.50</swagger-openapiv3.version>
+        <swagger-openapiv3.version>2.2.51</swagger-openapiv3.version>
         <spring-boot-thin-layout.version>1.0.31.RELEASE</spring-boot-thin-layout.version>
         <org.mapstruct.version>1.7.0.Beta1</org.mapstruct.version>
         <opentelemetry-logback-appender-1.0.version>2.25.0-alpha</opentelemetry-logback-appender-1.0.version>
-        <protobuf.version>4.35.0</protobuf.version>
+        <protobuf.version>4.35.1</protobuf.version>
         <logstash-logback-encoder.version>9.0</logstash-logback-encoder.version>
         <webmagic-core.version>1.0.3</webmagic-core.version>
-        <software.amazon.awssdk.s3.version>2.46.5</software.amazon.awssdk.s3.version>
-        <minio.version>9.0.1</minio.version>
-        <okhttp-urlconnection.version>5.3.2</okhttp-urlconnection.version>
+        <software.amazon.awssdk.s3.version>2.46.10</software.amazon.awssdk.s3.version>
+        <minio.version>9.0.3</minio.version>
+        <okhttp-urlconnection.version>5.4.0</okhttp-urlconnection.version>
         <uap-java.version>1.6.1</uap-java.version>
         <commons-io.version>2.22.0</commons-io.version>
         <commons-compress.version>1.28.0</commons-compress.version>
         <org.owasp.encoder.version>1.4.0</org.owasp.encoder.version>
-        <fastexcel.version>0.20.1</fastexcel.version>
+        <fastexcel.version>0.20.2</fastexcel.version>
         <testcontainers-bom.version>2.0.5</testcontainers-bom.version>
-        <jackson-bom.version>3.1.4</jackson-bom.version>
+        <jackson-bom.version>3.2.0</jackson-bom.version>
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
         <!-- NullAway for compile-time null checking -->
         <error-prone.version>2.48.0</error-prone.version>
@@ -103,6 +104,7 @@
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-starter-model-openai-sdk</artifactId>
+            <version>${spring-ai.old.version}</version>
         </dependency>
 
         <dependency>
@@ -690,28 +692,33 @@
                     <rulesUri>file://${project.basedir}/version-rules.xml</rulesUri>
                     <allowMajorUpdates>true</allowMajorUpdates>
                     <allowMinorUpdates>true</allowMinorUpdates>
+                    <generateBackupPoms>false</generateBackupPoms>
                 </configuration>
-                <!-- Display available version updates during 'mvn clean install' (validate phase, read-only) -->
+                <!-- Apply newest versions to pom.xml during 'mvn clean install' (validate phase) -->
                 <executions>
                     <execution>
-                        <id>display-parent-updates</id>
+                        <id>update-parent</id>
                         <phase>validate</phase>
                         <goals>
-                            <goal>display-parent-updates</goal>
+                            <goal>update-parent</goal>
                         </goals>
                     </execution>
                     <execution>
-                        <id>display-property-updates</id>
+                        <id>update-properties</id>
                         <phase>validate</phase>
                         <goals>
-                            <goal>display-property-updates</goal>
+                            <goal>update-properties</goal>
                         </goals>
+                        <configuration>
+                            <!-- spring-ai properties are pinned: upgraded manually -->
+                            <excludeProperties>spring-ai.version,spring-ai.old.version</excludeProperties>
+                        </configuration>
                     </execution>
                     <execution>
-                        <id>display-dependency-updates</id>
+                        <id>use-latest-releases</id>
                         <phase>validate</phase>
                         <goals>
-                            <goal>display-dependency-updates</goal>
+                            <goal>use-latest-releases</goal>
                         </goals>
                     </execution>
                 </executions>
