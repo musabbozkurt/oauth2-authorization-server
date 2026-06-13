@@ -106,7 +106,7 @@ jobs:
       - name: Apply all version updates
         if: steps.pr-exists.outputs.skip == 'false'
         run: |
-          mvn -B versions:update-parent -DgenerateBackupPoms=false --file pom.xml
+          mvn -B versions:update-parent -DallowMinorUpdates=true -DallowMajorUpdates=true -DgenerateBackupPoms=false --file pom.xml
           mvn -B versions:update-properties -DgenerateBackupPoms=false --file pom.xml
           mvn -B versions:use-latest-releases -DgenerateBackupPoms=false --file pom.xml
 
