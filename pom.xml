@@ -19,7 +19,7 @@
         <java.version>25</java.version>
         <spring-ai.version>2.0.0-M8</spring-ai.version>
         <spring-ai.old.version>2.0.0-M4</spring-ai.old.version>
-        <redisson-spring-boot-starter.version>4.5.0</redisson-spring-boot-starter.version>
+        <redisson-spring-boot-starter.version>4.6.0</redisson-spring-boot-starter.version>
         <thymeleaf-extras-springsecurity6.version>3.1.5.RELEASE</thymeleaf-extras-springsecurity6.version>
         <mariadb-java-client.version>3.5.9</mariadb-java-client.version>
         <ojdbc17.version>23.26.2.0.0</ojdbc17.version>
