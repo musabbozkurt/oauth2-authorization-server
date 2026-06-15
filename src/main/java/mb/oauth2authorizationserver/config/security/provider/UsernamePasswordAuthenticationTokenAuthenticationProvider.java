@@ -22,8 +22,13 @@ public class UsernamePasswordAuthenticationTokenAuthenticationProvider implement
 
     @Override
     public Authentication authenticate(Authentication authentication) throws AuthenticationException {
-        String providedUsername = authentication.getPrincipal().toString();
-        String providedPassword = authentication.getCredentials().toString();
+        Object authenticationPrincipal = authentication.getPrincipal();
+        Object authenticationCredentials = authentication.getCredentials();
+        if (authenticationPrincipal == null || authenticationCredentials == null) {
+            throw new OAuth2AuthenticationException(OAuth2ErrorCodes.ACCESS_DENIED);
+        }
+        String providedUsername = authenticationPrincipal.toString();
+        String providedPassword = authenticationCredentials.toString();
 
         User user;
         try {

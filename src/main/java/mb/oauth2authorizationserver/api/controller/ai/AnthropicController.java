@@ -66,8 +66,7 @@ public class AnthropicController {
                 .user(request.question())
                 .options(AnthropicChatOptions.builder()
                         .model("claude-opus-4-5")
-                        .citationDocuments(document)
-                        .build())
+                        .citationDocuments(document))
                 .call()
                 .chatResponse();
 

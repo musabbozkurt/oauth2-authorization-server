@@ -12,9 +12,9 @@ create index if not exists vector_store_embedding_idx on oauth2_authorization_se
 
 create table if not exists oauth2_authorization_server.authorities
 (
-    id                bigint not null auto_increment,
+    id                bigint       not null auto_increment,
     authority         varchar(255) not null,
-    default_authority bit not null default false,
+    default_authority bit          not null default false,
     primary key (id)
 );
 
@@ -161,10 +161,10 @@ VALUES (3, 1);
 
 create table if not exists oauth2_authorization_server.user_login_attempts
 (
-    id          bigint       not null auto_increment,
+    id           bigint not null auto_increment,
     login_status varchar(255),
-    user_id     bigint,
-    login_date  datetime(6),
+    user_id      bigint,
+    login_date   datetime(6),
     primary key (id)
 );
 
@@ -183,4 +183,4 @@ VALUES ('abbc70f1-fb59-4b42-b1e4-c52fa0080bea',
         "settings.token.access-token-time-to-live":["java.time.Duration",86400.000000000],
         "settings.token.access-token-format":{"@class":"org.springframework.security.oauth2.server.authorization.settings.OAuth2TokenFormat",
         "value":"self-contained"},"settings.token.refresh-token-time-to-live":["java.time.Duration",3600.000000000],
-        "settings.token.authorization-code-time-to-live":["java.time.Duration",300.000000000],"settings.token.x509-certificate-bound-access-tokens": false}');
+        "settings.token.authorization-code-time-to-live":["java.time.Duration",300.000000000],"settings.token.device-code-time-to-live":["java.time.Duration",300.000000000],"settings.token.x509-certificate-bound-access-tokens": false}');

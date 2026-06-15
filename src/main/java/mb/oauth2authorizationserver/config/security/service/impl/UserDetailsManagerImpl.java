@@ -3,6 +3,7 @@ package mb.oauth2authorizationserver.config.security.service.impl;
 import lombok.RequiredArgsConstructor;
 import mb.oauth2authorizationserver.data.entity.SecurityUser;
 import mb.oauth2authorizationserver.data.repository.UserRepository;
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.provisioning.UserDetailsManager;
@@ -39,7 +40,7 @@ public class UserDetailsManagerImpl implements UserDetailsManager {
     }
 
     @Override
-    public void changePassword(String oldPassword, String newPassword) {
+    public void changePassword(@Nullable String oldPassword, @Nullable String newPassword) {
         // default implementation ignored
     }
 

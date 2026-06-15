@@ -87,8 +87,7 @@ public class GoogleGenAiController {
         var options = GoogleGenAiChatOptions.builder()
                 .model("gemini-2.5-pro")
                 .thinkingBudget(budget)
-                .includeThoughts(true)
-                .build();
+                .includeThoughts(true);
 
         var response = googleGenAiChatClient.prompt()
                 .user(request.message())

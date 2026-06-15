@@ -19,7 +19,7 @@ public class ErrorResponse implements Serializable {
 
     @JsonUnwrapped
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
-    private Collection<?> params;
+    private transient Collection<?> params;
 
     @JsonCreator
     public ErrorResponse(@JsonProperty("errorCode") String errorCode, @JsonProperty("message") String message) {
@@ -35,5 +35,6 @@ public class ErrorResponse implements Serializable {
     public ErrorResponse(ErrorCode errorCode, String message) {
         this.errorCode = errorCode.getCode();
         this.message = message;
+        this.params = EMPTY_LIST;
     }
 }

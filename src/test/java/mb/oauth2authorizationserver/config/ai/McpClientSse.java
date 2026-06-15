@@ -1,11 +1,11 @@
 package mb.oauth2authorizationserver.config.ai;
 
-import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
+import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 
 public class McpClientSse {
 
     static void main() {
-        var transport = HttpClientSseClientTransport.builder("http://localhost:9000").build();
+        var transport = HttpClientStreamableHttpTransport.builder("http://localhost:9000").build();
         new CustomMcpClient(transport).run();
     }
 }

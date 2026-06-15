@@ -20,13 +20,37 @@
     <rules>
         <!--
             OpenTelemetry instrumentation: uses -alpha as a standard release qualifier (e.g., 2.27.0-alpha).
-            Override global rules to allow alpha-to-alpha upgrades while still blocking snapshot/beta/RC.
+            Allow alpha-to-alpha upgrades while still blocking snapshot/beta/RC/milestone.
         -->
         <rule groupId="io.opentelemetry.instrumentation">
             <ignoreVersions>
                 <ignoreVersion type="regex">(?i).*[-.]beta[-.]?\d*</ignoreVersion>
                 <ignoreVersion type="regex">(?i).*[-.]rc[-.]?\d*</ignoreVersion>
                 <ignoreVersion type="regex">(?i).*[-.]cr[-.]?\d*</ignoreVersion>
+                <ignoreVersion type="regex">(?i).*[-.]m\d+</ignoreVersion>
+                <ignoreVersion type="regex">(?i).*-snapshot</ignoreVersion>
+                <ignoreVersion type="regex">(?i).*[-.]milestone[-.]?\d*</ignoreVersion>
+            </ignoreVersions>
+        </rule>
+
+        <!--
+            Instancio: uses -RC as a standard release qualifier (e.g., 6.0.0-RC1).
+            Allow RC-to-RC upgrades while still blocking snapshot/milestone.
+        -->
+        <rule groupId="org.instancio">
+            <ignoreVersions>
+                <ignoreVersion type="regex">(?i).*[-.]m\d+</ignoreVersion>
+                <ignoreVersion type="regex">(?i).*-snapshot</ignoreVersion>
+                <ignoreVersion type="regex">(?i).*[-.]milestone[-.]?\d*</ignoreVersion>
+            </ignoreVersions>
+        </rule>
+
+        <!--
+            MapStruct: uses Beta as a standard release qualifier (e.g., 1.7.0.Beta1).
+            Allow beta-to-beta upgrades while still blocking snapshot/milestone.
+        -->
+        <rule groupId="org.mapstruct">
+            <ignoreVersions>
                 <ignoreVersion type="regex">(?i).*[-.]m\d+</ignoreVersion>
                 <ignoreVersion type="regex">(?i).*-snapshot</ignoreVersion>
                 <ignoreVersion type="regex">(?i).*[-.]milestone[-.]?\d*</ignoreVersion>

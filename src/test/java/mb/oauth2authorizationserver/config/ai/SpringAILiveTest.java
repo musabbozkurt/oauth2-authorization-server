@@ -10,7 +10,6 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
-import org.springframework.ai.chat.client.advisor.PromptChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.SafeGuardAdvisor;
 import org.springframework.ai.chat.client.advisor.api.CallAdvisor;
 import org.springframework.ai.chat.client.advisor.api.CallAdvisorChain;
@@ -152,12 +151,13 @@ class SpringAILiveTest {
     }
 
     @Test
-    void givenPromptChatMemoryAdvisor_WhenAskingChatToIncrementTheResponseWithNewName_ThenNamesFromTheChatHistoryExistInResponse() {
-        PromptChatMemoryAdvisor chatMemoryAdvisor = PromptChatMemoryAdvisor.builder(chatMemory).build();
+    void givenMessageChatMemoryAdvisorWithConversationId_WhenAskingChatToIncrementTheResponseWithNewNameThenOnlyRecentNamesFromTheChatHistoryExistInResponse() {
+        MessageChatMemoryAdvisor chatMemoryAdvisor = MessageChatMemoryAdvisor.builder(chatMemory).build();
 
         String responseContent = chatClient.prompt()
                 .user("Add this name to a list and return all the values: Bob")
                 .advisors(chatMemoryAdvisor)
+                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, "test-conversation-123"))
                 .call()
                 .content();
 
@@ -167,6 +167,7 @@ class SpringAILiveTest {
         responseContent = chatClient.prompt()
                 .user("Add this name to a list and return all the values: John")
                 .advisors(chatMemoryAdvisor)
+                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, "test-conversation-123"))
                 .call()
                 .content();
 
@@ -177,6 +178,7 @@ class SpringAILiveTest {
         responseContent = chatClient.prompt()
                 .user("Add this name to a list and return all the values: Anna")
                 .advisors(chatMemoryAdvisor)
+                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, "test-conversation-123"))
                 .call()
                 .content();
 

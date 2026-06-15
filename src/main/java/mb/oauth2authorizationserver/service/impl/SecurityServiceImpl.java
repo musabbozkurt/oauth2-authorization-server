@@ -38,8 +38,8 @@ public class SecurityServiceImpl implements SecurityService {
 
     @Override
     public String findLoggedInUsername() {
-        Object userDetails = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (userDetails instanceof SecurityUser user) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (Objects.nonNull(authentication) && Objects.nonNull(authentication.getPrincipal()) && authentication.getPrincipal() instanceof SecurityUser user) {
             return user.getUsername();
         }
 
@@ -80,7 +80,10 @@ public class SecurityServiceImpl implements SecurityService {
     public SecurityUser getLoggedInUserInfo() {
         String username = findLoggedInUsername();
         if (StringUtils.isNotBlank(username)) {
-            return (SecurityUser) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (Objects.nonNull(authentication) && Objects.nonNull(authentication.getPrincipal())) {
+                return (SecurityUser) authentication.getPrincipal();
+            }
         }
 
         return null;

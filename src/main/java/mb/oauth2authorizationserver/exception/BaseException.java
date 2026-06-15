@@ -2,7 +2,6 @@ package mb.oauth2authorizationserver.exception;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 import java.io.Serializable;
@@ -12,13 +11,16 @@ import static java.util.Collections.EMPTY_LIST;
 
 @Data
 @ToString
-@NoArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 public class BaseException extends RuntimeException implements Serializable {
 
-    private ErrorCode errorCode;
-    private String message;
-    private Collection<?> params;
+    private final transient ErrorCode errorCode;
+    private final String message;
+    private final transient Collection<?> params;
+
+    public BaseException() {
+        this(null, null, EMPTY_LIST);
+    }
 
     public BaseException(ErrorCode errorCode) {
         this(errorCode, null, EMPTY_LIST);

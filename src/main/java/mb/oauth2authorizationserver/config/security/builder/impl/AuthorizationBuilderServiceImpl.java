@@ -87,7 +87,7 @@ public class AuthorizationBuilderServiceImpl implements AuthorizationBuilderServ
 
         OAuth2Authorization.Token<OAuth2AccessToken> accessToken = authorization.getToken(OAuth2AccessToken.class);
         setTokenValues(accessToken, entity::setAccessTokenValue, entity::setAccessTokenIssuedAt, entity::setAccessTokenExpiresAt, entity::setAccessTokenMetadata);
-        if (accessToken != null && accessToken.getToken().getScopes() != null) {
+        if (accessToken != null) {
             entity.setAccessTokenScopes(StringUtils.collectionToDelimitedString(accessToken.getToken().getScopes(), ","));
         }
 

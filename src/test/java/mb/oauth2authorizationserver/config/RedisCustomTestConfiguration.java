@@ -35,7 +35,10 @@ public class RedisCustomTestConfiguration {
 
                     // Spring Boot 3.x, 4.x
                     "spring.data.redis.host=%s".formatted(host),
-                    "spring.data.redis.port=%s".formatted(port)
+                    "spring.data.redis.port=%s".formatted(port),
+
+                    "spring.ai.chat.memory.redis.host=%s".formatted(host),
+                    "spring.ai.chat.memory.redis.port=%s".formatted(port)
             );
         }
     }

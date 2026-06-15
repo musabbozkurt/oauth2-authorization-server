@@ -16,6 +16,9 @@ services:
       DB_PASSWORD: 'test'
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_STACK_HOST: redis-stack
+      SPRING_DATA_REDIS_STACK_PORT: 6379
+      SPRING_DATA_REDIS_STACK_PASSWORD: your_secure_password
       SPRING_LDAP_URL: ldap://lldap:3890
       MINIO_ENDPOINT: http://minio:9000
       ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
@@ -28,6 +31,8 @@ services:
       mariadb:
         condition: service_healthy
       redis:
+        condition: service_started
+      redis-stack:
         condition: service_started
       lldap:
         condition: service_started
@@ -80,6 +85,19 @@ services:
       - "5540:5540"
     volumes:
       - redis-insight:/data
+    networks:
+      - oauth2-network
+
+  redis-stack: # Contains both Redis Stack server and RedisInsight. This container is best for local development because you can use RedisInsight to visualize your data.
+    image: redis/redis-stack:7.4.0-v8
+    container_name: redis-stack
+    ports:
+      - "6380:6379"   # Core Redis database port
+      - "8001:8001"   # RedisInsight GUI port
+    environment:
+      - REDIS_ARGS=--requirepass your_secure_password --appendonly yes
+    volumes:
+      - redis-stack-data:/data
     networks:
       - oauth2-network
 
@@ -170,6 +188,7 @@ volumes:
   data:
   redis-data:
   redis-insight:
+  redis-stack-data:
   ldap-data:
   minio:
 
