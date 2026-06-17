@@ -109,6 +109,15 @@ spring:
     user-search-base: ${SPRING_LDAP_USER_SEARCH_BASE:ou=people,dc=mbexample,dc=com}
     user-search-filter: ${SPRING_LDAP_USER_SEARCH_FILTER:(cn={0})}
 
+  # This is the actual fix that ensures CharacterEncodingFilter runs and sets UTF-8 before any parameter parsing.
+  # Without it, if ClientRequestContextFilter or any other filter calls getParameter() early,
+  # Tomcat would fall back to ISO-8859-1. The force: true guarantees UTF-8 is set regardless.
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+
 logging:
   level:
     org.springframework.security: info

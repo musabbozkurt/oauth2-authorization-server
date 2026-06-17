@@ -17,8 +17,12 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
+/**
+ * Must run after CharacterEncodingFilter (HIGHEST_PRECEDENCE) to ensure
+ * request parameters are parsed with UTF-8 encoding.
+ */
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE)
+@Order(Ordered.HIGHEST_PRECEDENCE + 2)
 public class ClientCookieFilter extends OncePerRequestFilter {
 
     @Override
