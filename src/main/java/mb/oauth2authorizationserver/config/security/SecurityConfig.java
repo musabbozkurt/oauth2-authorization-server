@@ -7,6 +7,7 @@ import com.nimbusds.jose.proc.SecurityContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mb.oauth2authorizationserver.config.CustomLdapProperties;
+import mb.oauth2authorizationserver.config.LdapConfiguredCondition;
 import mb.oauth2authorizationserver.config.security.builder.AuthorizationBuilderService;
 import mb.oauth2authorizationserver.config.security.converter.CustomPasswordAuthenticationConverter;
 import mb.oauth2authorizationserver.config.security.converter.JwtBearerGrantAuthenticationConverter;
@@ -32,9 +33,9 @@ import org.jspecify.annotations.NonNull;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.annotation.Order;
@@ -468,13 +469,13 @@ public class SecurityConfig {
     }
 
     @Bean
-    @ConditionalOnProperty(name = {"spring.ldap.urls", "spring.ldap.password", "spring.ldap.user-dn", "spring.ldap.user-search-base", "spring.ldap.user-search-filter"})
+    @Conditional(LdapConfiguredCondition.class)
     public LdapTemplate ldapTemplate() {
         return new LdapTemplate(contextSource());
     }
 
     @Bean
-    @ConditionalOnProperty(name = {"spring.ldap.urls", "spring.ldap.password", "spring.ldap.user-dn", "spring.ldap.user-search-base", "spring.ldap.user-search-filter"})
+    @Conditional(LdapConfiguredCondition.class)
     public LdapContextSource contextSource() {
         LdapContextSource ldapContextSource = new LdapContextSource();
         ldapContextSource.setUrl(customLdapProperties.getUrls()[0]);
@@ -484,7 +485,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    @ConditionalOnProperty(name = {"spring.ldap.urls", "spring.ldap.password", "spring.ldap.user-dn", "spring.ldap.user-search-base", "spring.ldap.user-search-filter"})
+    @Conditional(LdapConfiguredCondition.class)
     public AuthenticationManager ldapAuthenticationManager(BaseLdapPathContextSource source) {
         LdapBindAuthenticationManagerFactory factory = new LdapBindAuthenticationManagerFactory(source);
         factory.setUserSearchBase(customLdapProperties.getUserSearchBase());
