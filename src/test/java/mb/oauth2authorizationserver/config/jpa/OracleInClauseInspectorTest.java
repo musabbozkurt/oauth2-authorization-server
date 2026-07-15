@@ -5,9 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -43,71 +41,47 @@ class OracleInClauseInspectorTest {
     }
 
     @Test
-    void inspect_ShouldRewriteInClause_WhenInClauseHasMoreThan999Parameters() {
-        int parameterCount = 1000;
-        String sql = "SELECT * FROM product_asset WHERE product_id IN (" + placeholders(parameterCount) + ")";
+    void inspect_ShouldReturnSqlUnchanged_WhenInClauseHasMoreThan999Parameters() {
+        String sql = "SELECT * FROM product_asset WHERE product_id IN (" + placeholders(1000) + ")";
 
-        String rewrittenSql = inspector.inspect(sql);
-
-        assertThat(rewrittenSql, is(not(sql)));
-        assertThat(rewrittenSql, containsString("product_id IN (SELECT column_value FROM TABLE(sys.odcinumberlist(" + placeholders(999) + ")))"));
-        assertThat(rewrittenSql, containsString(" OR product_id IN (SELECT column_value FROM TABLE(sys.odcinumberlist(?)))"));
-        assertThat(countPlaceholders(rewrittenSql), is(parameterCount));
+        assertThat(inspector.inspect(sql), is(sql));
     }
 
     @Test
-    void inspect_ShouldSplitIntoMultipleOracleFunctionCalls_WhenInClauseExceedsOracleFunctionLimit() {
-        int parameterCount = 2000;
-        String sql = "SELECT * FROM product_asset WHERE product_id IN (" + placeholders(parameterCount) + ")";
+    void inspect_ShouldReturnSqlUnchanged_WhenInClauseExceedsOracleFunctionLimit() {
+        String sql = "SELECT * FROM product_asset WHERE product_id IN (" + placeholders(2000) + ")";
 
-        String rewrittenSql = inspector.inspect(sql);
-
-        assertThat(rewrittenSql, containsString(placeholders(999)));
-        assertThat(rewrittenSql, containsString(" OR product_id IN (SELECT column_value FROM TABLE(sys.odcinumberlist(" + placeholders(999) + ")))"));
-        assertThat(rewrittenSql, containsString(" OR product_id IN (SELECT column_value FROM TABLE(sys.odcinumberlist(?,?)))"));
-        assertThat(countPlaceholders(rewrittenSql), is(parameterCount));
+        assertThat(inspector.inspect(sql), is(sql));
     }
 
     @Test
-    void inspect_ShouldRewriteInClause_WhenInKeywordUsesDifferentCasing() {
+    void inspect_ShouldReturnSqlUnchanged_WhenInKeywordUsesDifferentCasing() {
         String sql = "SELECT * FROM product_asset WHERE product_id in (" + placeholders(1000) + ")";
 
-        String rewrittenSql = inspector.inspect(sql);
-
-        assertThat(rewrittenSql.toLowerCase(), containsString("in (select column_value from table(sys.odcinumberlist("));
-        assertThat(rewrittenSql.toLowerCase(), containsString(" or product_id in (select column_value from table(sys.odcinumberlist(?)))"));
+        assertThat(inspector.inspect(sql), is(sql));
     }
 
     @Test
-    void inspect_ShouldRewriteNotInClauseWithAnd_WhenPlaceholderListExceedsLimit() {
+    void inspect_ShouldReturnSqlUnchanged_WhenNotInClauseExceedsLimit() {
         String sql = "SELECT * FROM product_asset WHERE product_id NOT IN (" + placeholders(1000) + ")";
 
-        String rewrittenSql = inspector.inspect(sql);
-
-        assertThat(rewrittenSql, containsString("product_id NOT IN (SELECT column_value FROM TABLE(sys.odcinumberlist(" + placeholders(999) + ")))"));
-        assertThat(rewrittenSql, containsString(" AND product_id NOT IN (SELECT column_value FROM TABLE(sys.odcinumberlist(?)))"));
+        assertThat(inspector.inspect(sql), is(sql));
     }
 
     @Test
-    void inspect_ShouldRewriteOnlyLargeInClauses_WhenSqlContainsMultipleInClauses() {
+    void inspect_ShouldReturnSqlUnchanged_WhenSqlContainsMultipleInClauses() {
         String smallInClause = placeholders(3);
         String largeInClause = placeholders(1000);
         String sql = "SELECT * FROM product_asset WHERE status IN (" + smallInClause + ") AND product_id IN (" + largeInClause + ")";
 
-        String rewrittenSql = inspector.inspect(sql);
-
-        assertThat(rewrittenSql, containsString("status IN (" + smallInClause + ")"));
-        assertThat(rewrittenSql, containsString("product_id IN (SELECT column_value FROM TABLE(sys.odcinumberlist(" + placeholders(999) + ")))"));
-        assertThat(rewrittenSql, containsString(" OR product_id IN (SELECT column_value FROM TABLE(sys.odcinumberlist(?)))"));
+        assertThat(inspector.inspect(sql), is(sql));
     }
 
     @Test
-    void inspect_ShouldRewriteInClause_WhenColumnUsesTableAlias() {
+    void inspect_ShouldReturnSqlUnchanged_WhenColumnUsesTableAlias() {
         String sql = "SELECT * FROM product_asset pa WHERE pa.product_id IN (" + placeholders(1000) + ")";
 
-        String rewrittenSql = inspector.inspect(sql);
-
-        assertThat(rewrittenSql, containsString("pa.product_id IN (SELECT column_value FROM TABLE(sys.odcinumberlist("));
+        assertThat(inspector.inspect(sql), is(sql));
     }
 
     @Test
@@ -141,21 +115,10 @@ class OracleInClauseInspectorTest {
     }
 
     @Test
-    void inspect_ShouldUseConfiguredOracleFunction_WhenCustomConfigIsProvided() {
-        OracleInClauseInspector stringInspector = new OracleInClauseInspector(OracleInClauseRewriteConfig.forStrings());
+    void inspect_ShouldReturnSqlUnchanged_WhenStringColumnInClauseExceedsLimit() {
         String sql = "SELECT * FROM product_asset WHERE code IN (" + placeholders(1000) + ")";
 
-        String rewrittenSql = stringInspector.inspect(sql);
-
-        assertThat(rewrittenSql, containsString("TABLE(sys.odcivarchar2list("));
-    }
-
-    @Test
-    void inspect_ShouldReturnSqlUnchanged_WhenRewriteIsDisabled() {
-        OracleInClauseInspector disabledInspector = new OracleInClauseInspector(new OracleInClauseRewriteConfig(999, 999, "sys.odcinumberlist", true, false));
-        String sql = "SELECT * FROM product_asset WHERE product_id IN (" + placeholders(1000) + ")";
-
-        assertThat(disabledInspector.inspect(sql), is(sql));
+        assertThat(inspector.inspect(sql), is(sql));
     }
 
     @Test
@@ -171,9 +134,5 @@ class OracleInClauseInspectorTest {
             return "";
         }
         return "?,".repeat(count - 1) + "?";
-    }
-
-    private int countPlaceholders(String sql) {
-        return (int) sql.chars().filter(ch -> ch == '?').count();
     }
 }

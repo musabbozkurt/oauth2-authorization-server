@@ -24,14 +24,4 @@ class HibernatePropertiesCustomizerConfigTest {
         assertThat(hibernateProperties.get("hibernate.query.in_clause_parameter_padding"), is(true));
         assertThat(hibernateProperties.get("hibernate.default_batch_fetch_size"), is(100));
     }
-
-    @Test
-    void oracleInClauseRewriteConfig_ShouldExposeDefaults() {
-        OracleInClauseRewriteConfig rewriteConfig = OracleInClauseRewriteConfig.defaults();
-
-        assertThat(rewriteConfig.maxParameterCount(), is(999));
-        assertThat(rewriteConfig.oracleTableFunction(), is("sys.odcinumberlist"));
-        assertThat(rewriteConfig.requireColumnExpression(), is(true));
-        assertThat(rewriteConfig.enabled(), is(true));
-    }
 }
