@@ -112,7 +112,7 @@ public class OracleInClauseInspector implements StatementInspector {
         }
     }
 
-    private static boolean isNotInKeyword(String sql, int keywordStart) {
+    private boolean isNotInKeyword(String sql, int keywordStart) {
         if (keywordStart < 0 || keywordStart + 3 > sql.length()) {
             return false;
         }
@@ -123,7 +123,7 @@ public class OracleInClauseInspector implements StatementInspector {
         return regionMatchesIgnoreCase(sql, inStart, "in");
     }
 
-    private static InKeywordMatch findNextInKeyword(String sql, int from) {
+    private InKeywordMatch findNextInKeyword(String sql, int from) {
         for (int index = from; index < sql.length(); index++) {
             InKeywordMatch notInKeyword = readNotInKeyword(sql, index);
             if (notInKeyword != null) {
@@ -137,7 +137,7 @@ public class OracleInClauseInspector implements StatementInspector {
         return null;
     }
 
-    private static InKeywordMatch readNotInKeyword(String sql, int index) {
+    private InKeywordMatch readNotInKeyword(String sql, int index) {
         if (!regionMatchesIgnoreCase(sql, index, "not")) {
             return null;
         }
@@ -155,7 +155,7 @@ public class OracleInClauseInspector implements StatementInspector {
         return new InKeywordMatch(index, keywordEnd);
     }
 
-    private static InKeywordMatch readInKeyword(String sql, int index) {
+    private InKeywordMatch readInKeyword(String sql, int index) {
         if (!regionMatchesIgnoreCase(sql, index, "in")) {
             return null;
         }
@@ -208,11 +208,11 @@ public class OracleInClauseInspector implements StatementInspector {
         return clause.contains("table(") && clause.contains(config.oracleTableFunction().toLowerCase());
     }
 
-    private static boolean isPlaceholderListStart(String sql, int contentStart) {
+    private boolean isPlaceholderListStart(String sql, int contentStart) {
         return sql.charAt(contentStart) == '?';
     }
 
-    private static InClauseMatch parsePlaceholderList(String sql, int keywordStart, int listOpenParen, int contentStart) {
+    private InClauseMatch parsePlaceholderList(String sql, int keywordStart, int listOpenParen, int contentStart) {
         int position = contentStart;
         int paramCount = 0;
 
@@ -251,7 +251,7 @@ public class OracleInClauseInspector implements StatementInspector {
         return null;
     }
 
-    private static int findMatchingClosingParen(String sql, int openParenIndex) {
+    private int findMatchingClosingParen(String sql, int openParenIndex) {
         int depth = 0;
         for (int index = openParenIndex; index < sql.length(); index++) {
             char character = sql.charAt(index);
@@ -267,7 +267,7 @@ public class OracleInClauseInspector implements StatementInspector {
         return -1;
     }
 
-    private static int skipWhitespace(String sql, int from) {
+    private int skipWhitespace(String sql, int from) {
         int position = from;
         while (position < sql.length() && Character.isWhitespace(sql.charAt(position))) {
             position++;
@@ -275,26 +275,26 @@ public class OracleInClauseInspector implements StatementInspector {
         return position;
     }
 
-    private static boolean isIdentifierChar(char character) {
+    private boolean isIdentifierChar(char character) {
         return Character.isLetterOrDigit(character) || character == '_';
     }
 
-    private static boolean hasKeywordBoundaryBefore(String sql, int index) {
+    private boolean hasKeywordBoundaryBefore(String sql, int index) {
         return index != 0 && isIdentifierChar(sql.charAt(index - 1));
     }
 
-    private static boolean hasKeywordBoundaryAfter(String sql, int index) {
+    private boolean hasKeywordBoundaryAfter(String sql, int index) {
         return index < sql.length() && isIdentifierChar(sql.charAt(index));
     }
 
-    private static boolean regionMatchesIgnoreCase(String sql, int offset, String keyword) {
+    private boolean regionMatchesIgnoreCase(String sql, int offset, String keyword) {
         if (offset < 0 || offset + keyword.length() > sql.length()) {
             return false;
         }
         return sql.regionMatches(true, offset, keyword, 0, keyword.length());
     }
 
-    private static String extractColumnExpression(String sql, int keywordStart) {
+    private String extractColumnExpression(String sql, int keywordStart) {
         int end = keywordStart;
         while (end > 0 && isSkippableBeforeInKeyword(sql.charAt(end - 1))) {
             end--;
@@ -308,15 +308,15 @@ public class OracleInClauseInspector implements StatementInspector {
         return start == end ? "" : sql.substring(start, end);
     }
 
-    private static boolean isSkippableBeforeInKeyword(char character) {
+    private boolean isSkippableBeforeInKeyword(char character) {
         return character == ',' || character == '(' || Character.isWhitespace(character);
     }
 
-    private static boolean isColumnExpressionChar(char character) {
+    private boolean isColumnExpressionChar(char character) {
         return Character.isLetterOrDigit(character) || character == '_' || character == '.';
     }
 
-    private static String generateQuestionMarks(int total) {
+    private String generateQuestionMarks(int total) {
         StringBuilder queryPlaceholder = new StringBuilder(Math.max(0, total * 2 - 1));
         for (int i = 0; i < total; i++) {
             queryPlaceholder.append('?');

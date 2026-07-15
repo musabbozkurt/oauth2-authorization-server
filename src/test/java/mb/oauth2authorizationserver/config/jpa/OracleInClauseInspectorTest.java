@@ -166,14 +166,14 @@ class OracleInClauseInspectorTest {
         assertThat(inspector.inspect(sql), is(sql));
     }
 
-    private static String placeholders(int count) {
+    private String placeholders(int count) {
         if (count <= 0) {
             return "";
         }
         return "?,".repeat(count - 1) + "?";
     }
 
-    private static int countPlaceholders(String sql) {
+    private int countPlaceholders(String sql) {
         return (int) sql.chars().filter(ch -> ch == '?').count();
     }
 }
