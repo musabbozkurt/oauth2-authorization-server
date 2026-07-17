@@ -196,8 +196,8 @@ public class OracleToolsServiceImpl implements OracleToolsService {
         String roleBaseName = deriveRoleBaseName(scriptContext.targetSchema);
         String editRole = scriptContext.scriptGenerationRequest.getEditRoleName() != null ? scriptContext.scriptGenerationRequest.getEditRoleName() : "%s_EDIT_ROLE".formatted(roleBaseName);
         String viewRole = scriptContext.scriptGenerationRequest.getViewRoleName() != null ? scriptContext.scriptGenerationRequest.getViewRoleName() : "%s_VIEW_ROLE".formatted(roleBaseName);
-        Set<String> editRoleUsers = CollectionUtils.isNotEmpty(scriptContext.scriptGenerationRequest.getEditRoleUsers()) ? scriptContext.scriptGenerationRequest.getEditRoleUsers() : Set.of("MIGROSNEXTAPP", "MIGROSNEXTDEV");
-        Set<String> viewRoleUsers = CollectionUtils.isNotEmpty(scriptContext.scriptGenerationRequest.getViewRoleUsers()) ? scriptContext.scriptGenerationRequest.getViewRoleUsers() : Set.of("MIGROSNEXTAPP", "MIGROSNEXTDEV");
+        Set<String> editRoleUsers = CollectionUtils.isNotEmpty(scriptContext.scriptGenerationRequest.getEditRoleUsers()) ? scriptContext.scriptGenerationRequest.getEditRoleUsers() : Set.of("myapp_user");
+        Set<String> viewRoleUsers = CollectionUtils.isNotEmpty(scriptContext.scriptGenerationRequest.getViewRoleUsers()) ? scriptContext.scriptGenerationRequest.getViewRoleUsers() : Set.of("myapp_user");
 
         appendDclHeader(dcl);
         appendRoleCreation(dcl, editRole, viewRole);
