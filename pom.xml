@@ -34,7 +34,7 @@
         <protobuf.version>4.35.1</protobuf.version>
         <logstash-logback-encoder.version>9.0</logstash-logback-encoder.version>
         <webmagic-core.version>1.0.3</webmagic-core.version>
-        <software.amazon.awssdk.s3.version>2.47.5</software.amazon.awssdk.s3.version>
+        <software.amazon.awssdk.s3.version>2.48.2</software.amazon.awssdk.s3.version>
         <minio.version>9.0.3</minio.version>
         <okhttp-urlconnection.version>5.4.0</okhttp-urlconnection.version>
         <uap-java.version>1.6.1</uap-java.version>
@@ -681,6 +681,11 @@
                         --add-opens java.base/java.nio=ALL-UNNAMED
                         -Djdk.attach.allowAttachSelf=true
                     </argLine>
+
+                    <!-- Exposes the module root so tests can locate the scripts directory. -->
+                    <systemPropertyVariables>
+                        <project.basedir>${project.basedir}</project.basedir>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
 

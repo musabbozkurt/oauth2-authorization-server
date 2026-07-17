@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+    <artifactId>common-history</artifactId>
+    <dependencies>
+        <dependency>
+            <artifactId>common-jpa</artifactId>
+        </dependency>
+    </dependencies>
+</project>

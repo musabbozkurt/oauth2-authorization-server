@@ -35,6 +35,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.regex.Pattern;
 
 /**
  * Service implementation for Oracle database tools including:
@@ -88,8 +89,8 @@ public class OracleToolsServiceImpl implements OracleToolsService {
     }
 
     private ScriptGenerationResponse processSchemaForScripts(HikariDataSource dataSource, ScriptGenerationRequest request) throws SQLException {
-        try (Connection conn = dataSource.getConnection()) {
-            ScriptContext scriptContext = new ScriptContext(request, conn);
+        try (Connection connection = dataSource.getConnection()) {
+            ScriptContext scriptContext = new ScriptContext(request, connection);
             processTablesForScripts(scriptContext);
             String fullScript = buildDdlScript(scriptContext) + buildDclScript(scriptContext);
 
@@ -113,8 +114,8 @@ public class OracleToolsServiceImpl implements OracleToolsService {
         try {
             processSequence(scriptContext, tableName);
             processTableDdl(scriptContext, tableName);
-            scriptContext.tableIndexMap.put(tableName, generateIndexScripts(scriptContext.conn, scriptContext.sourceSchema, tableName, scriptContext.targetSchema));
-            scriptContext.foreignKeyScripts.addAll(generateForeignKeyScripts(scriptContext.conn, scriptContext.sourceSchema, tableName, scriptContext.targetSchema));
+            scriptContext.tableIndexMap.put(tableName, generateIndexScripts(scriptContext.connection, scriptContext.sourceSchema, tableName, scriptContext.targetSchema));
+            scriptContext.foreignKeyScripts.addAll(generateForeignKeyScripts(scriptContext.connection, scriptContext.sourceSchema, tableName, scriptContext.targetSchema));
         } catch (Exception e) {
             String warning = String.format("Error processing table %s: %s", tableName, e.getMessage());
             log.warn(warning);
@@ -123,7 +124,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
     }
 
     private void processSequence(ScriptContext scriptContext, String tableName) throws SQLException {
-        String seqName = getSequenceNameIfExists(scriptContext.conn, scriptContext.sourceSchema, tableName);
+        String seqName = getSequenceNameIfExists(scriptContext.connection, scriptContext.sourceSchema, tableName);
         if (seqName != null) {
             scriptContext.sequenceScripts.add(generateSequenceScript(scriptContext.targetSchema, seqName));
             scriptContext.processedSequences.add(seqName);
@@ -131,7 +132,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
     }
 
     private void processTableDdl(ScriptContext scriptContext, String tableName) throws SQLException {
-        String tableScript = generateTableScript(scriptContext.conn, scriptContext.sourceSchema, tableName, scriptContext.targetSchema, scriptContext.processedSequences, scriptContext.warnings);
+        String tableScript = generateTableScript(scriptContext.connection, scriptContext.sourceSchema, tableName, scriptContext.targetSchema, scriptContext.processedSequences, scriptContext.warnings);
         if (!tableScript.isEmpty()) {
             scriptContext.tableScripts.add(tableScript);
         }
@@ -193,10 +194,10 @@ public class OracleToolsServiceImpl implements OracleToolsService {
     private String buildDclScript(ScriptContext scriptContext) {
         StringBuilder dcl = new StringBuilder();
         String roleBaseName = deriveRoleBaseName(scriptContext.targetSchema);
-        String editRole = scriptContext.request.getEditRoleName() != null ? scriptContext.request.getEditRoleName() : "%s_EDIT_ROLE".formatted(roleBaseName);
-        String viewRole = scriptContext.request.getViewRoleName() != null ? scriptContext.request.getViewRoleName() : "%s_VIEW_ROLE".formatted(roleBaseName);
-        Set<String> editRoleUsers = CollectionUtils.isNotEmpty(scriptContext.request.getEditRoleUsers()) ? scriptContext.request.getEditRoleUsers() : Set.of("myapp_user");
-        Set<String> viewRoleUsers = CollectionUtils.isNotEmpty(scriptContext.request.getViewRoleUsers()) ? scriptContext.request.getViewRoleUsers() : Set.of("myapp_user");
+        String editRole = scriptContext.scriptGenerationRequest.getEditRoleName() != null ? scriptContext.scriptGenerationRequest.getEditRoleName() : "%s_EDIT_ROLE".formatted(roleBaseName);
+        String viewRole = scriptContext.scriptGenerationRequest.getViewRoleName() != null ? scriptContext.scriptGenerationRequest.getViewRoleName() : "%s_VIEW_ROLE".formatted(roleBaseName);
+        Set<String> editRoleUsers = CollectionUtils.isNotEmpty(scriptContext.scriptGenerationRequest.getEditRoleUsers()) ? scriptContext.scriptGenerationRequest.getEditRoleUsers() : Set.of("myapp_user");
+        Set<String> viewRoleUsers = CollectionUtils.isNotEmpty(scriptContext.scriptGenerationRequest.getViewRoleUsers()) ? scriptContext.scriptGenerationRequest.getViewRoleUsers() : Set.of("myapp_user");
 
         appendDclHeader(dcl);
         appendRoleCreation(dcl, editRole, viewRole);
@@ -310,7 +311,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
                 return;
             }
 
-            log.info("Acquired migration lock. Starting PostgreSQL to Oracle migration...");
+            log.info("Acquired migration lock. Starting PostgreSQL to Oracle migration.");
             performMigration();
         } catch (SQLException e) {
             log.error("Failed to acquire migration lock. Exception: {}", ExceptionUtils.getStackTrace(e));
@@ -320,9 +321,9 @@ public class OracleToolsServiceImpl implements OracleToolsService {
         }
     }
 
-    private boolean acquireLock(Connection conn) throws SQLException {
+    private boolean acquireLock(Connection connection) throws SQLException {
         String lockQuery = "SELECT pg_try_advisory_lock(?)";
-        try (PreparedStatement preparedStatement = conn.prepareStatement(lockQuery)) {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(lockQuery)) {
             preparedStatement.setLong(1, MIGRATION_LOCK_KEY);
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 return resultSet.next() && resultSet.getBoolean(1);
@@ -330,15 +331,15 @@ public class OracleToolsServiceImpl implements OracleToolsService {
         }
     }
 
-    private void releaseLock(Connection conn) {
-        if (conn != null) {
+    private void releaseLock(Connection connection) {
+        if (connection != null) {
             try {
                 String unlockQuery = "SELECT pg_advisory_unlock(?)";
-                try (PreparedStatement preparedStatement = conn.prepareStatement(unlockQuery)) {
+                try (PreparedStatement preparedStatement = connection.prepareStatement(unlockQuery)) {
                     preparedStatement.setLong(1, MIGRATION_LOCK_KEY);
                     preparedStatement.executeQuery();
                 }
-                conn.close();
+                connection.close();
                 log.info("Released migration lock");
             } catch (SQLException e) {
                 log.error("Failed to release lock. Exception: {}", ExceptionUtils.getStackTrace(e));
@@ -389,7 +390,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
     }
 
     private void updateAllSequences() {
-        log.info("Updating all sequences to latest record values in schema {}...", currentTargetSchema);
+        log.info("Updating all sequences to latest record values in schema {}.", currentTargetSchema);
 
         String findSequencesQuery = """
                 SELECT sequence_name
@@ -398,8 +399,8 @@ public class OracleToolsServiceImpl implements OracleToolsService {
                 ORDER BY sequence_name
                 """;
 
-        try (Connection conn = currentOracleDataSource.getConnection();
-             PreparedStatement preparedStatement = conn.prepareStatement(findSequencesQuery)) {
+        try (Connection connection = currentOracleDataSource.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(findSequencesQuery)) {
 
             preparedStatement.setString(1, currentTargetSchema);
             int updatedCount = 0;
@@ -442,8 +443,8 @@ public class OracleToolsServiceImpl implements OracleToolsService {
         String fullTableName = currentTargetSchema + "." + tableName;
         String fullSequenceName = currentTargetSchema + "." + sequenceName;
 
-        try (Connection conn = currentOracleDataSource.getConnection();
-             Statement stmt = conn.createStatement()) {
+        try (Connection connection = currentOracleDataSource.getConnection();
+             Statement stmt = connection.createStatement()) {
 
             String checkTableQuery = "SELECT COUNT(*) FROM all_tables WHERE owner = '%s' AND table_name = '%s'".formatted(currentTargetSchema, tableName);
             try (ResultSet resultSet = stmt.executeQuery(checkTableQuery)) {
@@ -485,7 +486,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
                 if (increment > 0) {
                     stmt.execute("ALTER SEQUENCE %s INCREMENT BY %d".formatted(fullSequenceName, increment));
                     try (ResultSet resultSet = stmt.executeQuery("SELECT %s.NEXTVAL FROM DUAL".formatted(fullSequenceName))) {
-                        resultSet.next(); // Consume the result
+                        // Just execute to advance the sequence
                     }
                     stmt.execute("ALTER SEQUENCE %s INCREMENT BY 1".formatted(fullSequenceName));
                     log.info("Updated sequence {} from {} to {}", fullSequenceName, currentSeqValue, maxValue + 1);
@@ -505,7 +506,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
     }
 
     private void disableAllForeignKeys() {
-        log.info("Disabling all foreign key constraints in schema {}...", currentTargetSchema);
+        log.info("Disabling all foreign key constraints in schema {}.", currentTargetSchema);
         String sql = """
                 BEGIN
                     FOR c IN (SELECT constraint_name, table_name
@@ -527,7 +528,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
     }
 
     private void enableAllForeignKeys() {
-        log.info("Enabling all foreign key constraints in schema {}...", currentTargetSchema);
+        log.info("Enabling all foreign key constraints in schema {}.", currentTargetSchema);
         String sql = """
                 BEGIN
                     FOR c IN (SELECT constraint_name, table_name
@@ -549,8 +550,8 @@ public class OracleToolsServiceImpl implements OracleToolsService {
     }
 
     private void executeOraclePLSQL(String sql, String operation) {
-        try (Connection conn = currentOracleDataSource.getConnection();
-             Statement stmt = conn.createStatement()) {
+        try (Connection connection = currentOracleDataSource.getConnection();
+             Statement stmt = connection.createStatement()) {
             stmt.execute(sql);
             log.info("Successfully executed: {}", operation);
         } catch (SQLException e) {
@@ -568,8 +569,8 @@ public class OracleToolsServiceImpl implements OracleToolsService {
                 ORDER BY tablename
                 """;
 
-        try (Connection conn = currentPostgresDataSource.getConnection();
-             PreparedStatement preparedStatement = conn.prepareStatement(query)) {
+        try (Connection connection = currentPostgresDataSource.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(query)) {
 
             preparedStatement.setString(1, currentSourceSchema);
 
@@ -598,8 +599,8 @@ public class OracleToolsServiceImpl implements OracleToolsService {
         long total = 0;
         for (TableMapping mapping : tableMappings) {
             String countQuery = "SELECT COUNT(*) FROM %s".formatted(mapping.sourceTable());
-            try (Connection conn = currentPostgresDataSource.getConnection();
-                 PreparedStatement preparedStatement = conn.prepareStatement(countQuery);
+            try (Connection connection = currentPostgresDataSource.getConnection();
+                 PreparedStatement preparedStatement = connection.prepareStatement(countQuery);
                  ResultSet resultSet = preparedStatement.executeQuery()) {
                 if (resultSet.next()) {
                     total += resultSet.getLong(1);
@@ -612,19 +613,19 @@ public class OracleToolsServiceImpl implements OracleToolsService {
         return total;
     }
 
-    private void migrateTable(TableMapping mapping) throws SQLException {
-        log.info("Starting migration of table: {} -> {}", mapping.sourceTable(), mapping.targetTable());
+    private void migrateTable(TableMapping tableMapping) throws SQLException {
+        log.info("Starting migration of table: {} -> {}", tableMapping.sourceTable(), tableMapping.targetTable());
         Instant tableStart = Instant.now();
 
-        try (Connection pgConn = currentPostgresDataSource.getConnection();
-             Connection oraConn = currentOracleDataSource.getConnection()) {
+        try (Connection postgresDataSourceConnection = currentPostgresDataSource.getConnection();
+             Connection oracleDataSourceConnection = currentOracleDataSource.getConnection()) {
 
-            pgConn.setAutoCommit(false);
-            oraConn.setAutoCommit(false);
+            postgresDataSourceConnection.setAutoCommit(false);
+            oracleDataSourceConnection.setAutoCommit(false);
 
-            String selectQuery = mapping.selectQuery() != null ? mapping.selectQuery() : "SELECT * FROM %s".formatted(mapping.sourceTable());
+            String selectQuery = tableMapping.selectQuery() != null ? tableMapping.selectQuery() : "SELECT * FROM %s".formatted(tableMapping.sourceTable());
 
-            try (PreparedStatement selectPreparedStatement = pgConn.prepareStatement(selectQuery, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
+            try (PreparedStatement selectPreparedStatement = postgresDataSourceConnection.prepareStatement(selectQuery, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
                 selectPreparedStatement.setFetchSize(BATCH_SIZE);
                 selectPreparedStatement.setQueryTimeout(QUERY_TIMEOUT);
 
@@ -632,10 +633,10 @@ public class OracleToolsServiceImpl implements OracleToolsService {
                     ResultSetMetaData metaData = resultSet.getMetaData();
                     int columnCount = metaData.getColumnCount();
 
-                    String insertSql = buildInsertSql(mapping.targetTable(), metaData);
+                    String insertSql = buildInsertSql(tableMapping.targetTable(), metaData);
                     log.debug("Insert SQL: {}", insertSql);
 
-                    try (PreparedStatement insertPreparedStatement = oraConn.prepareStatement(insertSql)) {
+                    try (PreparedStatement insertPreparedStatement = oracleDataSourceConnection.prepareStatement(insertSql)) {
                         int batchCount = 0;
                         long tableProcessed = 0;
 
@@ -645,7 +646,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
                             batchCount++;
 
                             if (batchCount >= BATCH_SIZE) {
-                                executeBatch(insertPreparedStatement, oraConn, batchCount);
+                                executeBatch(insertPreparedStatement, oracleDataSourceConnection, batchCount);
                                 tableProcessed += batchCount;
                                 totalProcessed.addAndGet(batchCount);
                                 batchCount = 0;
@@ -653,13 +654,13 @@ public class OracleToolsServiceImpl implements OracleToolsService {
                         }
 
                         if (batchCount > 0) {
-                            executeBatch(insertPreparedStatement, oraConn, batchCount);
+                            executeBatch(insertPreparedStatement, oracleDataSourceConnection, batchCount);
                             tableProcessed += batchCount;
                             totalProcessed.addAndGet(batchCount);
                         }
 
                         Duration duration = Duration.between(tableStart, Instant.now());
-                        log.info("Completed migration of table {} -> {}. Records: {}, Duration: {}s", mapping.sourceTable(), mapping.targetTable(), tableProcessed, duration.getSeconds());
+                        log.info("Completed migration of table {} -> {}. Records: {}, Duration: {}s", tableMapping.sourceTable(), tableMapping.targetTable(), tableProcessed, duration.getSeconds());
                     }
                 }
             }
@@ -676,7 +677,8 @@ public class OracleToolsServiceImpl implements OracleToolsService {
                 columns.append(", ");
                 placeholders.append(", ");
             }
-            columns.append(metaData.getColumnName(i).toUpperCase());
+            // Quote column names to handle Oracle reserved keywords
+            columns.append("\"").append(metaData.getColumnName(i).toUpperCase()).append("\"");
             placeholders.append("?");
         }
 
@@ -738,13 +740,13 @@ public class OracleToolsServiceImpl implements OracleToolsService {
         }
     }
 
-    private void executeBatch(PreparedStatement preparedStatement, Connection conn, int batchCount) throws SQLException {
+    private void executeBatch(PreparedStatement preparedStatement, Connection connection, int batchCount) throws SQLException {
         try {
             preparedStatement.executeBatch();
-            conn.commit();
+            connection.commit();
             log.debug("Committed batch of {} records", batchCount);
         } catch (SQLException e) {
-            conn.rollback();
+            connection.rollback();
             log.error("Batch execution failed, rolled back: {}", e.getMessage());
             throw e;
         }
@@ -767,8 +769,8 @@ public class OracleToolsServiceImpl implements OracleToolsService {
     private void logFinalStatistics(Instant start) {
         Duration duration = Duration.between(start, Instant.now());
         long processed = totalProcessed.get();
-        long avgRate = duration.getSeconds() > 0 ? processed / duration.getSeconds() : 0;
-        log.info("Migration Completed Successfully - Duration: {} minutes | Total records: {} | Average rate: {} records/sec", duration.toMinutes(), processed, avgRate);
+        long averageRate = duration.getSeconds() > 0 ? processed / duration.getSeconds() : 0;
+        log.info("Migration Completed Successfully - Duration: {} minutes | Total records: {} | Average rate: {} records/sec", duration.toMinutes(), processed, averageRate);
     }
 
     private HikariDataSource createDataSource(DatabaseConfig databaseConfig, String poolName, int maxPoolSize, int minIdle) {
@@ -803,7 +805,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
         }
     }
 
-    private String getSequenceNameIfExists(Connection conn, String sourceSchema, String tableName) throws SQLException {
+    private String getSequenceNameIfExists(Connection connection, String sourceSchema, String tableName) throws SQLException {
         String query = """
                 SELECT column_name
                 FROM information_schema.columns
@@ -813,7 +815,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
                 LIMIT 1
                 """;
 
-        try (PreparedStatement preparedStatement = conn.prepareStatement(query)) {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
             preparedStatement.setString(1, sourceSchema);
             preparedStatement.setString(2, tableName);
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
@@ -833,7 +835,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
     // SCRIPT GENERATION HELPERS
     // =============================================
 
-    private String generateTableScript(Connection conn,
+    private String generateTableScript(Connection connection,
                                        String sourceSchema,
                                        String tableName,
                                        String targetSchema,
@@ -841,29 +843,29 @@ public class OracleToolsServiceImpl implements OracleToolsService {
                                        List<String> warnings) throws SQLException {
         StringBuilder script = new StringBuilder();
         String oracleTableName = targetSchema + "." + tableName.toUpperCase();
-        String seqName = "SEQ_" + tableName.toUpperCase();
-        boolean hasSequence = processedSequences.contains(seqName);
+        String sequenceName = "SEQ_" + tableName.toUpperCase();
+        boolean hasSequence = processedSequences.contains(sequenceName);
 
-        List<ColumnInfo> columns = getColumns(conn, sourceSchema, tableName, warnings);
-        List<String> primaryKeys = getPrimaryKeyColumns(conn, sourceSchema, tableName);
+        List<ColumnInfo> columns = getColumns(connection, sourceSchema, tableName, warnings);
+        List<String> primaryKeys = getPrimaryKeyColumns(connection, sourceSchema, tableName);
 
-        int maxColNameLen = columns.stream()
-                .mapToInt(col -> col.name.toUpperCase().length())
+        int maxColumnNameLength = columns.stream()
+                .mapToInt(columnInfo -> columnInfo.name.toUpperCase().length() + 2) // +2 for quotes
                 .max()
                 .orElse(0);
 
         List<String> typeDefs = new ArrayList<>();
         int maxTypeDefLen = 0;
-        for (ColumnInfo col : columns) {
+        for (ColumnInfo columnInfo : columns) {
             StringBuilder typeDef = new StringBuilder();
-            typeDef.append(col.oracleType);
-            if (col.isSerial && hasSequence) {
-                typeDef.append(" DEFAULT ").append(targetSchema).append(".").append(seqName).append(".NEXTVAL");
-            } else if (col.defaultValue != null && !col.defaultValue.isEmpty()) {
-                typeDef.append(" DEFAULT ").append(convertDefaultValue(col.defaultValue, col.oracleType));
+            typeDef.append(columnInfo.oracleType);
+            if (columnInfo.isSerial && hasSequence) {
+                typeDef.append(" DEFAULT ").append(targetSchema).append(".").append(sequenceName).append(".NEXTVAL");
+            } else if (columnInfo.defaultValue != null && !columnInfo.defaultValue.isEmpty()) {
+                typeDef.append(" DEFAULT ").append(convertDefaultValue(columnInfo.defaultValue, columnInfo.oracleType));
             }
             typeDefs.add(typeDef.toString());
-            if (!col.nullable && typeDef.length() > maxTypeDefLen) {
+            if (!columnInfo.nullable && typeDef.length() > maxTypeDefLen) {
                 maxTypeDefLen = typeDef.length();
             }
         }
@@ -873,23 +875,24 @@ public class OracleToolsServiceImpl implements OracleToolsService {
 
         List<String> columnLines = new ArrayList<>();
         for (int i = 0; i < columns.size(); i++) {
-            ColumnInfo col = columns.get(i);
-            StringBuilder colLine = new StringBuilder();
-            colLine.append("    ");
+            ColumnInfo columnInfo = columns.get(i);
+            StringBuilder columnLine = new StringBuilder();
+            columnLine.append("    ");
 
-            String colName = col.name.toUpperCase();
-            colLine.append(padRight(colName, maxColNameLen));
-            colLine.append(" ");
+            // Quote column names to handle Oracle reserved keywords
+            String colName = "\"" + columnInfo.name.toUpperCase() + "\"";
+            columnLine.append(padRight(colName, maxColumnNameLength + 2)); // +2 for the quotes
+            columnLine.append(" ");
 
             String typeDef = typeDefs.get(i);
-            if (!col.nullable) {
-                colLine.append(padRight(typeDef, maxTypeDefLen));
-                colLine.append(" NOT NULL");
+            if (!columnInfo.nullable) {
+                columnLine.append(padRight(typeDef, maxTypeDefLen));
+                columnLine.append(" NOT NULL");
             } else {
-                colLine.append(typeDef);
+                columnLine.append(typeDef);
             }
 
-            columnLines.add(colLine.toString());
+            columnLines.add(columnLine.toString());
         }
 
         appendColumnsAndPrimaryKey(tableName, primaryKeys, columnLines, script);
@@ -900,7 +903,11 @@ public class OracleToolsServiceImpl implements OracleToolsService {
     private void appendColumnsAndPrimaryKey(String tableName, List<String> primaryKeys, List<String> columnLines, StringBuilder script) {
         if (!primaryKeys.isEmpty()) {
             String pkName = "PK_" + tableName.toUpperCase();
-            String pkLine = "    CONSTRAINT %s PRIMARY KEY (%s)".formatted(pkName, String.join(", ", primaryKeys.stream().map(String::toUpperCase).toList()));
+            // Quote column names in PRIMARY KEY constraint to handle reserved keywords
+            String quotedPrimaryKeys = String.join(", ", primaryKeys.stream()
+                    .map(primaryKey -> "\"" + primaryKey.toUpperCase() + "\"")
+                    .toList());
+            String pkLine = "    CONSTRAINT %s PRIMARY KEY (%s)".formatted(pkName, quotedPrimaryKeys);
             columnLines.add(pkLine);
         }
 
@@ -926,7 +933,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
         return sb.toString();
     }
 
-    private List<ColumnInfo> getColumns(Connection conn, String schema, String tableName, List<String> warnings) throws SQLException {
+    private List<ColumnInfo> getColumns(Connection connection, String schema, String tableName, List<String> warnings) throws SQLException {
         List<ColumnInfo> columns = new ArrayList<>();
 
         String query = """
@@ -944,31 +951,31 @@ public class OracleToolsServiceImpl implements OracleToolsService {
                 ORDER BY c.ordinal_position
                 """;
 
-        try (PreparedStatement preparedStatement = conn.prepareStatement(query)) {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
             preparedStatement.setString(1, schema);
             preparedStatement.setString(2, tableName);
 
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 while (resultSet.next()) {
-                    ColumnInfo col = new ColumnInfo();
-                    col.name = resultSet.getString("column_name");
+                    ColumnInfo columnInfo = new ColumnInfo();
+                    columnInfo.name = resultSet.getString("column_name");
                     String pgType = resultSet.getString("data_type");
                     String udtName = resultSet.getString("udt_name");
                     Integer charLength = resultSet.getObject("character_maximum_length") != null ? resultSet.getInt("character_maximum_length") : null;
-                    Integer numPrecision = resultSet.getObject("numeric_precision") != null ? resultSet.getInt("numeric_precision") : null;
-                    Integer numScale = resultSet.getObject("numeric_scale") != null ? resultSet.getInt("numeric_scale") : null;
-                    col.nullable = "YES".equalsIgnoreCase(resultSet.getString("is_nullable"));
-                    col.defaultValue = resultSet.getString("column_default");
+                    Integer numericPrecision = resultSet.getObject("numeric_precision") != null ? resultSet.getInt("numeric_precision") : null;
+                    Integer numericScale = resultSet.getObject("numeric_scale") != null ? resultSet.getInt("numeric_scale") : null;
+                    columnInfo.nullable = "YES".equalsIgnoreCase(resultSet.getString("is_nullable"));
+                    columnInfo.defaultValue = resultSet.getString("column_default");
 
-                    TypeMappingContext typeMappingContext = new TypeMappingContext(pgType, udtName, charLength, numPrecision, numScale, col.name, tableName);
-                    col.oracleType = mapPostgresToOracleType(typeMappingContext, warnings);
-                    col.isSerial = col.defaultValue != null && col.defaultValue.contains("nextval");
+                    TypeMappingContext typeMappingContext = new TypeMappingContext(pgType, udtName, charLength, numericPrecision, numericScale, columnInfo.name, tableName);
+                    columnInfo.oracleType = mapPostgresToOracleType(typeMappingContext, warnings);
+                    columnInfo.isSerial = columnInfo.defaultValue != null && columnInfo.defaultValue.contains("nextval");
 
-                    if (col.isSerial) {
-                        col.defaultValue = null;
+                    if (columnInfo.isSerial) {
+                        columnInfo.defaultValue = null;
                     }
 
-                    columns.add(col);
+                    columns.add(columnInfo);
                 }
             }
         }
@@ -1000,10 +1007,10 @@ public class OracleToolsServiceImpl implements OracleToolsService {
             case "integer", "int", "int4", "serial", "serial4", "oid" -> "NUMBER(10)";
             case "bigint", "int8", "bigserial", "serial8" -> "NUMBER(19)";
             case "numeric", "decimal" -> {
-                if (typeMappingContext.numPrecision() != null && typeMappingContext.numScale() != null) {
-                    yield "NUMBER(" + typeMappingContext.numPrecision() + "," + typeMappingContext.numScale() + ")";
-                } else if (typeMappingContext.numPrecision() != null) {
-                    yield "NUMBER(" + typeMappingContext.numPrecision() + ")";
+                if (typeMappingContext.numericPrecision() != null && typeMappingContext.numericScale() != null) {
+                    yield "NUMBER(" + typeMappingContext.numericPrecision() + "," + typeMappingContext.numericScale() + ")";
+                } else if (typeMappingContext.numericPrecision() != null) {
+                    yield "NUMBER(" + typeMappingContext.numericPrecision() + ")";
                 }
                 yield "NUMBER";
             }
@@ -1078,8 +1085,8 @@ public class OracleToolsServiceImpl implements OracleToolsService {
         return pgDefault;
     }
 
-    private List<String> getPrimaryKeyColumns(Connection conn, String schema, String tableName) throws SQLException {
-        List<String> pkColumns = new ArrayList<>();
+    private List<String> getPrimaryKeyColumns(Connection connection, String schema, String tableName) throws SQLException {
+        List<String> primaryKeyColumns = new ArrayList<>();
 
         String query = """
                 SELECT a.attname
@@ -1093,50 +1100,60 @@ public class OracleToolsServiceImpl implements OracleToolsService {
                 ORDER BY array_position(i.indkey, a.attnum)
                 """;
 
-        try (PreparedStatement preparedStatement = conn.prepareStatement(query)) {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
             preparedStatement.setString(1, schema);
             preparedStatement.setString(2, tableName);
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 while (resultSet.next()) {
-                    pkColumns.add(resultSet.getString("attname"));
+                    primaryKeyColumns.add(resultSet.getString("attname"));
                 }
             }
         }
 
-        return pkColumns;
+        return primaryKeyColumns;
     }
 
-    private List<String> generateIndexScripts(Connection conn, String sourceSchema, String tableName, String targetSchema) throws SQLException {
+    private List<String> generateIndexScripts(Connection connection, String sourceSchema, String tableName, String targetSchema) throws SQLException {
         List<String> scripts = new ArrayList<>();
 
         String query = """
                 SELECT
                     i.relname AS index_name,
-                    ix.indisunique AS is_unique,
-                    array_agg(a.attname ORDER BY array_position(ix.indkey, a.attnum)) AS columns
+                    pg_get_indexdef(i.oid) AS index_def
                 FROM pg_index ix
                 JOIN pg_class t ON t.oid = ix.indrelid
                 JOIN pg_class i ON i.oid = ix.indexrelid
                 JOIN pg_namespace n ON n.oid = t.relnamespace
-                JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey)
                 WHERE n.nspname = ?
                   AND t.relname = ?
                   AND NOT ix.indisprimary
-                GROUP BY i.relname, ix.indisunique
                 ORDER BY i.relname
                 """;
 
-        try (PreparedStatement preparedStatement = conn.prepareStatement(query)) {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
             preparedStatement.setString(1, sourceSchema);
             preparedStatement.setString(2, tableName);
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 while (resultSet.next()) {
-                    String indexName = resultSet.getString("index_name").toUpperCase();
-                    boolean isUnique = resultSet.getBoolean("is_unique");
-                    String[] columns = (String[]) resultSet.getArray("columns").getArray();
+                    String indexName = resultSet.getString("index_name");
+                    String indexDef = resultSet.getString("index_def");
 
-                    String script = "CREATE %sINDEX %s.%s ON %s.%s (%s);"
-                            .formatted(isUnique ? "UNIQUE " : "", targetSchema, indexName, targetSchema, tableName.toUpperCase(), String.join(", ", java.util.Arrays.stream(columns).map(String::toUpperCase).toList()));
+                    if (indexDef == null || indexDef.isBlank()) {
+                        continue;
+                    }
+
+                    String script = indexDef;
+                    String targetQualifiedTable = targetSchema + "." + tableName.toUpperCase();
+
+                    script = script.replaceFirst("(?i)CREATE\\s+(UNIQUE\\s+)?INDEX\\s+\"?" + Pattern.quote(indexName) + "\"?", "CREATE $1INDEX " + targetSchema + "." + indexName.toUpperCase());
+                    script = script.replaceFirst("(?i)\\sON\\s+\"?" + Pattern.quote(sourceSchema) + "\"?\\.\"?" + Pattern.quote(tableName) + "\"?", " ON " + targetQualifiedTable);
+                    script = script.replaceFirst("(?i)\\sON\\s+\"?" + Pattern.quote(tableName) + "\"?", " ON " + targetQualifiedTable);
+                    // Oracle does not support PostgreSQL's USING <access_method> clause (e.g., USING btree)
+                    script = script.replaceFirst("(?i)\\sUSING\\s+\\w+", "");
+
+                    if (!script.trim().endsWith(";")) {
+                        script += ";";
+                    }
 
                     scripts.add(script);
                 }
@@ -1146,7 +1163,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
         return scripts;
     }
 
-    private List<String> generateForeignKeyScripts(Connection conn, String sourceSchema, String tableName, String targetSchema) throws SQLException {
+    private List<String> generateForeignKeyScripts(Connection connection, String sourceSchema, String tableName, String targetSchema) throws SQLException {
         List<String> scripts = new ArrayList<>();
 
         String query = """
@@ -1167,9 +1184,9 @@ public class OracleToolsServiceImpl implements OracleToolsService {
                 ORDER BY tc.constraint_name
                 """;
 
-        Map<String, ForeignKeyInfo> fkMap = new LinkedHashMap<>();
+        Map<String, ForeignKeyInfo> foreignKeyInfoMap = new LinkedHashMap<>();
 
-        try (PreparedStatement preparedStatement = conn.prepareStatement(query)) {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
             preparedStatement.setString(1, sourceSchema);
             preparedStatement.setString(2, tableName);
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
@@ -1179,7 +1196,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
                     String refTable = resultSet.getString("foreign_table_name");
                     String refColumn = resultSet.getString("foreign_column_name");
 
-                    ForeignKeyInfo fkInfo = fkMap.computeIfAbsent(constraintName, k -> {
+                    ForeignKeyInfo fkInfo = foreignKeyInfoMap.computeIfAbsent(constraintName, k -> {
                         ForeignKeyInfo info = new ForeignKeyInfo();
                         info.constraintName = constraintName;
                         info.refTable = refTable;
@@ -1191,14 +1208,21 @@ public class OracleToolsServiceImpl implements OracleToolsService {
             }
         }
 
-        for (ForeignKeyInfo fkInfo : fkMap.values()) {
-            String oracleFkName = "FK_%s_%s".formatted(tableName.toUpperCase(), fkInfo.refTable.toUpperCase());
-            if (oracleFkName.length() > 30) {
-                oracleFkName = oracleFkName.substring(0, 30);
+        for (ForeignKeyInfo foreignKeyInfo : foreignKeyInfoMap.values()) {
+            String oracleForeignKeyInfoName = "FK_%s_%s".formatted(tableName.toUpperCase(), foreignKeyInfo.refTable.toUpperCase());
+            if (oracleForeignKeyInfoName.length() > 30) {
+                oracleForeignKeyInfoName = oracleForeignKeyInfoName.substring(0, 30);
             }
 
+            // Quote column names to handle Oracle reserved keywords
+            String quotedColumns = String.join(", ", foreignKeyInfo.columns.stream()
+                    .map(column -> "\"" + column.toUpperCase() + "\"")
+                    .toList());
+            String quotedRefColumns = String.join(", ", foreignKeyInfo.refColumns.stream()
+                    .map(column -> "\"" + column.toUpperCase() + "\"")
+                    .toList());
             String script = "ALTER TABLE %s.%s ADD CONSTRAINT %s FOREIGN KEY (%s) REFERENCES %s.%s (%s);"
-                    .formatted(targetSchema, tableName.toUpperCase(), oracleFkName, String.join(", ", fkInfo.columns.stream().map(String::toUpperCase).toList()), targetSchema, fkInfo.refTable.toUpperCase(), String.join(", ", fkInfo.refColumns.stream().map(String::toUpperCase).toList()));
+                    .formatted(targetSchema, tableName.toUpperCase(), oracleForeignKeyInfoName, quotedColumns, targetSchema, foreignKeyInfo.refTable.toUpperCase(), quotedRefColumns);
 
             scripts.add(script);
         }
@@ -1210,8 +1234,8 @@ public class OracleToolsServiceImpl implements OracleToolsService {
      * Context class to hold all script generation processing state.
      */
     private static class ScriptContext {
-        final ScriptGenerationRequest request;
-        final Connection conn;
+        final ScriptGenerationRequest scriptGenerationRequest;
+        final Connection connection;
         final String sourceSchema;
         final String targetSchema;
         final List<String> tablesToProcess;
@@ -1222,15 +1246,15 @@ public class OracleToolsServiceImpl implements OracleToolsService {
         final List<String> foreignKeyScripts = new ArrayList<>();
         final Map<String, List<String>> tableIndexMap = new LinkedHashMap<>();
 
-        ScriptContext(ScriptGenerationRequest request, Connection conn) throws SQLException {
-            this.request = request;
-            this.conn = conn;
-            this.sourceSchema = request.getSource().getSchema();
-            this.targetSchema = request.getTargetSchema();
-            this.tablesToProcess = getTableNamesStatic(conn, sourceSchema);
+        ScriptContext(ScriptGenerationRequest scriptGenerationRequest, Connection connection) throws SQLException {
+            this.scriptGenerationRequest = scriptGenerationRequest;
+            this.connection = connection;
+            this.sourceSchema = scriptGenerationRequest.getSource().getSchema();
+            this.targetSchema = scriptGenerationRequest.getTargetSchema();
+            this.tablesToProcess = getTableNamesStatic(connection, sourceSchema);
         }
 
-        private static List<String> getTableNamesStatic(Connection conn, String schema) throws SQLException {
+        private static List<String> getTableNamesStatic(Connection connection, String schema) throws SQLException {
             List<String> tables = new ArrayList<>();
             String query = """
                     SELECT tablename
@@ -1238,7 +1262,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
                     WHERE schemaname = ?
                     ORDER BY tablename
                     """;
-            try (PreparedStatement preparedStatement = conn.prepareStatement(query)) {
+            try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
                 preparedStatement.setString(1, schema);
                 try (ResultSet resultSet = preparedStatement.executeQuery()) {
                     while (resultSet.next()) {
@@ -1259,8 +1283,8 @@ public class OracleToolsServiceImpl implements OracleToolsService {
     private record TypeMappingContext(String pgType,
                                       String udtName,
                                       Integer charLength,
-                                      Integer numPrecision,
-                                      Integer numScale,
+                                      Integer numericPrecision,
+                                      Integer numericScale,
                                       String columnName,
                                       String tableName) {
     }
