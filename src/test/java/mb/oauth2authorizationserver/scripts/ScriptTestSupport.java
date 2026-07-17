@@ -43,7 +43,7 @@ abstract class ScriptTestSupport {
 
         // Prefer scripts under the module root; fall back to parent for alternate launch contexts.
         Path baseDir = Paths.get(System.getProperty("project.basedir"));
-        Path sourceScripts = baseDir.resolve("scripts");
+        Path sourceScripts = baseDir.resolve("docs/scripts");
         if (!Files.exists(sourceScripts)) {
             sourceScripts = baseDir.getParent().resolve("scripts");
         }
