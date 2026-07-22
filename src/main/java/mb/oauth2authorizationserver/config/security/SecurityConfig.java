@@ -11,6 +11,7 @@ import mb.oauth2authorizationserver.config.LdapConfiguredCondition;
 import mb.oauth2authorizationserver.config.security.builder.AuthorizationBuilderService;
 import mb.oauth2authorizationserver.config.security.converter.CustomPasswordAuthenticationConverter;
 import mb.oauth2authorizationserver.config.security.converter.JwtBearerGrantAuthenticationConverter;
+import mb.oauth2authorizationserver.config.security.converter.LegacyOAuth2TokenEndpointAuthenticationConverter;
 import mb.oauth2authorizationserver.config.security.handler.CustomSimpleUrlAuthenticationFailureHandler;
 import mb.oauth2authorizationserver.config.security.model.CustomPasswordUser;
 import mb.oauth2authorizationserver.config.security.provider.CustomAuthenticationProvider;
@@ -224,6 +225,7 @@ public class SecurityConfig {
                 .getConfigurer(OAuth2AuthorizationServerConfigurer.class)
                 .tokenEndpoint(tokenEndpoint -> tokenEndpoint
                         .accessTokenRequestConverter(new CustomPasswordAuthenticationConverter())
+                        .accessTokenRequestConverter(new LegacyOAuth2TokenEndpointAuthenticationConverter())
                         .authenticationProvider(new CustomPasswordAuthenticationProvider(oAuth2AuthorizationService, tokenGenerator(), userDetailsService(), tokenService, authorizationBuilderService, userLoginAttemptService, customAuthenticationService))
                         .authenticationProvider(new CustomRefreshTokenAuthenticationProvider(oAuth2AuthorizationService, tokenGenerator()))
                         .accessTokenRequestConverter(new JwtBearerGrantAuthenticationConverter())
@@ -532,11 +534,11 @@ public class SecurityConfig {
     }
 
     private Consumer<List<AuthenticationProvider>> getProviders() {
-        return a -> a.forEach(authenticationProvider -> log.info("authenticationProvider: {}", authenticationProvider));
+        return providers -> providers.forEach(authenticationProvider -> log.info("authenticationProvider: {}", authenticationProvider));
     }
 
     private Consumer<List<AuthenticationConverter>> getConverters() {
-        return a -> a.forEach(authenticationConverter -> log.info("authenticationConverter: {}", authenticationConverter));
+        return converters -> converters.forEach(authenticationConverter -> log.info("authenticationConverter: {}", authenticationConverter));
     }
 
     private void updateContextClaims(JwtEncodingContext context, SecurityUser user) {

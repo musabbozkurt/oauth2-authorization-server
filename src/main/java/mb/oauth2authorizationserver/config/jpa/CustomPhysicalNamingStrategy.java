@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -88,6 +89,14 @@ public class CustomPhysicalNamingStrategy extends PhysicalNamingStrategySnakeCas
             }
         }
         return super.toPhysicalCatalogName(identifier, jdbcEnvironment);
+    }
+
+    @Override
+    public Identifier toPhysicalColumnName(Identifier identifier, JdbcEnvironment jdbcEnvironment) {
+        if (Objects.nonNull(identifier) && identifier.isQuoted()) {
+            return identifier;
+        }
+        return super.toPhysicalColumnName(identifier, jdbcEnvironment);
     }
 
     /**

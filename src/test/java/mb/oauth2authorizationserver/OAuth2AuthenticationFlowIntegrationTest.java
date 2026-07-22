@@ -3,8 +3,10 @@ package mb.oauth2authorizationserver;
 import lombok.extern.slf4j.Slf4j;
 import mb.oauth2authorizationserver.config.RedisTestConfiguration;
 import mb.oauth2authorizationserver.constants.ServiceConstants;
+import mb.oauth2authorizationserver.data.entity.SecurityUser;
 import mb.oauth2authorizationserver.data.repository.AuthorizationRepository;
 import mb.oauth2authorizationserver.data.repository.ClientRepository;
+import mb.oauth2authorizationserver.data.repository.UserRepository;
 import mb.oauth2authorizationserver.model.enums.GrantType;
 import org.apache.commons.lang3.StringUtils;
 import org.json.JSONObject;
@@ -35,6 +37,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
@@ -66,6 +69,9 @@ class OAuth2AuthenticationFlowIntegrationTest {
 
     @Autowired
     private AuthorizationRepository authorizationRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @Test
     void getGrantTypeClientCredentialsToken_ShouldSucceed_WhenClientIsValid() throws Exception {
@@ -102,6 +108,19 @@ class OAuth2AuthenticationFlowIntegrationTest {
     @Test
     void getGrantTypePasswordToken_ShouldSucceed_WhenUsernameAndPasswordAreValid() throws Exception {
         Assertions.assertNotNull(generateAndValidateGrantTypePasswordTokenAndGetJsonObjectWhenUsernameAndPasswordAreValid());
+    }
+
+    @Test
+    void getGrantTypePasswordToken_ShouldSucceed_WhenUserIsDisabled() throws Exception {
+        SecurityUser disabledUser = userRepository.findByUsername(USER).orElseThrow();
+        disabledUser.setEnabled(false);
+        userRepository.save(disabledUser);
+        try {
+            Assertions.assertNotNull(generateAndValidateGrantTypePasswordTokenAndGetJsonObjectWhenUsernameAndPasswordAreValid());
+        } finally {
+            disabledUser.setEnabled(true);
+            userRepository.save(disabledUser);
+        }
     }
 
     @Test
@@ -180,6 +199,31 @@ class OAuth2AuthenticationFlowIntegrationTest {
     @Test
     void getOAuthAuthorize_ShouldGenerateAuthorizationCode_WhenRequestIsValidAndRequireProofKeyIsDisabledInClientSettingsToDisablePKCE() throws Exception {
         Assertions.assertNotNull(generateAndValidateAuthorizationCodeWhenRequestIsValidAndRequireProofKeyIsDisabledInClientSettingsToDisablePKCE());
+    }
+
+    @Test
+    void getOAuthToken_ShouldSucceed_WhenAuthorizationCodeIsValidAndParamsAreInQueryString() throws Exception {
+        String authorizationCode = generateAndValidateAuthorizationCodeWhenRequestIsValidAndRequireProofKeyIsDisabledInClientSettingsToDisablePKCE();
+
+        MockHttpServletResponse authorizationCodeResponse = mockMvc.perform(MockMvcRequestBuilders.post("/oauth2/token")
+                        .header("Authorization", generateBasicAuthHeader())
+                        .queryParam("grant_type", "authorization_code")
+                        .queryParam("code", authorizationCode)
+                        .queryParam("redirect_uri", REDIRECT_URI))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.valueOf("application/json;charset=UTF-8")))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.access_token").exists())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.token_type").value("Bearer"))
+                .andDo(print())
+                .andReturn()
+                .getResponse();
+
+        JSONObject jsonResponse = new JSONObject(authorizationCodeResponse.getContentAsString());
+        Jwt jwt = jwtDecoder.decode(jsonResponse.getString(OAuth2ParameterNames.ACCESS_TOKEN));
+
+        assertNotNull(jsonResponse.getString("access_token"));
+        assertEquals(USER, jwt.getClaim("user_name").toString());
+        assertEquals(CLIENT_ID, jwt.getClaim("client_id").toString());
     }
 
     @Test
@@ -268,8 +312,51 @@ class OAuth2AuthenticationFlowIntegrationTest {
     }
 
     @Test
+    void getOAuthToken_ShouldSucceed_WhenAuthorizationCodeIsValidWithMultipleLogins() throws Exception {
+        int successfulLogins = 0;
+        generateAndValidateOAuthTokenWhenAuthorizationCodeIsValid();
+        successfulLogins++;
+        generateAndValidateOAuthTokenWhenAuthorizationCodeIsValid();
+        successfulLogins++;
+        generateAndValidateOAuthTokenWhenAuthorizationCodeIsValid();
+        successfulLogins++;
+        generateAndValidateOAuthTokenWhenAuthorizationCodeIsValid();
+        successfulLogins++;
+        generateAndValidateOAuthTokenWhenAuthorizationCodeIsValid();
+        successfulLogins++;
+        assertEquals(5, successfulLogins, "All 5 logins should succeed");
+    }
+
+    @Test
     void checkToken_ShouldReturnTokenInfo_WhenInactiveValidTokenIsProvided() throws Exception {
         Assertions.assertNotNull(introspectTokenAndGetJsonObject("paste-your-token-to-check-token-is-active-or-inactive", false));
+    }
+
+    @Test
+    void getGrantTypeRefreshToken_ShouldSucceed_WhenRefreshTokenIsValidAndParamsAreInQueryString() throws Exception {
+        String refreshToken = generateAndValidateGrantTypePasswordTokenAndGetJsonObjectWhenUsernameAndPasswordAreValid()
+                .getString(OAuth2ParameterNames.REFRESH_TOKEN);
+
+        String refreshTokenResponse = mockMvc.perform(MockMvcRequestBuilders.post("/oauth2/token")
+                        .header("Authorization", generateBasicAuthHeader())
+                        .queryParam("grant_type", "refresh_token")
+                        .queryParam("refresh_token", refreshToken))
+                .andExpect(status().isOk())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.access_token").isNotEmpty())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.refresh_token").isNotEmpty())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.token_type").value("Bearer"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        JSONObject refreshTokenJsonObject = new JSONObject(refreshTokenResponse);
+        Jwt jwt = jwtDecoder.decode(refreshTokenJsonObject.getString(OAuth2ParameterNames.ACCESS_TOKEN));
+        JSONObject introspectedJsonObject = introspectTokenAndGetJsonObject(jwt.getTokenValue(), true);
+
+        Assertions.assertEquals(CLIENT_ID, jwt.getClaim("sub").toString());
+        Assertions.assertEquals("Test Access Token", jwt.getClaim("Test").toString());
+        Assertions.assertEquals(CLIENT_ID, introspectedJsonObject.getString("client_id"));
+        Assertions.assertEquals("Bearer", introspectedJsonObject.getString("token_type"));
     }
 
     @Test
@@ -373,6 +460,33 @@ class OAuth2AuthenticationFlowIntegrationTest {
         Assertions.assertTrue(location.contains("code="), "Location should contain authorization code");
 
         return location.substring(location.indexOf("code=") + 5);
+    }
+
+    private void generateAndValidateOAuthTokenWhenAuthorizationCodeIsValid() throws Exception {
+        String authorizationCode = generateAndValidateAuthorizationCodeWhenRequestIsValidAndRequireProofKeyIsDisabledInClientSettingsToDisablePKCE();
+
+        MockHttpServletResponse authorizationCodeResponse = mockMvc.perform(MockMvcRequestBuilders.post("/oauth2/token")
+                        .header("Authorization", generateBasicAuthHeader())
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("grant_type", GrantType.AUTHORIZATION_CODE.getName())
+                        .param("code", authorizationCode)
+                        .param("redirect_uri", REDIRECT_URI))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.valueOf("application/json;charset=UTF-8")))
+                .andExpect(MockMvcResultMatchers.jsonPath("$.access_token").exists())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.token_type").value("Bearer"))
+                .andDo(print())
+                .andReturn()
+                .getResponse();
+
+        JSONObject jsonResponse = new JSONObject(authorizationCodeResponse.getContentAsString());
+        Jwt jwt = jwtDecoder.decode(jsonResponse.getString(OAuth2ParameterNames.ACCESS_TOKEN));
+
+        Assertions.assertNotNull(jsonResponse.getString("access_token"));
+        Assertions.assertNotNull(authorizationCodeResponse);
+        Assertions.assertNotNull(authorizationCodeResponse.getContentAsString());
+        Assertions.assertEquals(USER, jwt.getClaim("user_name").toString());
+        Assertions.assertEquals(CLIENT_ID, jwt.getClaim("client_id").toString());
     }
 
     private JSONObject introspectTokenAndGetJsonObject(String token, boolean active) throws Exception {
