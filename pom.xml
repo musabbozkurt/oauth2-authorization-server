@@ -21,8 +21,8 @@
         <spring-ai.old.version>2.0.0-M4</spring-ai.old.version>
         <redisson-spring-boot-starter.version>4.6.1</redisson-spring-boot-starter.version>
         <thymeleaf-extras-springsecurity6.version>3.1.5.RELEASE</thymeleaf-extras-springsecurity6.version>
-        <mariadb-java-client.version>3.5.9</mariadb-java-client.version>
-        <ojdbc17.version>23.26.2.0.0</ojdbc17.version>
+        <mariadb-java-client.version>3.5.10</mariadb-java-client.version>
+        <ojdbc17.version>23.26.3.0.0</ojdbc17.version>
         <archunit-junit5.version>1.4.2</archunit-junit5.version>
         <taikai.version>1.64.0</taikai.version>
         <instancio-junit.version>6.0.0-RC1</instancio-junit.version>
@@ -34,7 +34,7 @@
         <protobuf.version>4.35.1</protobuf.version>
         <logstash-logback-encoder.version>9.0</logstash-logback-encoder.version>
         <webmagic-core.version>1.0.3</webmagic-core.version>
-        <software.amazon.awssdk.s3.version>2.49.1</software.amazon.awssdk.s3.version>
+        <software.amazon.awssdk.s3.version>2.49.6</software.amazon.awssdk.s3.version>
         <minio.version>9.0.3</minio.version>
         <okhttp-urlconnection.version>5.4.0</okhttp-urlconnection.version>
         <uap-java.version>1.6.1</uap-java.version>
@@ -46,17 +46,20 @@
         <jackson-bom.version>3.2.1</jackson-bom.version>
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
         <!-- NullAway for compile-time null checking -->
-        <error-prone.version>2.48.0</error-prone.version>
-        <nullaway.version>0.13.1</nullaway.version>
+        <error-prone.version>2.50.0</error-prone.version>
+        <nullaway.version>0.13.7</nullaway.version>
         <!-- Nullability (Error Prone + NullAway + JSpecify) -->
         <error-prone.version>2.50.0</error-prone.version>
         <nullaway.version>0.13.7</nullaway.version>
-        <jspecify.version>1.0.0</jspecify.version>
+        <jspecify.version>1.0.1</jspecify.version>
         <jetbrains-annotations.version>26.0.2</jetbrains-annotations.version>
         <nullaway.annotated-packages>com.secure</nullaway.annotated-packages>
         <nullaway.unannotated-sub-packages>
             [a-zA-Z0-9.]*\.dto,[a-zA-Z0-9.]*\.entity,[a-zA-Z0-9.]*\.request,[a-zA-Z0-9.]*\.response,[a-zA-Z0-9.]*\.properties
         </nullaway.unannotated-sub-packages>
+        <nullaway.excluded-class-annotations>
+            jakarta.persistence.Entity,jakarta.persistence.MappedSuperclass,jakarta.persistence.Embeddable,org.springframework.boot.context.properties.ConfigurationProperties
+        </nullaway.excluded-class-annotations>
         <!-- Enabled by default in the parent -->
         <!--
         <errorprone.arg>
@@ -71,7 +74,7 @@
         </errorprone.arg>
         -->
         <!-- Adding '<errorprone.arg>-Xplugin:ErrorProne -XepDisableAllChecks</errorprone.arg>' to child modules or uncommenting it completely disables Error Prone and NullAway for the child modules -->
-        <errorprone.arg>
+        <errorprone.arg.enabled>
             <!-- Enable ErrorProne compiler plugin -->
             -Xplugin:ErrorProne \
             <!-- Disable all checks, only use NullAway -->
@@ -86,10 +89,10 @@
             -XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true \
             <!-- Validate Optional.get() calls -->
             -XepOpt:NullAway:CheckOptionalEmptiness=true \
-        </errorprone.arg>
-        <nullaway.excluded-class-annotations>
-            jakarta.persistence.Entity,jakarta.persistence.MappedSuperclass,jakarta.persistence.Embeddable,org.springframework.boot.context.properties.ConfigurationProperties
-        </nullaway.excluded-class-annotations>
+        </errorprone.arg.enabled>
+        <errorprone.arg.disabled>-Xplugin:ErrorProne -XepDisableAllChecks</errorprone.arg.disabled>
+        <!-- Default: validations are off. Add <errorprone.arg>${errorprone.arg.enabled}</errorprone.arg> in Child modules' properties to enable. -->
+        <errorprone.arg>${errorprone.arg.enabled}</errorprone.arg>
         <jacoco.version>0.8.15</jacoco.version>
         <appmap-maven-plugin.version>1.3.0</appmap-maven-plugin.version>
     </properties>

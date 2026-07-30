@@ -80,7 +80,7 @@
 5. The test will pause until you connect your debugger. Once connected, you can use breakpoints and step through your
    code.
 
-#### How to Run and Test with CDC(Class Data Sharing)
+#### How to Run and Test with CDC (Class Data Sharing)
 
 - Java 25+ should be installed
 - Run `./mvnw clean install` or`./mvnw clean install -Paot` or `./mvnw -Paot package` command to build the application
@@ -102,7 +102,7 @@
 - Run `open ./target/oauth2-authorization-server-build-report.html` to see build report
 - Use Swagger UI to test the application
 
-#### Spring Boot with CRaC(Coordinated Restore at Checkpoint) by Creating Ready to Restore Container Image.
+#### Spring Boot with CRaC (Coordinated Restore at Checkpoint) by Creating Ready to Restore Container Image.
 
 - **Warning:** for real projects make sure to not leak sensitive data in CRaC files since they contain a snapshot of the
   memory of the running JVM instance.
