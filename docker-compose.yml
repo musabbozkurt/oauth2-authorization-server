@@ -31,7 +31,7 @@ services:
       mariadb:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
       redis-stack:
         condition: service_started
       lldap:
@@ -73,9 +73,17 @@ services:
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
     restart: unless-stopped
     networks:
-      - oauth2-network
+      oauth2-network:
+        aliases:
+          - redis
 
   redis-insight-service:
     image: redis/redisinsight:latest

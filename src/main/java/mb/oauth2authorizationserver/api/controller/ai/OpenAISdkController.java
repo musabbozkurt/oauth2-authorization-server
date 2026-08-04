@@ -20,9 +20,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * NEW IN SPRING AI 2.0: Official OpenAI Java SDK Integration
+ * NEW IN SPRING AI 2.0
  * <p>
- * Uses spring-ai-starter-model-openai-sdk which wraps the official OpenAI SDK.
+ * Uses spring-ai-starter-model-openai.
  * Key benefits over the 1.x integration:
  * - Native Azure OpenAI & GitHub Models support
  * - Automatic API updates via SDK releases
