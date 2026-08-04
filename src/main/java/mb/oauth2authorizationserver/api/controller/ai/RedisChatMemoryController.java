@@ -5,7 +5,7 @@ import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
-import org.springframework.ai.openaisdk.OpenAiSdkChatModel;
+import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -36,7 +36,7 @@ public class RedisChatMemoryController {
     private final ChatClient chatClient;
     private final ChatMemoryRepository chatMemoryRepository;
 
-    public RedisChatMemoryController(OpenAiSdkChatModel chatModel, ChatMemoryRepository chatMemoryRepository) {
+    public RedisChatMemoryController(OpenAiChatModel chatModel, ChatMemoryRepository chatMemoryRepository) {
         this.chatMemoryRepository = chatMemoryRepository;
 
         // Create chat memory with Redis repository
@@ -73,7 +73,7 @@ public class RedisChatMemoryController {
     public Map<String, Object> getHistory(@PathVariable String conversationId) {
         List<Map<String, String>> history = chatMemoryRepository.findByConversationId(conversationId)
                 .stream()
-                .map(msg -> Map.of("type", msg.getMessageType().name(), "content", msg.getText()))
+                .map(msg -> Map.of("type", msg.getMessageType().name(), "content", Objects.requireNonNull(msg.getText())))
                 .toList();
 
         return Map.of(CONVERSATION_ID, conversationId, "messageCount", history.size(), "messages", history);

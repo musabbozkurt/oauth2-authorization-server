@@ -31,13 +31,9 @@ spring:
 
   ai:
     openai:
-      api-key: ${DEEP_SEEK_API_KEY:test-deep-seek-api-key}
-    # NEW in 2.0: Official OpenAI Java SDK
-    openai-sdk:
       api-key: ${OPENAI_API_KEY:test-openai-api-key}
       chat:
-        options:
-          model: gpt-4o
+        model: gpt-4o
       # Multi-provider support (same code, different backend):
       # Azure OpenAI:
       #   base-url: https://<deployment>.openai.azure.com

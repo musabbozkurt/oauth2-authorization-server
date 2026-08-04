@@ -39,18 +39,11 @@ spring:
       enabled: false
   ai:
     openai:
-      api-key: ${DEEP_SEEK_API_KEY}
+      api-key: ${OPENAI_API_KEY:openai-api-key}
       base-url: https://api.deepseek.com
       chat:
-        options:
-          model: ai/gemma3:4B-Q4_K_M
         base-url: http://localhost:12434/engines/llama.cpp
-    # NEW in 2.0: Official OpenAI Java SDK
-    openai-sdk:
-      api-key: ${OPENAI_API_KEY:openai-api-key}
-      chat:
-        options:
-          model: gpt-4o
+        model: ai/gemma3:4B-Q4_K_M
       # Multi-provider support (same code, different backend):
       # Azure OpenAI:
       #   base-url: https://<deployment>.openai.azure.com

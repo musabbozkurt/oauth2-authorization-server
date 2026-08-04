@@ -14,7 +14,7 @@ import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.ai.ollama.OllamaEmbeddingModel;
 import org.springframework.ai.ollama.api.OllamaApi;
-import org.springframework.ai.openaisdk.OpenAiSdkChatModel;
+import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -28,9 +28,24 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class OpenAIConfig {
 
+    /**
+     * PRIMARY builder used by any controller that injects ChatClient.Builder
+     * (e.g., SafeGuardrailChatController). This causes ChatClientAutoConfiguration
+     * to back off, avoiding the "4 ChatModel beans found" conflict.
+     * <p>
+     * It must stay unconditional: {@code @ConditionalOnBean} in a user configuration is
+     * evaluated before the model auto-configurations register their beans, so the
+     * condition would never match and the auto-configured builder would win.
+     */
     @Bean
-    @ConditionalOnBean(OpenAiSdkChatModel.class)
-    public ChatClient openAIChatClient(OpenAiSdkChatModel chatModel) {
+    @Primary
+    public ChatClient.Builder chatClientBuilder(OpenAiChatModel chatModel) {
+        return ChatClient.builder(chatModel);
+    }
+
+    @Bean
+    @ConditionalOnBean(OpenAiChatModel.class)
+    public ChatClient openAIChatClient(OpenAiChatModel chatModel) {
         return ChatClient.create(chatModel);
     }
 
@@ -41,14 +56,14 @@ public class OpenAIConfig {
     }
 
     @Bean
-    @ConditionalOnBean(OpenAiSdkChatModel.class)
-    public ChatClient gemma3ChatClient(OpenAiSdkChatModel chatModel) {
+    @ConditionalOnBean(OpenAiChatModel.class)
+    public ChatClient gemma3ChatClient(OpenAiChatModel chatModel) {
         return ChatClient.create(chatModel);
     }
 
     @Bean
-    @ConditionalOnBean({OpenAiSdkChatModel.class, VectorStore.class})
-    public ChatClient vectorStoreChatClient(OpenAiSdkChatModel chatModel, VectorStore vectorStore) {
+    @ConditionalOnBean({OpenAiChatModel.class, VectorStore.class})
+    public ChatClient vectorStoreChatClient(OpenAiChatModel chatModel, VectorStore vectorStore) {
         return ChatClient.builder(chatModel)
                 .defaultAdvisors(QuestionAnswerAdvisor.builder(vectorStore).build())
                 .build();
@@ -101,7 +116,7 @@ public class OpenAIConfig {
 
     @Bean
     @ConditionalOnMissingBean
-    public OpenAIClient openAIClient(@Value("${spring.ai.openai-sdk.api-key}") String apiKey) {
+    public OpenAIClient openAIClient(@Value("${spring.ai.openai.api-key}") String apiKey) {
         return OpenAIOkHttpClient.builder().apiKey(apiKey).build();
     }
 }
