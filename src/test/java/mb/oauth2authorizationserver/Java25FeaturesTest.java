@@ -83,17 +83,18 @@ class Java25FeaturesTest {
     }
 
     private static ProcessResult run(List<String> command, Path workingDirectory) throws IOException, InterruptedException {
-        Process process = new ProcessBuilder(command)
+        try (Process process = new ProcessBuilder(command)
                 .directory(workingDirectory.toFile())
                 .redirectErrorStream(true)
-                .start();
+                .start()) {
 
-        String output;
-        try (var inputStream = process.getInputStream()) {
-            output = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+            String output;
+            try (var inputStream = process.getInputStream()) {
+                output = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+            }
+
+            return new ProcessResult(process.waitFor(), output);
         }
-
-        return new ProcessResult(process.waitFor(), output);
     }
 
     private static Path javaBin() {
@@ -110,6 +111,10 @@ class Java25FeaturesTest {
 
     private static String executableName(String baseName) {
         return System.getProperty("os.name").toLowerCase().contains("win") ? baseName + ".exe" : baseName;
+    }
+
+    private static String currentFeatureRelease() {
+        return Integer.toString(Runtime.version().feature());
     }
 
     /**
@@ -137,18 +142,22 @@ class Java25FeaturesTest {
     @Test
     void stableValue_ShouldInitializeOnce_WhenUsingOrElseSet() {
         // Arrange
-        var stable = StableValue.<String>of();
+        var counter = new AtomicInteger(0);
+        var lazyConstant = LazyConstant.of(() -> {
+            counter.incrementAndGet();
+            return "token";
+        });
 
         // Act
-        String first = stable.orElseSet(() -> "token");
-        String second = stable.orElseSet(() -> "other");
+        String first = lazyConstant.get();
+        String second = lazyConstant.get();
+        String third = lazyConstant.get();
 
         // Assertions
-        assertTrue(stable.isSet());
         assertEquals("token", first);
         assertEquals("token", second);
-        assertEquals("token", stable.orElseThrow());
-        assertFalse(stable.trySet("new-token"));
+        assertEquals("token", third);
+        assertEquals(1, counter.get());
     }
 
     /**
@@ -266,7 +275,7 @@ class Java25FeaturesTest {
         ProcessResult compile = run(List.of(
                 javacBin().toString(),
                 "--enable-preview",
-                "--release", "25",
+                "--release", currentFeatureRelease(),
                 source.toString()
         ), tempDir);
         ProcessResult run = run(List.of(
@@ -374,7 +383,7 @@ class Java25FeaturesTest {
         ProcessResult compile = run(List.of(
                 javacBin().toString(),
                 "--enable-preview",
-                "--release", "25",
+                "--release", currentFeatureRelease(),
                 "--add-modules", "jdk.incubator.vector",
                 source.toString()
         ), tempDir);

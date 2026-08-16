@@ -4,7 +4,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Stage 1: Build ───────────────────────────────────────────────────────────
-FROM maven:4.0.0-rc-5-ibm-semeru-25-noble AS build
+FROM maven:4.0.0-rc-5-eclipse-temurin-26-noble AS build
 
 WORKDIR /app
 
@@ -66,7 +66,7 @@ FROM debian:bookworm-slim
 # Security: run as non-root
 RUN groupadd --system appgroup && useradd --system --gid appgroup appuser
 
-ENV JAVA_HOME=/opt/java/jdk25
+ENV JAVA_HOME=/opt/java/jdk26
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
 WORKDIR /app
@@ -88,7 +88,7 @@ USER appuser
 
 EXPOSE 9000
 
-# --enable-native-access=ALL-UNNAMED: Java 25 requires explicit permission
+# --enable-native-access=ALL-UNNAMED: Java 26 requires explicit permission
 # for libraries accessing native code (Netty, Jedis, gRPC, Redisson, etc.)
 ENTRYPOINT ["java", \
   "--enable-native-access=ALL-UNNAMED", \
