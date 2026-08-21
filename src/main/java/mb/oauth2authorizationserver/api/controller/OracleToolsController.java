@@ -60,11 +60,16 @@ public class OracleToolsController {
                     - ALTER TABLE for foreign key constraints
                     - Role-based GRANT statements (CREATE ROLE, GRANT to roles, GRANT roles to users)
                     
+                    **Schema Routing Modes:**
+                    - Legacy mode: if `tableSchemaMap` is empty, all tables use `targetSchema`.
+                    - Map-based mode: if `tableSchemaMap` is provided, mapped tables use mapped schemas; unmapped tables fall back to `targetSchema` with warnings.
+                    - Duplicate table assignments across schemas in `tableSchemaMap` fail fast.
+                    
                     **Role Name Derivation:**
-                    If editRoleName/viewRoleName are not provided, they are derived from targetSchema:
+                    If editRoleName/viewRoleName are not provided, they are derived from targetSchema (legacy mode) or each mapped schema (map-based mode):
                     - mb_oracle_schema → MB_ORACLE_SCHEMA_EDIT_ROLE, MB_ORACLE_SCHEMA_VIEW_ROLE
                     - mb_oracle_schema_env → MB_ORACLE_SCHEMA_EDIT_ROLE, MB_ORACLE_SCHEMA_VIEW_ROLE
-                    - NEXTHEACX_WIZAS → HEACX_EDIT_ROLE, HEACX_VIEW_ROLE
+                    - core_zone_app → CORE_EDIT_ROLE, CORE_VIEW_ROLE
                     
                     **Role Assignments Output:**
                     ```sql
@@ -87,8 +92,12 @@ public class OracleToolsController {
                           "schema": "public"
                         },
                         "targetSchema": "mb_oracle_schema",
-                        "editRoleUsers": ["myapp_user"],
-                        "viewRoleUsers": ["myapp_user", "DWHUSER"]
+                        "editRoleUsersBySchema": {
+                          "MB_ORACLE_SCHEMA": ["myapp_user"]
+                        },
+                        "viewRoleUsersBySchema": {
+                          "MB_ORACLE_SCHEMA": ["myapp_user", "DWHUSER"]
+                        }
                       }'
                     ```
                     """,
@@ -98,23 +107,59 @@ public class OracleToolsController {
                     content = @Content(
                             mediaType = "application/json",
                             schema = @Schema(implementation = ScriptGenerationRequest.class),
-                            examples = @ExampleObject(
-                                    name = "Script Generation Request Example",
-                                    summary = "Generate all scripts with role-based grants (role names derived from targetSchema)",
-                                    value = """
-                                            {
-                                              "source": {
-                                                "jdbcUrl": "jdbc:postgresql://localhost:5432/mydb",
-                                                "username": "user",
-                                                "password": "password",
-                                                "schema": "public"
-                                              },
-                                              "targetSchema": "mb_oracle_schema",
-                                              "editRoleUsers": ["myapp_user"],
-                                              "viewRoleUsers": ["myapp_user", "DWHUSER"]
-                                            }
-                                            """
-                            )
+                            examples = {
+                                    @ExampleObject(
+                                            name = "Legacy Request Example",
+                                            summary = "Single Oracle schema using targetSchema",
+                                            value = """
+                                                    {
+                                                      "source": {
+                                                        "jdbcUrl": "jdbc:postgresql://localhost:5432/mydb",
+                                                        "username": "user",
+                                                        "password": "password",
+                                                        "schema": "public"
+                                                      },
+                                                      "targetSchema": "MB_ORACLE_SCHEMA",
+                                                      "editRoleUsersBySchema": {
+                                                        "MB_ORACLE_SCHEMA": ["myapp_user"]
+                                                      },
+                                                      "viewRoleUsersBySchema": {
+                                                        "MB_ORACLE_SCHEMA": ["myapp_user", "DWHUSER"]
+                                                      }
+                                                    }
+                                                    """
+                                    ),
+                                    @ExampleObject(
+                                            name = "Map Based Request Example",
+                                            summary = "Split source tables into multiple Oracle schemas",
+                                            value = """
+                                                    {
+                                                      "source": {
+                                                        "jdbcUrl": "jdbc:postgresql://localhost:5432/mydb",
+                                                        "username": "user",
+                                                        "password": "password",
+                                                        "schema": "public"
+                                                      },
+                                                      "targetSchema": "MB_ORACLE_SCHEMA",
+                                                      "tableSchemaMap": {
+                                                        "MB_MASTER": ["entity", "entity_address", "entity_relation"],
+                                                        "MB_CATALOG": ["catalog_category_rate", "catalog_category_rate_history", "catalog_item_rate", "catalog_item_rate_history"],
+                                                        "MB_POLICY": ["policy_revision", "policy_revision_status", "policy_revision_section", "policy_revision_section_approval", "policy_section_type"]
+                                                      },
+                                                      "editRoleUsersBySchema": {
+                                                        "MB_MASTER": ["master_app"],
+                                                        "MB_POLICY": ["policy_app"],
+                                                        "MB_CATALOG": ["catalog_app"]
+                                                      },
+                                                      "viewRoleUsersBySchema": {
+                                                        "MB_MASTER": ["master_read"],
+                                                        "MB_POLICY": ["policy_read"],
+                                                        "MB_CATALOG": ["catalog_read", "DWHUSER"]
+                                                      }
+                                                    }
+                                                    """
+                                    )
+                            }
                     )
             )
     )
@@ -159,6 +204,11 @@ public class OracleToolsController {
                     Requires source (PostgreSQL) and destination (Oracle) database configurations in the request body.
                     The migration runs asynchronously in the background.
                     
+                    **Schema Routing Modes:**
+                    - Legacy mode: if `tableSchemaMap` is empty, all tables migrate to `destination.schema`.
+                    - Map-based mode: if `tableSchemaMap` is provided, mapped tables migrate to mapped schemas; unmapped tables fall back to `destination.schema`.
+                    - Duplicate table assignments across schemas in `tableSchemaMap` fail fast.
+                    
                     **Example curl request:**
                     ```bash
                     curl -X POST 'http://localhost:8080/api/oracle-tools/migrate' \\
@@ -185,26 +235,53 @@ public class OracleToolsController {
                     content = @Content(
                             mediaType = "application/json",
                             schema = @Schema(implementation = MigrationRequest.class),
-                            examples = @ExampleObject(
-                                    name = "Migration Request Example",
-                                    summary = "PostgreSQL to Oracle migration",
-                                    value = """
-                                            {
-                                              "source": {
-                                                "jdbcUrl": "jdbc:postgresql://localhost:5432/mydb",
-                                                "username": "user",
-                                                "password": "password",
-                                                "schema": "myapp_user"
-                                              },
-                                              "destination": {
-                                                "jdbcUrl": "jdbc:oracle:thin:@//localhost:1521/ORCL",
-                                                "username": "appuser",
-                                                "password": "password",
-                                                "schema": "mb_oracle_schema"
-                                              }
-                                            }
-                                            """
-                            )
+                            examples = {
+                                    @ExampleObject(
+                                            name = "Legacy Migration Example",
+                                            summary = "All tables migrate to destination.schema",
+                                            value = """
+                                                    {
+                                                      "source": {
+                                                        "jdbcUrl": "jdbc:postgresql://localhost:5432/mydb",
+                                                        "username": "user",
+                                                        "password": "password",
+                                                        "schema": "myapp_user"
+                                                      },
+                                                      "destination": {
+                                                        "jdbcUrl": "jdbc:oracle:thin:@//localhost:1521/ORCL",
+                                                        "username": "appuser",
+                                                        "password": "password",
+                                                        "schema": "MB_ORACLE_SCHEMA"
+                                                      }
+                                                    }
+                                                    """
+                                    ),
+                                    @ExampleObject(
+                                            name = "Map Based Migration Example",
+                                            summary = "Route source tables to multiple Oracle schemas",
+                                            value = """
+                                                    {
+                                                      "source": {
+                                                        "jdbcUrl": "jdbc:postgresql://localhost:5432/mydb",
+                                                        "username": "user",
+                                                        "password": "password",
+                                                        "schema": "myapp_user"
+                                                      },
+                                                      "destination": {
+                                                        "jdbcUrl": "jdbc:oracle:thin:@//localhost:1521/ORCL",
+                                                        "username": "appuser",
+                                                        "password": "password",
+                                                        "schema": "MB_ORACLE_SCHEMA"
+                                                      },
+                                                      "tableSchemaMap": {
+                                                        "MB_MASTER": ["entity", "entity_address", "entity_relation"],
+                                                        "MB_POLICY": ["policy_revision", "policy_revision_status", "policy_revision_section", "policy_revision_section_approval", "policy_section_type"],
+                                                        "MB_CATALOG": ["catalog_category_rate", "catalog_category_rate_history", "catalog_item_rate", "catalog_item_rate_history"]
+                                                      }
+                                                    }
+                                                    """
+                                    )
+                            }
                     )
             )
     )

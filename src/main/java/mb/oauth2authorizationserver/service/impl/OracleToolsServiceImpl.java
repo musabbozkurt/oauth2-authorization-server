@@ -25,8 +25,11 @@ import java.sql.Types;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -52,6 +55,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
 
     private static final String LINE_SEPARATOR = System.lineSeparator();
     private static final String SECTION_SEPARATOR = "-- =============================================";
+    private static final int ORACLE_MAX_IDENTIFIER_LENGTH = 128;
 
     // Migration constants
     private static final long MIGRATION_LOCK_KEY = 123456789L;
@@ -67,6 +71,8 @@ public class OracleToolsServiceImpl implements OracleToolsService {
     private HikariDataSource currentPostgresDataSource;
     private String currentSourceSchema;
     private String currentTargetSchema;
+    private Map<String, String> currentTableSchemaOverrides = Map.of();
+    private Set<String> currentTargetSchemas = Set.of();
 
     // =============================================
     // SCRIPT GENERATION
@@ -112,10 +118,11 @@ public class OracleToolsServiceImpl implements OracleToolsService {
 
     private void processTableForScripts(ScriptContext scriptContext, String tableName) {
         try {
-            processSequence(scriptContext, tableName);
-            processTableDdl(scriptContext, tableName);
-            scriptContext.tableIndexMap.put(tableName, generateIndexScripts(scriptContext.connection, scriptContext.sourceSchema, tableName, scriptContext.targetSchema));
-            scriptContext.foreignKeyScripts.addAll(generateForeignKeyScripts(scriptContext.connection, scriptContext.sourceSchema, tableName, scriptContext.targetSchema));
+            String targetSchema = scriptContext.resolveTargetSchema(tableName);
+            String sequenceName = processSequence(scriptContext, tableName, targetSchema);
+            processTableDdl(scriptContext, tableName, targetSchema, sequenceName != null);
+            scriptContext.tableIndexMap.put(tableName, generateIndexScripts(scriptContext.connection, scriptContext.sourceSchema, tableName, targetSchema));
+            scriptContext.foreignKeyScripts.addAll(generateForeignKeyScripts(scriptContext.connection, scriptContext.sourceSchema, tableName, targetSchema, scriptContext.tableToTargetSchema, scriptContext.targetSchema));
         } catch (Exception e) {
             String warning = String.format("Error processing table %s: %s", tableName, e.getMessage());
             log.warn(warning);
@@ -123,16 +130,17 @@ public class OracleToolsServiceImpl implements OracleToolsService {
         }
     }
 
-    private void processSequence(ScriptContext scriptContext, String tableName) throws SQLException {
+    private String processSequence(ScriptContext scriptContext, String tableName, String targetSchema) throws SQLException {
         String seqName = getSequenceNameIfExists(scriptContext.connection, scriptContext.sourceSchema, tableName);
         if (seqName != null) {
-            scriptContext.sequenceScripts.add(generateSequenceScript(scriptContext.targetSchema, seqName));
-            scriptContext.processedSequences.add(seqName);
+            scriptContext.sequenceScripts.add(generateSequenceScript(targetSchema, seqName));
+            scriptContext.schemaSequenceMap.computeIfAbsent(targetSchema, ignored -> new ArrayList<>()).add(seqName);
         }
+        return seqName;
     }
 
-    private void processTableDdl(ScriptContext scriptContext, String tableName) throws SQLException {
-        String tableScript = generateTableScript(scriptContext.connection, scriptContext.sourceSchema, tableName, scriptContext.targetSchema, scriptContext.processedSequences, scriptContext.warnings);
+    private void processTableDdl(ScriptContext scriptContext, String tableName, String targetSchema, boolean hasSequence) throws SQLException {
+        String tableScript = generateTableScript(scriptContext.connection, scriptContext.sourceSchema, tableName, targetSchema, hasSequence, scriptContext.warnings);
         if (!tableScript.isEmpty()) {
             scriptContext.tableScripts.add(tableScript);
         }
@@ -193,19 +201,87 @@ public class OracleToolsServiceImpl implements OracleToolsService {
 
     private String buildDclScript(ScriptContext scriptContext) {
         StringBuilder dcl = new StringBuilder();
-        String roleBaseName = deriveRoleBaseName(scriptContext.targetSchema);
-        String editRole = scriptContext.scriptGenerationRequest.getEditRoleName() != null ? scriptContext.scriptGenerationRequest.getEditRoleName() : "%s_EDIT_ROLE".formatted(roleBaseName);
-        String viewRole = scriptContext.scriptGenerationRequest.getViewRoleName() != null ? scriptContext.scriptGenerationRequest.getViewRoleName() : "%s_VIEW_ROLE".formatted(roleBaseName);
-        Set<String> editRoleUsers = CollectionUtils.isNotEmpty(scriptContext.scriptGenerationRequest.getEditRoleUsers()) ? scriptContext.scriptGenerationRequest.getEditRoleUsers() : Set.of("myapp_user");
-        Set<String> viewRoleUsers = CollectionUtils.isNotEmpty(scriptContext.scriptGenerationRequest.getViewRoleUsers()) ? scriptContext.scriptGenerationRequest.getViewRoleUsers() : Set.of("myapp_user");
+        Map<String, Set<String>> editRoleUsersBySchema = normalizeRoleUsersBySchema(scriptContext.scriptGenerationRequest.getEditRoleUsersBySchema());
+        Map<String, Set<String>> viewRoleUsersBySchema = normalizeRoleUsersBySchema(scriptContext.scriptGenerationRequest.getViewRoleUsersBySchema());
 
         appendDclHeader(dcl);
-        appendRoleCreation(dcl, editRole, viewRole);
-        appendSequenceGrants(dcl, scriptContext.processedSequences, scriptContext.targetSchema, editRole);
-        appendTableGrants(dcl, scriptContext.tablesToProcess, scriptContext.targetSchema, editRole, viewRole);
-        appendRoleAssignments(dcl, editRole, viewRole, editRoleUsers, viewRoleUsers);
+
+        Set<String> schemasForDcl = new LinkedHashSet<>(scriptContext.schemaTableMap.keySet());
+        boolean useSchemaDerivedRoles = scriptContext.mapBasedMode;
+        Set<String> createdRoles = new HashSet<>();
+        for (String schema : schemasForDcl) {
+            RolePair rolePair = resolveRolePair(scriptContext, schema, useSchemaDerivedRoles);
+            Set<String> schemaEditRoleUsers = resolveRoleUsersForSchemaWithoutFallback(schema, editRoleUsersBySchema);
+            Set<String> schemaViewRoleUsers = resolveRoleUsersForSchemaWithoutFallback(schema, viewRoleUsersBySchema);
+            if (createdRoles.add(rolePair.editRole())) {
+                dcl.append("CREATE ROLE ").append(rolePair.editRole()).append(";").append(LINE_SEPARATOR);
+            }
+            if (createdRoles.add(rolePair.viewRole())) {
+                dcl.append("CREATE ROLE ").append(rolePair.viewRole()).append(";").append(LINE_SEPARATOR);
+            }
+            appendSequenceGrants(dcl, scriptContext.schemaSequenceMap.getOrDefault(schema, List.of()), schema, rolePair.editRole());
+            appendTableGrants(dcl, scriptContext.schemaTableMap.getOrDefault(schema, List.of()), schema, rolePair.editRole(), rolePair.viewRole());
+            appendRoleAssignments(dcl, rolePair.editRole(), rolePair.viewRole(), schemaEditRoleUsers, schemaViewRoleUsers);
+            dcl.append(LINE_SEPARATOR);
+        }
 
         return dcl.toString();
+    }
+
+    private RolePair resolveRolePair(ScriptContext scriptContext, String schema, boolean forceDerivedForMappedSchemas) {
+        if (forceDerivedForMappedSchemas) {
+            String roleBaseName = deriveRoleBaseNameKeepSuffix(schema);
+            return new RolePair("%s_EDIT_ROLE".formatted(roleBaseName), "%s_VIEW_ROLE".formatted(roleBaseName));
+        }
+
+        String roleBaseName = deriveRoleBaseName(schema);
+        String editRole = scriptContext.scriptGenerationRequest.getEditRoleName() != null ? scriptContext.scriptGenerationRequest.getEditRoleName() : "%s_EDIT_ROLE".formatted(roleBaseName);
+        String viewRole = scriptContext.scriptGenerationRequest.getViewRoleName() != null ? scriptContext.scriptGenerationRequest.getViewRoleName() : "%s_VIEW_ROLE".formatted(roleBaseName);
+        return new RolePair(editRole, viewRole);
+    }
+
+    private String deriveRoleBaseNameKeepSuffix(String schema) {
+        if (schema == null || schema.isBlank()) {
+            return "DEFAULT";
+        }
+
+        return schema.toUpperCase(Locale.ROOT).trim();
+    }
+
+    private Map<String, Set<String>> normalizeRoleUsersBySchema(Map<String, Set<String>> roleUsersBySchema) {
+        if (roleUsersBySchema == null || roleUsersBySchema.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<String, Set<String>> normalized = new LinkedHashMap<>();
+        for (Map.Entry<String, Set<String>> entry : roleUsersBySchema.entrySet()) {
+            String schema = entry.getKey();
+            Set<String> users = entry.getValue();
+            if (schema == null || schema.isBlank() || CollectionUtils.isEmpty(users)) {
+                continue;
+            }
+            normalized.put(schema.toUpperCase(Locale.ROOT), users);
+        }
+        return normalized;
+    }
+
+    private Set<String> resolveRoleUsersForSchemaWithoutFallback(String schema, Map<String, Set<String>> roleUsersBySchema) {
+        String normalizedSchema = schema.toUpperCase(Locale.ROOT);
+        Set<String> schemaUsers = roleUsersBySchema.get(normalizedSchema);
+        if (CollectionUtils.isNotEmpty(schemaUsers)) {
+            return schemaUsers;
+        }
+
+        int underscoreIndex = normalizedSchema.indexOf('_');
+        if (underscoreIndex > 0) {
+            String baseSchema = normalizedSchema.substring(0, underscoreIndex);
+            Set<String> baseSchemaUsers = roleUsersBySchema.get(baseSchema);
+            if (CollectionUtils.isNotEmpty(baseSchemaUsers)) {
+                return baseSchemaUsers;
+            }
+        }
+
+        throw new IllegalArgumentException("Missing role user mapping for schema '" + schema + "'.");
     }
 
     /**
@@ -213,14 +289,14 @@ public class OracleToolsServiceImpl implements OracleToolsService {
      * Examples:
      * - mb_oracle_schema -> MB_ORACLE_SCHEMA
      * - mb_oracle_schema_env -> MB_ORACLE_SCHEMA
-     * - NEXTHEACX_WIZAS -> HEACX
+     * - core_zone_app -> CORE
      */
     private String deriveRoleBaseName(String targetSchema) {
         if (targetSchema == null || targetSchema.isEmpty()) {
             return "DEFAULT";
         }
 
-        String baseName = targetSchema.toUpperCase();
+        String baseName = targetSchema.toUpperCase(Locale.ROOT);
 
         // Remove suffix after underscore (e.g., _env, _WIZAS)
         int underscoreIndex = baseName.indexOf('_');
@@ -237,11 +313,6 @@ public class OracleToolsServiceImpl implements OracleToolsService {
         dcl.append(SECTION_SEPARATOR).append(LINE_SEPARATOR).append(LINE_SEPARATOR);
     }
 
-    private void appendRoleCreation(StringBuilder dcl, String editRole, String viewRole) {
-        dcl.append("-- Roller").append(LINE_SEPARATOR);
-        dcl.append("CREATE ROLE ").append(editRole).append(";").append(LINE_SEPARATOR);
-        dcl.append("CREATE ROLE ").append(viewRole).append(";").append(LINE_SEPARATOR).append(LINE_SEPARATOR);
-    }
 
     private void appendSequenceGrants(StringBuilder dcl, List<String> sequences, String schema, String editRole) {
         if (sequences.isEmpty()) return;
@@ -285,7 +356,9 @@ public class OracleToolsServiceImpl implements OracleToolsService {
             currentPostgresDataSource = createDataSource(source, "PostgresPool", 30, 5);
             currentOracleDataSource = createDataSource(destination, "OraclePool", 30, 5);
             currentSourceSchema = source.getSchema();
-            currentTargetSchema = destination.getSchema();
+            currentTargetSchema = destination.getSchema().toUpperCase(Locale.ROOT);
+            currentTableSchemaOverrides = buildTableSchemaOverrides(request.getTableSchemaMap(), "migration");
+            currentTargetSchemas = resolveAllTargetSchemas(currentTargetSchema, currentTableSchemaOverrides);
 
             log.info("Created datasources - Source: {} (schema: {}), Destination: {} (schema: {})", source.getJdbcUrl(), currentSourceSchema, destination.getJdbcUrl(), currentTargetSchema);
 
@@ -390,7 +463,13 @@ public class OracleToolsServiceImpl implements OracleToolsService {
     }
 
     private void updateAllSequences() {
-        log.info("Updating all sequences to latest record values in schema {}.", currentTargetSchema);
+        for (String schema : currentTargetSchemas) {
+            updateSequencesForSchema(schema);
+        }
+    }
+
+    private void updateSequencesForSchema(String targetSchema) {
+        log.info("Updating all sequences to latest record values in schema {}.", targetSchema);
 
         String findSequencesQuery = """
                 SELECT sequence_name
@@ -402,7 +481,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
         try (Connection connection = currentOracleDataSource.getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement(findSequencesQuery)) {
 
-            preparedStatement.setString(1, currentTargetSchema);
+            preparedStatement.setString(1, targetSchema);
             int updatedCount = 0;
             int skippedCount = 0;
 
@@ -412,7 +491,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
                     String tableName = deriveTableNameFromSequence(sequenceName);
 
                     if (tableName != null) {
-                        boolean updated = updateSequenceToMaxValue(sequenceName, tableName);
+                        boolean updated = updateSequenceToMaxValue(targetSchema, sequenceName, tableName);
                         if (updated) {
                             updatedCount++;
                         } else {
@@ -425,7 +504,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
                 }
             }
 
-            log.info("Completed updating sequences in schema {} - Updated: {}, Skipped: {}", currentTargetSchema, updatedCount, skippedCount);
+            log.info("Completed updating sequences in schema {} - Updated: {}, Skipped: {}", targetSchema, updatedCount, skippedCount);
         } catch (SQLException e) {
             log.error("Failed to update sequences: {}", e.getMessage(), e);
         }
@@ -439,14 +518,14 @@ public class OracleToolsServiceImpl implements OracleToolsService {
         return null;
     }
 
-    private boolean updateSequenceToMaxValue(String sequenceName, String tableName) {
-        String fullTableName = currentTargetSchema + "." + tableName;
-        String fullSequenceName = currentTargetSchema + "." + sequenceName;
+    private boolean updateSequenceToMaxValue(String targetSchema, String sequenceName, String tableName) {
+        String fullTableName = targetSchema + "." + tableName;
+        String fullSequenceName = targetSchema + "." + sequenceName;
 
         try (Connection connection = currentOracleDataSource.getConnection();
              Statement stmt = connection.createStatement()) {
 
-            String checkTableQuery = "SELECT COUNT(*) FROM all_tables WHERE owner = '%s' AND table_name = '%s'".formatted(currentTargetSchema, tableName);
+            String checkTableQuery = "SELECT COUNT(*) FROM all_tables WHERE owner = '%s' AND table_name = '%s'".formatted(targetSchema, tableName);
             try (ResultSet resultSet = stmt.executeQuery(checkTableQuery)) {
                 if (resultSet.next() && resultSet.getInt(1) == 0) {
                     log.debug("Table {} does not exist, skipping sequence {}", fullTableName, fullSequenceName);
@@ -454,7 +533,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
                 }
             }
 
-            String checkColumnQuery = "SELECT COUNT(*) FROM all_tab_columns WHERE owner = '%s' AND table_name = '%s' AND column_name = '%s'".formatted(currentTargetSchema, tableName, "ID");
+            String checkColumnQuery = "SELECT COUNT(*) FROM all_tab_columns WHERE owner = '%s' AND table_name = '%s' AND column_name = '%s'".formatted(targetSchema, tableName, "ID");
             try (ResultSet resultSet = stmt.executeQuery(checkColumnQuery)) {
                 if (resultSet.next() && resultSet.getInt(1) == 0) {
                     log.debug("Column {} does not exist in table {}, skipping sequence {}", "ID", fullTableName, fullSequenceName);
@@ -506,7 +585,13 @@ public class OracleToolsServiceImpl implements OracleToolsService {
     }
 
     private void disableAllForeignKeys() {
-        log.info("Disabling all foreign key constraints in schema {}.", currentTargetSchema);
+        for (String schema : currentTargetSchemas) {
+            disableForeignKeysForSchema(schema);
+        }
+    }
+
+    private void disableForeignKeysForSchema(String targetSchema) {
+        log.info("Disabling all foreign key constraints in schema {}.", targetSchema);
         String sql = """
                 BEGIN
                     FOR c IN (SELECT constraint_name, table_name
@@ -522,13 +607,19 @@ public class OracleToolsServiceImpl implements OracleToolsService {
                             END;
                         END LOOP;
                 END;
-                """.formatted(currentTargetSchema, currentTargetSchema);
+                """.formatted(targetSchema, targetSchema);
 
         executeOraclePLSQL(sql, "disable foreign keys");
     }
 
     private void enableAllForeignKeys() {
-        log.info("Enabling all foreign key constraints in schema {}.", currentTargetSchema);
+        for (String schema : currentTargetSchemas) {
+            enableForeignKeysForSchema(schema);
+        }
+    }
+
+    private void enableForeignKeysForSchema(String targetSchema) {
+        log.info("Enabling all foreign key constraints in schema {}.", targetSchema);
         String sql = """
                 BEGIN
                     FOR c IN (SELECT constraint_name, table_name
@@ -544,7 +635,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
                             END;
                         END LOOP;
                 END;
-                """.formatted(currentTargetSchema, currentTargetSchema);
+                """.formatted(targetSchema, targetSchema);
 
         executeOraclePLSQL(sql, "enable foreign keys");
     }
@@ -579,9 +670,14 @@ public class OracleToolsServiceImpl implements OracleToolsService {
                     String schema = resultSet.getString("schemaname");
                     String tableName = resultSet.getString("tablename");
                     String sourceTable = "%s.%s".formatted(schema, tableName);
-                    String targetTable = "%s.%s".formatted(currentTargetSchema, tableName.toUpperCase());
+                    String resolvedTargetSchema = resolveTargetSchemaForTable(tableName, currentTableSchemaOverrides, currentTargetSchema);
+                    String targetTable = "%s.%s".formatted(resolvedTargetSchema, tableName.toUpperCase(Locale.ROOT));
 
-                    mappings.add(new TableMapping(sourceTable, targetTable));
+                    if (!currentTableSchemaOverrides.isEmpty() && !currentTableSchemaOverrides.containsKey(tableName.toLowerCase(Locale.ROOT))) {
+                        log.warn("Table '{}' is not present in tableSchemaMap. Falling back to destination schema '{}'.", tableName, currentTargetSchema);
+                    }
+
+                    mappings.add(new TableMapping(sourceTable, targetTable, resolvedTargetSchema));
                     log.debug("Added table mapping: {} -> {}", sourceTable, targetTable);
                 }
             }
@@ -820,7 +916,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
             preparedStatement.setString(2, tableName);
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 if (resultSet.next()) {
-                    return "SEQ_" + tableName.toUpperCase();
+                    return truncateOracleIdentifier("SEQ_" + tableName.toUpperCase(Locale.ROOT));
                 }
             }
         }
@@ -839,12 +935,11 @@ public class OracleToolsServiceImpl implements OracleToolsService {
                                        String sourceSchema,
                                        String tableName,
                                        String targetSchema,
-                                       List<String> processedSequences,
+                                       boolean hasSequence,
                                        List<String> warnings) throws SQLException {
         StringBuilder script = new StringBuilder();
-        String oracleTableName = targetSchema + "." + tableName.toUpperCase();
-        String sequenceName = "SEQ_" + tableName.toUpperCase();
-        boolean hasSequence = processedSequences.contains(sequenceName);
+        String oracleTableName = targetSchema + "." + tableName.toUpperCase(Locale.ROOT);
+        String sequenceName = truncateOracleIdentifier("SEQ_" + tableName.toUpperCase(Locale.ROOT));
 
         List<ColumnInfo> columns = getColumns(connection, sourceSchema, tableName, warnings);
         List<String> primaryKeys = getPrimaryKeyColumns(connection, sourceSchema, tableName);
@@ -902,7 +997,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
 
     private void appendColumnsAndPrimaryKey(String tableName, List<String> primaryKeys, List<String> columnLines, StringBuilder script) {
         if (!primaryKeys.isEmpty()) {
-            String pkName = "PK_" + tableName.toUpperCase();
+            String pkName = truncateOracleIdentifier("PK_" + tableName.toUpperCase(Locale.ROOT));
             // Quote column names in PRIMARY KEY constraint to handle reserved keywords
             String quotedPrimaryKeys = String.join(", ", primaryKeys.stream()
                     .map(primaryKey -> "\"" + primaryKey.toUpperCase() + "\"")
@@ -1163,25 +1258,30 @@ public class OracleToolsServiceImpl implements OracleToolsService {
         return scripts;
     }
 
-    private List<String> generateForeignKeyScripts(Connection connection, String sourceSchema, String tableName, String targetSchema) throws SQLException {
+    private List<String> generateForeignKeyScripts(Connection connection,
+                                                   String sourceSchema,
+                                                   String tableName,
+                                                   String targetSchema,
+                                                   Map<String, String> tableSchemaOverrides,
+                                                   String defaultTargetSchema) throws SQLException {
         List<String> scripts = new ArrayList<>();
 
         String query = """
-                SELECT tc.constraint_name,
-                       kcu.column_name,
-                       ccu.table_name  AS foreign_table_name,
-                       ccu.column_name AS foreign_column_name
-                FROM information_schema.table_constraints AS tc
-                         JOIN information_schema.key_column_usage AS kcu
-                              ON tc.constraint_name = kcu.constraint_name
-                                  AND tc.table_schema = kcu.table_schema
-                         JOIN information_schema.constraint_column_usage AS ccu
-                              ON ccu.constraint_name = tc.constraint_name
-                                  AND ccu.table_schema = tc.table_schema
-                WHERE tc.constraint_type = 'FOREIGN KEY'
-                  AND tc.table_schema = ?
-                  AND tc.table_name = ?
-                ORDER BY tc.constraint_name
+                SELECT con.conname     AS constraint_name,
+                       att.attname     AS column_name,
+                       ref_cl.relname  AS foreign_table_name,
+                       ref_att.attname AS foreign_column_name
+                FROM pg_constraint con
+                         JOIN pg_class cl ON cl.oid = con.conrelid
+                         JOIN pg_namespace ns ON ns.oid = cl.relnamespace
+                         JOIN pg_class ref_cl ON ref_cl.oid = con.confrelid
+                         CROSS JOIN LATERAL generate_subscripts(con.conkey, 1) AS ord(n)
+                                JOIN pg_attribute att     ON att.attrelid = con.conrelid     AND att.attnum = con.conkey[ord.n]
+                                JOIN pg_attribute ref_att ON ref_att.attrelid = con.confrelid AND ref_att.attnum = con.confkey[ord.n]
+                                WHERE con.contype = 'f'
+                                  AND ns.nspname = ?
+                                  AND cl.relname = ?
+                                ORDER BY con.conname, ord.n
                 """;
 
         Map<String, ForeignKeyInfo> foreignKeyInfoMap = new LinkedHashMap<>();
@@ -1196,7 +1296,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
                     String refTable = resultSet.getString("foreign_table_name");
                     String refColumn = resultSet.getString("foreign_column_name");
 
-                    ForeignKeyInfo fkInfo = foreignKeyInfoMap.computeIfAbsent(constraintName, k -> {
+                    ForeignKeyInfo fkInfo = foreignKeyInfoMap.computeIfAbsent(constraintName, ignored -> {
                         ForeignKeyInfo info = new ForeignKeyInfo();
                         info.constraintName = constraintName;
                         info.refTable = refTable;
@@ -1208,21 +1308,19 @@ public class OracleToolsServiceImpl implements OracleToolsService {
             }
         }
 
+        int foreignKeyCounter = 1;
         for (ForeignKeyInfo foreignKeyInfo : foreignKeyInfoMap.values()) {
-            String oracleForeignKeyInfoName = "FK_%s_%s".formatted(tableName.toUpperCase(), foreignKeyInfo.refTable.toUpperCase());
-            if (oracleForeignKeyInfoName.length() > 30) {
-                oracleForeignKeyInfoName = oracleForeignKeyInfoName.substring(0, 30);
-            }
+            String oracleForeignKeyInfoName = truncateOracleIdentifier("FK_%s_%02d".formatted(tableName.toUpperCase(Locale.ROOT), foreignKeyCounter++));
+            String refTargetSchema = resolveTargetSchemaForTable(foreignKeyInfo.refTable, tableSchemaOverrides, defaultTargetSchema);
 
-            // Quote column names to handle Oracle reserved keywords
-            String quotedColumns = String.join(", ", foreignKeyInfo.columns.stream()
-                    .map(column -> "\"" + column.toUpperCase() + "\"")
+            String columns = String.join(", ", foreignKeyInfo.columns.stream()
+                    .map(String::toUpperCase)
                     .toList());
-            String quotedRefColumns = String.join(", ", foreignKeyInfo.refColumns.stream()
-                    .map(column -> "\"" + column.toUpperCase() + "\"")
+            String refColumns = String.join(", ", foreignKeyInfo.refColumns.stream()
+                    .map(String::toUpperCase)
                     .toList());
-            String script = "ALTER TABLE %s.%s ADD CONSTRAINT %s FOREIGN KEY (%s) REFERENCES %s.%s (%s);"
-                    .formatted(targetSchema, tableName.toUpperCase(), oracleForeignKeyInfoName, quotedColumns, targetSchema, foreignKeyInfo.refTable.toUpperCase(), quotedRefColumns);
+            String script = "ALTER TABLE %s.%s ADD CONSTRAINT %s FOREIGN KEY (%s) REFERENCES %s.%s (%s) DEFERRABLE INITIALLY DEFERRED;"
+                    .formatted(targetSchema, tableName.toUpperCase(Locale.ROOT), oracleForeignKeyInfoName, columns, refTargetSchema, foreignKeyInfo.refTable.toUpperCase(Locale.ROOT), refColumns);
 
             scripts.add(script);
         }
@@ -1230,54 +1328,82 @@ public class OracleToolsServiceImpl implements OracleToolsService {
         return scripts;
     }
 
-    /**
-     * Context class to hold all script generation processing state.
-     */
-    private static class ScriptContext {
-        final ScriptGenerationRequest scriptGenerationRequest;
-        final Connection connection;
-        final String sourceSchema;
-        final String targetSchema;
-        final List<String> tablesToProcess;
-        final List<String> warnings = new ArrayList<>();
-        final List<String> processedSequences = new ArrayList<>();
-        final List<String> sequenceScripts = new ArrayList<>();
-        final List<String> tableScripts = new ArrayList<>();
-        final List<String> foreignKeyScripts = new ArrayList<>();
-        final Map<String, List<String>> tableIndexMap = new LinkedHashMap<>();
+    private String truncateOracleIdentifier(String identifier) {
+        if (identifier.length() > ORACLE_MAX_IDENTIFIER_LENGTH) {
+            log.warn("Oracle identifier '{}' exceeds {} chars and will be truncated", identifier, ORACLE_MAX_IDENTIFIER_LENGTH);
+            return identifier.substring(0, ORACLE_MAX_IDENTIFIER_LENGTH);
+        }
+        return identifier;
+    }
 
-        ScriptContext(ScriptGenerationRequest scriptGenerationRequest, Connection connection) throws SQLException {
-            this.scriptGenerationRequest = scriptGenerationRequest;
-            this.connection = connection;
-            this.sourceSchema = scriptGenerationRequest.getSource().getSchema();
-            this.targetSchema = scriptGenerationRequest.getTargetSchema();
-            this.tablesToProcess = getTableNamesStatic(connection, sourceSchema);
+    private Map<String, String> buildTableSchemaOverrides(Map<String, List<String>> tableSchemaMap, String operation) {
+        if (tableSchemaMap == null || tableSchemaMap.isEmpty()) {
+            return Map.of();
         }
 
-        private static List<String> getTableNamesStatic(Connection connection, String schema) throws SQLException {
-            List<String> tables = new ArrayList<>();
-            String query = """
-                    SELECT tablename
-                    FROM pg_catalog.pg_tables
-                    WHERE schemaname = ?
-                    ORDER BY tablename
-                    """;
-            try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
-                preparedStatement.setString(1, schema);
-                try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                    while (resultSet.next()) {
-                        tables.add(resultSet.getString("tablename"));
-                    }
-                }
+        Map<String, String> tableToSchema = new LinkedHashMap<>();
+        for (Map.Entry<String, List<String>> entry : tableSchemaMap.entrySet()) {
+            String normalizedSchema = normalizeSchemaKey(entry.getKey(), operation);
+            addTablesToSchemaMapping(tableToSchema, normalizedSchema, entry.getValue(), operation);
+        }
+
+        return tableToSchema;
+    }
+
+    private String normalizeSchemaKey(String targetSchema, String operation) {
+        if (targetSchema == null || targetSchema.isBlank()) {
+            throw new IllegalArgumentException("Invalid tableSchemaMap for " + operation + ": schema key cannot be blank.");
+        }
+        return targetSchema.toUpperCase(Locale.ROOT);
+    }
+
+    private void addTablesToSchemaMapping(Map<String, String> tableToSchema,
+                                          String normalizedSchema,
+                                          List<String> tables,
+                                          String operation) {
+        if (tables == null || tables.isEmpty()) {
+            return;
+        }
+
+        for (String table : tables) {
+            if (table == null || table.isBlank()) {
+                continue;
             }
-            return tables;
+
+            String normalizedTable = table.toLowerCase(Locale.ROOT);
+            String previous = tableToSchema.putIfAbsent(normalizedTable, normalizedSchema);
+            if (previous != null && !previous.equals(normalizedSchema)) {
+                throw new IllegalArgumentException("Invalid tableSchemaMap for " + operation + ": table '" + table + "' is assigned to multiple schemas ('" + previous + "', '" + normalizedSchema + "').");
+            }
         }
     }
 
-    private record TableMapping(String sourceTable, String targetTable, String selectQuery) {
-        public TableMapping(String sourceTable, String targetTable) {
-            this(sourceTable, targetTable, null);
+    private String resolveTargetSchemaForTable(String tableName, Map<String, String> tableSchemaOverrides, String defaultTargetSchema) {
+        if (tableName != null && tableSchemaOverrides != null && !tableSchemaOverrides.isEmpty()) {
+            String resolved = tableSchemaOverrides.get(tableName.toLowerCase(Locale.ROOT));
+            if (resolved != null) {
+                return resolved;
+            }
         }
+        return defaultTargetSchema;
+    }
+
+    private Set<String> resolveAllTargetSchemas(String defaultSchema, Map<String, String> tableSchemaOverrides) {
+        Set<String> schemas = new LinkedHashSet<>();
+        schemas.add(defaultSchema);
+        if (tableSchemaOverrides != null && !tableSchemaOverrides.isEmpty()) {
+            schemas.addAll(tableSchemaOverrides.values());
+        }
+        return schemas;
+    }
+
+    private record TableMapping(String sourceTable, String targetTable, String targetSchema, String selectQuery) {
+        public TableMapping(String sourceTable, String targetTable, String targetSchema) {
+            this(sourceTable, targetTable, targetSchema, null);
+        }
+    }
+
+    private record RolePair(String editRole, String viewRole) {
     }
 
     private record TypeMappingContext(String pgType,
@@ -1302,5 +1428,83 @@ public class OracleToolsServiceImpl implements OracleToolsService {
         List<String> columns = new ArrayList<>();
         String refTable;
         List<String> refColumns = new ArrayList<>();
+    }
+
+    /**
+     * Context class to hold all script generation processing state.
+     */
+    private class ScriptContext {
+        final ScriptGenerationRequest scriptGenerationRequest;
+        final Connection connection;
+        final String sourceSchema;
+        final String targetSchema;
+        final boolean mapBasedMode;
+        final Map<String, String> tableToTargetSchema;
+        final List<String> tablesToProcess;
+        final List<String> warnings = new ArrayList<>();
+        final Set<String> warnedFallbackTables = new HashSet<>();
+        final List<String> sequenceScripts = new ArrayList<>();
+        final List<String> tableScripts = new ArrayList<>();
+        final List<String> foreignKeyScripts = new ArrayList<>();
+        final Map<String, List<String>> schemaSequenceMap = new LinkedHashMap<>();
+        final Map<String, List<String>> schemaTableMap = new LinkedHashMap<>();
+        final Map<String, List<String>> tableIndexMap = new LinkedHashMap<>();
+
+        ScriptContext(ScriptGenerationRequest scriptGenerationRequest, Connection connection) throws SQLException {
+            this.scriptGenerationRequest = scriptGenerationRequest;
+            this.connection = connection;
+            this.sourceSchema = scriptGenerationRequest.getSource().getSchema();
+            this.targetSchema = scriptGenerationRequest.getTargetSchema().toUpperCase(Locale.ROOT);
+            this.mapBasedMode = scriptGenerationRequest.getTableSchemaMap() != null && !scriptGenerationRequest.getTableSchemaMap().isEmpty();
+            this.tableToTargetSchema = mapBasedMode ? buildTableSchemaOverrides(scriptGenerationRequest.getTableSchemaMap(), "generate-scripts") : Map.of();
+
+            List<String> sourceTables = getTableNamesStatic(connection, sourceSchema);
+            if (mapBasedMode) {
+                this.tablesToProcess = sourceTables.stream()
+                        .filter(table -> tableToTargetSchema.containsKey(table.toLowerCase(Locale.ROOT)))
+                        .toList();
+            } else {
+                this.tablesToProcess = sourceTables;
+            }
+
+            for (String table : tablesToProcess) {
+                String resolvedTargetSchema = resolveTargetSchema(table);
+                schemaTableMap.computeIfAbsent(resolvedTargetSchema, ignored -> new ArrayList<>()).add(table);
+            }
+        }
+
+        private static List<String> getTableNamesStatic(Connection connection, String schema) throws SQLException {
+            List<String> tables = new ArrayList<>();
+            String query = """
+                    SELECT tablename
+                    FROM pg_catalog.pg_tables
+                    WHERE schemaname = ?
+                    ORDER BY tablename
+                    """;
+            try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+                preparedStatement.setString(1, schema);
+                try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                    while (resultSet.next()) {
+                        tables.add(resultSet.getString("tablename"));
+                    }
+                }
+            }
+            return tables;
+        }
+
+        private String resolveTargetSchema(String tableName) {
+            if (tableName != null && tableToTargetSchema != null && !tableToTargetSchema.isEmpty()) {
+                String normalizedTable = tableName.toLowerCase(Locale.ROOT);
+                String resolved = tableToTargetSchema.get(normalizedTable);
+                if (resolved != null) {
+                    return resolved;
+                }
+
+                if (warnedFallbackTables.add(normalizedTable)) {
+                    warnings.add("Table '%s' is not present in tableSchemaMap. Falling back to default target schema '%s'.".formatted(tableName, targetSchema));
+                }
+            }
+            return targetSchema;
+        }
     }
 }

@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -32,21 +34,35 @@ public class ScriptGenerationRequest {
     @Schema(description = "View role name for read-only access (SELECT). If not provided, derived from targetSchema (e.g., mb_oracle_schema -> MB_ORACLE_SCHEMA_VIEW_ROLE)", example = "MB_ORACLE_SCHEMA_VIEW_ROLE")
     private String viewRoleName;
 
-    @Builder.Default
     @Schema(
-            description = "Users/applications to grant edit role to",
             example = """
-                    ["myapp_user"]
-                    """
+                    {
+                      "MB_ORACLE_SCHEMA": ["myapp_user"]
+                    }
+                    """,
+            description = "Users/applications to grant edit role to by Oracle schema. Key is Oracle schema name."
     )
-    private Set<String> editRoleUsers = Set.of("myapp_user");
+    private Map<String, Set<String>> editRoleUsersBySchema;
 
-    @Builder.Default
     @Schema(
-            description = "Users/applications to grant view role to",
             example = """
-                    ["myapp_user", "DWHUSER"]
-                    """
+                    {
+                      "MB_ORACLE_SCHEMA": ["myapp_user", "DWHUSER"]
+                    }
+                    """,
+            description = "Users/applications to grant view role to by Oracle schema. Key is Oracle schema name."
     )
-    private Set<String> viewRoleUsers = Set.of("myapp_user");
+    private Map<String, Set<String>> viewRoleUsersBySchema;
+
+    @Schema(
+            example = """
+                    {
+                      "MB_MASTER": ["entity", "entity_address", "entity_relation"],
+                      "MB_CATALOG": ["catalog_category_rate", "catalog_category_rate_history", "catalog_item_rate", "catalog_item_rate_history"],
+                      "MB_POLICY": ["policy_revision", "policy_revision_status", "policy_revision_section", "policy_revision_section_approval", "policy_section_type"]
+                    }
+                    """,
+            description = "Optional mapping from Oracle schema name to source table names. If provided, mapped tables use mapped schema; unmapped tables fall back to targetSchema."
+    )
+    private Map<String, List<String>> tableSchemaMap;
 }

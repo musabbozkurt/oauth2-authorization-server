@@ -6,6 +6,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+import java.util.Map;
+
 /**
  * Request DTO for database migration configuration.
  * Allows specifying source and destination database connection details.
@@ -22,4 +25,16 @@ public class MigrationRequest {
 
     @Schema(description = "Destination database configuration (Oracle)")
     private DatabaseConfig destination;
+
+    @Schema(
+            example = """
+                    {
+                      "MB_MASTER": ["entity", "entity_address", "entity_relation"],
+                      "MB_CATALOG": ["catalog_category_rate", "catalog_category_rate_history", "catalog_item_rate", "catalog_item_rate_history"],
+                      "MB_POLICY": ["policy_revision", "policy_revision_status", "policy_revision_section", "policy_revision_section_approval", "policy_section_type"]
+                    }
+                    """,
+            description = "Optional mapping from Oracle schema name to source table names. If provided, mapped tables migrate to mapped schema; unmapped tables fall back to destination.schema."
+    )
+    private Map<String, List<String>> tableSchemaMap;
 }

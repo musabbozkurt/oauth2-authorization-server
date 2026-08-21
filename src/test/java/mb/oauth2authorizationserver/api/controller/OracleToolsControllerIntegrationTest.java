@@ -25,6 +25,8 @@ import tools.jackson.databind.ObjectMapper;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -91,7 +93,8 @@ class OracleToolsControllerIntegrationTest {
     }
 
     @Test
-    void generateScripts_ShouldReturnDdlAndDclScripts() throws Exception {
+    void generateScripts_ShouldReturnDdlAndDclScripts_WhenRequestIsValid() throws Exception {
+        // Arrange
         ScriptGenerationRequest request = ScriptGenerationRequest.builder()
                 .source(DatabaseConfig.builder()
                         .jdbcUrl(postgres.getJdbcUrl())
@@ -103,10 +106,11 @@ class OracleToolsControllerIntegrationTest {
                 .targetSchema("TARGET_SCHEMA")
                 .editRoleName("EDIT_ROLE")
                 .viewRoleName("VIEW_ROLE")
-                .editRoleUsers(Set.of("app_user"))
-                .viewRoleUsers(Set.of("readonly_user"))
+                .editRoleUsersBySchema(Map.of("TARGET_SCHEMA", Set.of("app_user")))
+                .viewRoleUsersBySchema(Map.of("TARGET_SCHEMA", Set.of("readonly_user")))
                 .build();
 
+        // Act
         MvcResult result = mockMvc.perform(post("/api/oracle-tools/generate-scripts")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -115,6 +119,7 @@ class OracleToolsControllerIntegrationTest {
                 .andExpect(header().string("Content-Disposition", "attachment; filename=\"oracle_target_schema.sql\""))
                 .andReturn();
 
+        // Assertions
         String sqlContent = result.getResponse().getContentAsString();
         assertThat(sqlContent)
                 .contains("CREATE TABLE")
@@ -127,10 +132,13 @@ class OracleToolsControllerIntegrationTest {
 
     @Test
     void generateScripts_ShouldReturnBadRequest_WhenSourceConfigMissing() throws Exception {
+        // Arrange
         ScriptGenerationRequest request = ScriptGenerationRequest.builder()
                 .targetSchema("TARGET_SCHEMA")
                 .build();
 
+        // Act
+        // Assertions
         mockMvc.perform(post("/api/oracle-tools/generate-scripts")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -138,7 +146,8 @@ class OracleToolsControllerIntegrationTest {
     }
 
     @Test
-    void migrate_ShouldAcceptRequest() throws Exception {
+    void migrate_ShouldAcceptRequest_WhenRequestIsValid() throws Exception {
+        // Arrange
         MigrationRequest request = MigrationRequest.builder()
                 .source(DatabaseConfig.builder()
                         .jdbcUrl(postgres.getJdbcUrl())
@@ -156,6 +165,79 @@ class OracleToolsControllerIntegrationTest {
                         .build())
                 .build();
 
+        // Act
+        // Assertions
+        mockMvc.perform(post("/api/oracle-tools/migrate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void generateScripts_ShouldUseMappedSchemas_WhenTableSchemaMapProvided() throws Exception {
+        // Arrange
+        ScriptGenerationRequest request = ScriptGenerationRequest.builder()
+                .source(DatabaseConfig.builder()
+                        .jdbcUrl(postgres.getJdbcUrl())
+                        .username(postgres.getUsername())
+                        .password(postgres.getPassword())
+                        .schema("test_schema")
+                        .driverClassName("org.postgresql.Driver")
+                        .build())
+                .targetSchema("TARGET_SCHEMA")
+                .tableSchemaMap(Map.of(
+                        "TARGET_MAIN", List.of("users"),
+                        "TARGET_AUX", List.of("orders")
+                ))
+                .editRoleUsersBySchema(Map.of(
+                        "TARGET_MAIN", Set.of("main_editor"),
+                        "TARGET_AUX", Set.of("aux_editor")
+                ))
+                .viewRoleUsersBySchema(Map.of(
+                        "TARGET_MAIN", Set.of("main_reader"),
+                        "TARGET_AUX", Set.of("aux_reader")
+                ))
+                .build();
+
+        // Act
+        MvcResult result = mockMvc.perform(post("/api/oracle-tools/generate-scripts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        // Assertions
+        String sqlContent = result.getResponse().getContentAsString();
+        assertThat(sqlContent)
+                .contains("CREATE TABLE TARGET_MAIN.USERS")
+                .contains("CREATE TABLE TARGET_AUX.ORDERS")
+                .contains("GRANT TARGET_MAIN_EDIT_ROLE TO main_editor")
+                .contains("GRANT TARGET_AUX_VIEW_ROLE TO aux_reader");
+    }
+
+    @Test
+    void migrate_ShouldAcceptRequest_WhenTableSchemaMapProvided() throws Exception {
+        // Arrange
+        MigrationRequest request = MigrationRequest.builder()
+                .source(DatabaseConfig.builder()
+                        .jdbcUrl(postgres.getJdbcUrl())
+                        .username(postgres.getUsername())
+                        .password(postgres.getPassword())
+                        .schema("test_schema")
+                        .driverClassName("org.postgresql.Driver")
+                        .build())
+                .destination(DatabaseConfig.builder()
+                        .jdbcUrl(oracle.getJdbcUrl())
+                        .username(oracle.getUsername())
+                        .password(oracle.getPassword())
+                        .schema("TESTUSER")
+                        .driverClassName("oracle.jdbc.OracleDriver")
+                        .build())
+                .tableSchemaMap(Map.of("TESTUSER", List.of("users")))
+                .build();
+
+        // Act
+        // Assertions
         mockMvc.perform(post("/api/oracle-tools/migrate")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
