@@ -22,10 +22,13 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 @SpringBootTest
@@ -38,6 +41,8 @@ import static org.awaitility.Awaitility.await;
         }
 )
 class OracleToolsServiceImplIntegrationTest {
+
+    private static final long MIGRATION_LOCK_KEY = 123456789L;
 
     @Container
     private static final PostgreSQLContainer postgres = new PostgreSQLContainer(DockerImageName.parse("postgres:16-alpine"))
@@ -127,18 +132,21 @@ class OracleToolsServiceImplIntegrationTest {
     }
 
     @Test
-    void generateScripts_ShouldGenerateValidDdlScripts() {
+    void generateScripts_ShouldGenerateValidDdlScripts_WhenRequestIsValid() {
+        // Arrange
         ScriptGenerationRequest request = ScriptGenerationRequest.builder()
                 .source(createPostgresConfig("source_schema"))
                 .targetSchema("TARGET_SCHEMA")
                 .editRoleName("APP_EDIT_ROLE")
                 .viewRoleName("APP_VIEW_ROLE")
-                .editRoleUsers(Set.of("app_user"))
-                .viewRoleUsers(Set.of("readonly_user"))
+                .editRoleUsersBySchema(Map.of("TARGET_SCHEMA", Set.of("app_user")))
+                .viewRoleUsersBySchema(Map.of("TARGET_SCHEMA", Set.of("readonly_user")))
                 .build();
 
+        // Act
         ScriptGenerationResponse response = oracleToolsService.generateScripts(request);
 
+        // Assertions
         assertThat(response).isNotNull();
         assertThat(response.getTableCount()).isEqualTo(2);
         assertThat(response.getFullScript())
@@ -154,18 +162,21 @@ class OracleToolsServiceImplIntegrationTest {
     }
 
     @Test
-    void generateScripts_ShouldGenerateDclScripts() {
+    void generateScripts_ShouldGenerateDclScripts_WhenCustomRolesAreProvided() {
+        // Arrange
         ScriptGenerationRequest request = ScriptGenerationRequest.builder()
                 .source(createPostgresConfig("source_schema"))
                 .targetSchema("TARGET_SCHEMA")
                 .editRoleName("CUSTOM_EDIT")
                 .viewRoleName("CUSTOM_VIEW")
-                .editRoleUsers(Set.of("user1", "user2"))
-                .viewRoleUsers(Set.of("readonly"))
+                .editRoleUsersBySchema(Map.of("TARGET_SCHEMA", Set.of("user1", "user2")))
+                .viewRoleUsersBySchema(Map.of("TARGET_SCHEMA", Set.of("readonly")))
                 .build();
 
+        // Act
         ScriptGenerationResponse response = oracleToolsService.generateScripts(request);
 
+        // Assertions
         assertThat(response.getFullScript())
                 .contains("CREATE ROLE CUSTOM_EDIT")
                 .contains("CREATE ROLE CUSTOM_VIEW")
@@ -181,40 +192,46 @@ class OracleToolsServiceImplIntegrationTest {
     }
 
     @Test
-    void generateScripts_ShouldGenerateIndexScripts() {
-        ScriptGenerationRequest request = ScriptGenerationRequest.builder()
-                .source(createPostgresConfig("source_schema"))
-                .targetSchema("TARGET_SCHEMA")
-                .build();
+    void generateScripts_ShouldGenerateIndexScripts_WhenSourceHasIndexes() {
+        // Arrange
+        ScriptGenerationRequest request = defaultRequestBuilder().build();
 
+        // Act
         ScriptGenerationResponse response = oracleToolsService.generateScripts(request);
 
+        // Assertions
         assertThat(response.getFullScript())
                 .contains("CREATE UNIQUE INDEX TARGET_SCHEMA.IDX_PRODUCTS_NAME");
     }
 
     @Test
-    void generateScripts_ShouldHandleForeignKeys() {
-        ScriptGenerationRequest request = ScriptGenerationRequest.builder()
-                .source(createPostgresConfig("source_schema"))
-                .targetSchema("TARGET_SCHEMA")
-                .build();
+    void generateScripts_ShouldHandleForeignKeys_WhenSourceHasRelations() {
+        // Arrange
+        ScriptGenerationRequest request = defaultRequestBuilder().build();
 
+        // Act
         ScriptGenerationResponse response = oracleToolsService.generateScripts(request);
 
+        // Assertions
         assertThat(response.getFullScript())
                 .contains("ALTER TABLE TARGET_SCHEMA.CATEGORIES ADD CONSTRAINT");
     }
 
     @Test
-    void migrate_ShouldMigrateDataFromPostgresToOracle() {
+    void migrate_ShouldMigrateDataFromPostgresToOracle_WhenRequestIsValid() {
+        // Arrange
+        waitForMigrationToFinish();
+        clearOracleTables();
+
         MigrationRequest request = MigrationRequest.builder()
                 .source(createPostgresConfig("source_schema"))
                 .destination(createOracleConfig())
                 .build();
 
+        // Act
         oracleToolsService.migrate(request);
 
+        // Assertions
         await().atMost(60, TimeUnit.SECONDS).untilAsserted(() -> {
             try (Connection conn = DriverManager.getConnection(
                     oracle.getJdbcUrl(), oracle.getUsername(), oracle.getPassword());
@@ -229,17 +246,18 @@ class OracleToolsServiceImplIntegrationTest {
                 assertThat(rs.getInt(1)).isEqualTo(2);
             }
         });
+        waitForMigrationToFinish();
     }
 
     @Test
-    void generateScripts_ShouldMapPostgresTypesToOracleTypes() {
-        ScriptGenerationRequest request = ScriptGenerationRequest.builder()
-                .source(createPostgresConfig("source_schema"))
-                .targetSchema("TARGET_SCHEMA")
-                .build();
+    void generateScripts_ShouldMapPostgresTypesToOracleTypes_WhenSchemaContainsKnownTypes() {
+        // Arrange
+        ScriptGenerationRequest request = defaultRequestBuilder().build();
 
+        // Act
         ScriptGenerationResponse response = oracleToolsService.generateScripts(request);
 
+        // Assertions
         assertThat(response.getFullScript())
                 .contains("NUMBER(10)")
                 .contains("VARCHAR2(200)")
@@ -250,7 +268,8 @@ class OracleToolsServiceImplIntegrationTest {
     }
 
     @Test
-    void generateScripts_ShouldReturnWarningsForUnsupportedTypes() throws Exception {
+    void generateScripts_ShouldReturnWarningsForUnsupportedTypes_WhenSchemaContainsUnsupportedColumns() throws Exception {
+        // Arrange
         try (Connection conn = DriverManager.getConnection(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
              Statement stmt = conn.createStatement()) {
 
@@ -267,13 +286,144 @@ class OracleToolsServiceImplIntegrationTest {
         ScriptGenerationRequest request = ScriptGenerationRequest.builder()
                 .source(createPostgresConfig("special_schema"))
                 .targetSchema("TARGET_SCHEMA")
+                .editRoleUsersBySchema(Map.of("TARGET_SCHEMA", Set.of("app_user")))
+                .viewRoleUsersBySchema(Map.of("TARGET_SCHEMA", Set.of("readonly_user")))
                 .build();
 
+        // Act
         ScriptGenerationResponse response = oracleToolsService.generateScripts(request);
 
+        // Assertions
         assertThat(response.getWarnings()).isNotEmpty();
         assertThat(response.getWarnings())
                 .anyMatch(w -> w.contains("inet") || w.contains("point"));
+    }
+
+    @Test
+    void generateScripts_ShouldUseTableSchemaMapAndSchemaSpecificRoles_WhenMapBasedConfigurationIsProvided() {
+        // Arrange
+        ScriptGenerationRequest request = ScriptGenerationRequest.builder()
+                .source(createPostgresConfig("source_schema"))
+                .targetSchema("TARGET_SCHEMA")
+                .tableSchemaMap(Map.of(
+                        "TARGET_MAIN", List.of("products"),
+                        "TARGET_AUX", List.of("categories")
+                ))
+                .editRoleUsersBySchema(Map.of(
+                        "TARGET_MAIN", Set.of("main_editor"),
+                        "TARGET_AUX", Set.of("aux_editor")
+                ))
+                .viewRoleUsersBySchema(Map.of(
+                        "TARGET_MAIN", Set.of("main_reader"),
+                        "TARGET_AUX", Set.of("aux_reader")
+                ))
+                .build();
+
+        // Act
+        ScriptGenerationResponse response = oracleToolsService.generateScripts(request);
+
+        // Assertions
+        assertThat(response.getFullScript())
+                .contains("CREATE TABLE TARGET_MAIN.PRODUCTS")
+                .contains("CREATE TABLE TARGET_AUX.CATEGORIES")
+                .contains("GRANT TARGET_MAIN_EDIT_ROLE TO main_editor")
+                .contains("GRANT TARGET_AUX_EDIT_ROLE TO aux_editor")
+                .contains("GRANT TARGET_MAIN_VIEW_ROLE TO main_reader")
+                .contains("GRANT TARGET_AUX_VIEW_ROLE TO aux_reader");
+    }
+
+    @Test
+    void generateScripts_ShouldFailFast_WhenTableIsMappedToMultipleSchemas() {
+        // Arrange
+        ScriptGenerationRequest request = ScriptGenerationRequest.builder()
+                .source(createPostgresConfig("source_schema"))
+                .targetSchema("TARGET_SCHEMA")
+                .tableSchemaMap(Map.of(
+                        "TARGET_MAIN", List.of("products"),
+                        "TARGET_AUX", List.of("products")
+                ))
+                .editRoleUsersBySchema(Map.of("TARGET_MAIN", Set.of("main_editor"), "TARGET_AUX", Set.of("aux_editor")))
+                .viewRoleUsersBySchema(Map.of("TARGET_MAIN", Set.of("main_reader"), "TARGET_AUX", Set.of("aux_reader")))
+                .build();
+
+        // Act
+        // Assertions
+        assertThatThrownBy(() -> oracleToolsService.generateScripts(request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("assigned to multiple schemas");
+    }
+
+    @Test
+    void migrate_ShouldSupportTableSchemaMapWithFallback_WhenSomeTablesAreNotMapped() {
+        // Arrange
+        waitForMigrationToFinish();
+        clearOracleTables();
+
+        MigrationRequest request = MigrationRequest.builder()
+                .source(createPostgresConfig("source_schema"))
+                .destination(createOracleConfig())
+                .tableSchemaMap(Map.of("TESTUSER", List.of("products")))
+                .build();
+
+        // Act
+        oracleToolsService.migrate(request);
+
+        // Assertions
+        await().atMost(60, TimeUnit.SECONDS).untilAsserted(() -> {
+            try (Connection conn = DriverManager.getConnection(
+                    oracle.getJdbcUrl(), oracle.getUsername(), oracle.getPassword());
+                 Statement stmt = conn.createStatement()) {
+
+                ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM TESTUSER.PRODUCTS");
+                rs.next();
+                assertThat(rs.getInt(1)).isEqualTo(100);
+
+                rs = stmt.executeQuery("SELECT COUNT(*) FROM TESTUSER.CATEGORIES");
+                rs.next();
+                assertThat(rs.getInt(1)).isEqualTo(2);
+            }
+        });
+        waitForMigrationToFinish();
+    }
+
+    private void waitForMigrationToFinish() {
+        await().atMost(60, TimeUnit.SECONDS).until(() -> {
+            try (Connection conn = DriverManager.getConnection(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+                 var preparedStatement = conn.prepareStatement("SELECT pg_try_advisory_lock(?)")) {
+                preparedStatement.setLong(1, MIGRATION_LOCK_KEY);
+                try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                    if (!resultSet.next() || !resultSet.getBoolean(1)) {
+                        return false;
+                    }
+                }
+
+                try (var unlockPreparedStatement = conn.prepareStatement("SELECT pg_advisory_unlock(?)")) {
+                    unlockPreparedStatement.setLong(1, MIGRATION_LOCK_KEY);
+                    unlockPreparedStatement.executeQuery();
+                }
+                return true;
+            }
+        });
+    }
+
+    private ScriptGenerationRequest.ScriptGenerationRequestBuilder defaultRequestBuilder() {
+        return ScriptGenerationRequest.builder()
+                .source(createPostgresConfig("source_schema"))
+                .targetSchema("TARGET_SCHEMA")
+                .editRoleUsersBySchema(Map.of("TARGET_SCHEMA", Set.of("app_user")))
+                .viewRoleUsersBySchema(Map.of("TARGET_SCHEMA", Set.of("readonly_user")));
+    }
+
+    private void clearOracleTables() {
+        try (Connection conn = DriverManager.getConnection(oracle.getJdbcUrl(), oracle.getUsername(), oracle.getPassword());
+             Statement stmt = conn.createStatement()) {
+            conn.setAutoCommit(false);
+            stmt.execute("DELETE FROM TESTUSER.CATEGORIES");
+            stmt.execute("DELETE FROM TESTUSER.PRODUCTS");
+            conn.commit();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to cleanup Oracle tables before migration test", e);
+        }
     }
 
     private DatabaseConfig createPostgresConfig(String schema) {
