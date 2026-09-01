@@ -62,7 +62,7 @@ public class OracleToolsController {
                     
                     **Schema Routing Modes:**
                     - Legacy mode: if `tableSchemaMap` is empty, all tables use `targetSchema`.
-                    - Map-based mode: if `tableSchemaMap` is provided, mapped tables use mapped schemas; unmapped tables fall back to `targetSchema` with warnings.
+                    - Map-based mode: if `tableSchemaMap` is provided, only mapped tables are processed and `targetSchema` is ignored for routing.
                     - Duplicate table assignments across schemas in `tableSchemaMap` fail fast.
                     
                     **Role Name Derivation:**
@@ -131,7 +131,7 @@ public class OracleToolsController {
                                     ),
                                     @ExampleObject(
                                             name = "Map Based Request Example",
-                                            summary = "Split source tables into multiple Oracle schemas",
+                                            summary = "Split source tables into multiple Oracle schemas (targetSchema ignored for routing)",
                                             value = """
                                                     {
                                                       "source": {
@@ -206,7 +206,7 @@ public class OracleToolsController {
                     
                     **Schema Routing Modes:**
                     - Legacy mode: if `tableSchemaMap` is empty, all tables migrate to `destination.schema`.
-                    - Map-based mode: if `tableSchemaMap` is provided, mapped tables migrate to mapped schemas; unmapped tables fall back to `destination.schema`.
+                    - Map-based mode: if `tableSchemaMap` is provided, only mapped tables are migrated into mapped schemas and `destination.schema` is ignored for routing.
                     - Duplicate table assignments across schemas in `tableSchemaMap` fail fast.
                     
                     **Example curl request:**
@@ -258,7 +258,7 @@ public class OracleToolsController {
                                     ),
                                     @ExampleObject(
                                             name = "Map Based Migration Example",
-                                            summary = "Route source tables to multiple Oracle schemas",
+                                            summary = "Route source tables to multiple Oracle schemas (destination.schema ignored for routing)",
                                             value = """
                                                     {
                                                       "source": {

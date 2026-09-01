@@ -25,7 +25,7 @@ public class ScriptGenerationRequest {
     private DatabaseConfig source;
 
     @NotBlank
-    @Schema(description = "Target Oracle schema name for generated scripts", example = "mb_oracle_schema")
+    @Schema(description = "Target Oracle schema name for legacy single-schema mode. Ignored when tableSchemaMap is provided.", example = "mb_oracle_schema")
     private String targetSchema;
 
     @Schema(description = "Edit role name for full CRUD access (SELECT, INSERT, UPDATE, DELETE). If not provided, derived from targetSchema (e.g., mb_oracle_schema -> MB_ORACLE_SCHEMA_EDIT_ROLE)", example = "MB_ORACLE_SCHEMA_EDIT_ROLE")
@@ -62,7 +62,7 @@ public class ScriptGenerationRequest {
                       "MB_POLICY": ["policy_revision", "policy_revision_status", "policy_revision_section", "policy_revision_section_approval", "policy_section_type"]
                     }
                     """,
-            description = "Optional mapping from Oracle schema name to source table names. If provided, mapped tables use mapped schema; unmapped tables fall back to targetSchema."
+            description = "Optional mapping from Oracle schema name to source table names. If provided, only mapped tables are processed and targetSchema is ignored for routing."
     )
     private Map<String, List<String>> tableSchemaMap;
 }
