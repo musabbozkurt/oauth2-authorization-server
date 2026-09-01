@@ -354,7 +354,85 @@ class OracleToolsServiceImplIntegrationTest {
     }
 
     @Test
-    void migrate_ShouldSupportTableSchemaMapWithFallback_WhenSomeTablesAreNotMapped() {
+    void generateScripts_ShouldGenerateCrossSchemaReferenceGrants_WhenForeignKeyCrossesMappedSchemas() throws Exception {
+        // Arrange
+        try (Connection conn = DriverManager.getConnection(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+             Statement stmt = conn.createStatement()) {
+            stmt.execute("CREATE SCHEMA IF NOT EXISTS cross_schema");
+            stmt.execute("CREATE TABLE IF NOT EXISTS cross_schema.parent_entity (id SERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL)");
+            stmt.execute("CREATE TABLE IF NOT EXISTS cross_schema.child_entity (id SERIAL PRIMARY KEY, parent_id INTEGER REFERENCES cross_schema.parent_entity(id))");
+        }
+
+        ScriptGenerationRequest request = ScriptGenerationRequest.builder()
+                .source(createPostgresConfig("cross_schema"))
+                .targetSchema("TARGET_FALLBACK")
+                .tableSchemaMap(Map.of(
+                        "TARGET_PARENT", List.of("parent_entity"),
+                        "TARGET_CHILD", List.of("child_entity")
+                ))
+                .editRoleUsersBySchema(Map.of(
+                        "TARGET_PARENT", Set.of("parent_editor"),
+                        "TARGET_CHILD", Set.of("child_editor")
+                ))
+                .viewRoleUsersBySchema(Map.of(
+                        "TARGET_PARENT", Set.of("parent_reader"),
+                        "TARGET_CHILD", Set.of("child_reader")
+                ))
+                .build();
+
+        // Act
+        ScriptGenerationResponse response = oracleToolsService.generateScripts(request);
+
+        // Assertions
+        assertThat(response.getFullScript())
+                .contains("-- CROSS-SCHEMA REFERENCES GRANTS")
+                .contains("GRANT REFERENCES ON TARGET_PARENT.PARENT_ENTITY TO TARGET_CHILD;")
+                .contains("ALTER TABLE TARGET_CHILD.CHILD_ENTITY ADD CONSTRAINT")
+                .contains("REFERENCES TARGET_PARENT.PARENT_ENTITY");
+    }
+
+    @Test
+    void generateScripts_ShouldRouteUnownedPrefixedSequencesToMappedSchema_WhenTableSchemaMapIsProvided() throws Exception {
+        // Arrange
+        try (Connection conn = DriverManager.getConnection(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+             Statement stmt = conn.createStatement()) {
+            stmt.execute("CREATE SCHEMA IF NOT EXISTS sequence_schema");
+            stmt.execute("CREATE TABLE IF NOT EXISTS sequence_schema.orders (id SERIAL PRIMARY KEY, name VARCHAR(100))");
+            stmt.execute("CREATE TABLE IF NOT EXISTS sequence_schema.order_items (id SERIAL PRIMARY KEY, order_id INTEGER)");
+            stmt.execute("CREATE SEQUENCE IF NOT EXISTS sequence_schema.seq_order_items_history START WITH 1 INCREMENT BY 1");
+            stmt.execute("CREATE SEQUENCE IF NOT EXISTS sequence_schema.seq_global_counter START WITH 1 INCREMENT BY 1");
+        }
+
+        Map<String, List<String>> tableSchemaMap = new java.util.LinkedHashMap<>();
+        tableSchemaMap.put("TARGET_MAIN", List.of("orders"));
+        tableSchemaMap.put("TARGET_ITEMS", List.of("order_items"));
+
+        ScriptGenerationRequest request = ScriptGenerationRequest.builder()
+                .source(createPostgresConfig("sequence_schema"))
+                .targetSchema("TARGET_FALLBACK")
+                .tableSchemaMap(tableSchemaMap)
+                .editRoleUsersBySchema(Map.of(
+                        "TARGET_MAIN", Set.of("main_editor"),
+                        "TARGET_ITEMS", Set.of("items_editor")
+                ))
+                .viewRoleUsersBySchema(Map.of(
+                        "TARGET_MAIN", Set.of("main_reader"),
+                        "TARGET_ITEMS", Set.of("items_reader")
+                ))
+                .build();
+
+        // Act
+        ScriptGenerationResponse response = oracleToolsService.generateScripts(request);
+
+        // Assertions
+        assertThat(response.getFullScript())
+                .contains("CREATE SEQUENCE TARGET_ITEMS.SEQ_ORDER_ITEMS_HISTORY")
+                .doesNotContain("CREATE SEQUENCE TARGET_MAIN.SEQ_ORDER_ITEMS_HISTORY")
+                .contains("CREATE SEQUENCE TARGET_MAIN.SEQ_GLOBAL_COUNTER");
+    }
+
+    @Test
+    void migrate_ShouldSkipUnmappedTables_WhenTableSchemaMapIsProvided() {
         // Arrange
         waitForMigrationToFinish();
         clearOracleTables();
@@ -380,7 +458,7 @@ class OracleToolsServiceImplIntegrationTest {
 
                 rs = stmt.executeQuery("SELECT COUNT(*) FROM TESTUSER.CATEGORIES");
                 rs.next();
-                assertThat(rs.getInt(1)).isEqualTo(2);
+                assertThat(rs.getInt(1)).isZero();
             }
         });
         waitForMigrationToFinish();

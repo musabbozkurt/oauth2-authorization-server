@@ -34,7 +34,7 @@ public class MigrationRequest {
                       "MB_POLICY": ["policy_revision", "policy_revision_status", "policy_revision_section", "policy_revision_section_approval", "policy_section_type"]
                     }
                     """,
-            description = "Optional mapping from Oracle schema name to source table names. If provided, mapped tables migrate to mapped schema; unmapped tables fall back to destination.schema."
+            description = "Optional mapping from Oracle schema name to source table names. If provided, only mapped tables are migrated into mapped schemas and destination.schema is ignored for routing."
     )
     private Map<String, List<String>> tableSchemaMap;
 }
