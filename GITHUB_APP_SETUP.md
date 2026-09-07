@@ -34,13 +34,21 @@ After creating your GitHub App, you will receive the following:
 - **Client Secret**: Used for authenticating your app.
 - **Private Key**: Generate a private key to authenticate your app programmatically. Download it and store it securely.
 
+Add them to the target GitHub repository:
+
+- Repository **Variable**: `APP_ID`
+- Repository **Secret**: `APP_PRIVATE_KEY`
+
+> The workflow uses `actions/create-github-app-token@v2`, so the private key
+> should be stored exactly as the PEM content in the repository secret.
+
 ### 3. Install the App
 
 1. **Install the App on Your Repository**:
     - Go to your GitHub App settings and find your new app.
     - Click on "Install App".
     - Choose the repositories where your app should have access. Select your target repository for the dependency
-      updates.
+      updates (`musabbozkurt/oauth2-authorization-server`).
 
 ### 4. Update Workflow with Code Examples
 
@@ -75,3 +83,22 @@ jobs:
 
       # Add more steps here to update dependencies and create PRs
 ```
+
+### 5. Current Workflow Behavior
+
+The repository workflow (`.github/workflows/dependency-update.yml`) will:
+
+- run a read-only Maven + Docker Compose image check on pull requests and manual dispatch,
+- run scheduled/manual update jobs on `master`,
+- generate a GitHub App token via `actions/create-github-app-token@v2`,
+- apply Maven dependency updates in `pom.xml`,
+- apply Docker Compose image bumps via `docs/scripts/check-compose-image-updates.sh --apply`,
+- compile when `pom.xml` changed,
+- create or update an automated pull request on `automated/dependency-updates` (pushes new
+  commits when that PR is already open, instead of skipping).
+
+### 6. Workflow File Reference
+
+- Workflow: `.github/workflows/dependency-update.yml`
+- Shared version rules: `version-rules.xml`
+- Compose image checker: `docs/scripts/check-compose-image-updates.sh`
