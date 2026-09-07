@@ -44,7 +44,7 @@ services:
 
   # ── Infrastructure services (always started with: docker compose up -d) ──────
   mariadb:
-    image: mariadb:12.1.2
+    image: mariadb:12.3.3
     container_name: mariadb
     environment:
       MYSQL_ROOT_PASSWORD: password
@@ -66,7 +66,7 @@ services:
       - oauth2-network
 
   redis:
-    image: redis:8.4.0
+    image: redis:8.10.1
     container_name: redis
     ports:
       - "6379:6379"
@@ -110,7 +110,7 @@ services:
       - oauth2-network
 
   ollama:
-    image: ollama/ollama:0.13.3
+    image: ollama/ollama:0.33.3
     container_name: ollama
     ports:
       - "11434:11434"
@@ -172,7 +172,7 @@ services:
       - oauth2-network
 
   zipkin:
-    image: openzipkin/zipkin:3
+    image: openzipkin/zipkin:3.6.1
     container_name: zipkin
     ports:
       - "9411:9411"
@@ -180,7 +180,7 @@ services:
       - oauth2-network
 
   grafana-lgtm:
-    image: 'grafana/otel-lgtm:0.27.1'
+    image: 'grafana/otel-lgtm:0.32.1'
     ports:
       - "3001:3000"   # Grafana UI
       - "4318:4318"   # OTLP HTTP receiver
