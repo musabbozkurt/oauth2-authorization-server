@@ -37,4 +37,8 @@ public interface AuthorizationRepository extends JpaRepository<Authorization, St
     @Modifying
     @Query("DELETE FROM Authorization a WHERE a.accessTokenExpiresAt < :now")
     long deleteExpiredTokens(@Param("now") Instant now);
+
+    @Modifying
+    @Query("delete from Authorization")
+    void deleteAllTokens();
 }

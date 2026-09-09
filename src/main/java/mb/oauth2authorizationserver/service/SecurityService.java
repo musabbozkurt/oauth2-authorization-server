@@ -1,6 +1,10 @@
 package mb.oauth2authorizationserver.service;
 
 import mb.oauth2authorizationserver.data.entity.SecurityUser;
+import org.springframework.security.core.session.SessionInformation;
+
+import java.util.List;
+import java.util.Map;
 
 public interface SecurityService {
 
@@ -15,4 +19,10 @@ public interface SecurityService {
     void invalidateExpiredSessions(Object principal);
 
     void invalidateSessions(Object principal, boolean clearExpiredSessions);
+
+    Map<SecurityUser, List<SessionInformation>> getActiveUserSessions();
+
+    boolean evictSession(String sessionId);
+
+    void evictAllSessions();
 }

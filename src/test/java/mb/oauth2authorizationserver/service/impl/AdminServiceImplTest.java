@@ -12,6 +12,7 @@ import mb.oauth2authorizationserver.model.request.ClientFormData;
 import mb.oauth2authorizationserver.model.request.ClientUpdateFormData;
 import mb.oauth2authorizationserver.model.request.UserFormData;
 import mb.oauth2authorizationserver.service.ClientService;
+import mb.oauth2authorizationserver.service.SecurityService;
 import mb.oauth2authorizationserver.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,9 +24,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.session.SessionInformation;
-import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.session.FindByIndexNameSessionRepository;
 
 import java.util.List;
 import java.util.Map;
@@ -60,10 +59,7 @@ class AdminServiceImplTest {
     private TokenService tokenService;
 
     @Mock
-    private SessionRegistry sessionRegistry;
-
-    @Mock
-    private FindByIndexNameSessionRepository<?> sessionRepository;
+    private SecurityService securityService;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -408,69 +404,69 @@ class AdminServiceImplTest {
 
     @Test
     void getActiveUserSessions_ShouldReturnMapOfUserSessions_WhenActiveSessionsExist() {
+        // Arrange
         SecurityUser user = new SecurityUser();
         user.setId(1L);
         user.setUsername("user1");
         SessionInformation sessionInfo = mock(SessionInformation.class);
-        when(sessionRegistry.getAllPrincipals()).thenReturn(List.of(user));
-        when(sessionRegistry.getAllSessions(user, false)).thenReturn(List.of(sessionInfo));
+        when(securityService.getActiveUserSessions()).thenReturn(Map.of(user, List.of(sessionInfo)));
 
+        // Act
         Map<SecurityUser, List<SessionInformation>> result = adminService.getActiveUserSessions();
 
+        // Assertions
         assertEquals(1, result.size());
         assertTrue(result.containsKey(user));
+        verify(securityService).getActiveUserSessions();
     }
 
     @Test
     void getActiveUserSessions_ShouldExcludeUsersWithNoActiveSessions_WhenNoActiveSessionsExist() {
-        SecurityUser user = new SecurityUser();
-        user.setId(1L);
-        user.setUsername("user1");
-        when(sessionRegistry.getAllPrincipals()).thenReturn(List.of(user));
-        when(sessionRegistry.getAllSessions(user, false)).thenReturn(List.of());
+        // Arrange
+        when(securityService.getActiveUserSessions()).thenReturn(Map.of());
 
+        // Act
         Map<SecurityUser, List<SessionInformation>> result = adminService.getActiveUserSessions();
 
+        // Assertions
         assertTrue(result.isEmpty());
+        verify(securityService).getActiveUserSessions();
     }
 
     @Test
     void evictSession_ShouldReturnEvictedMessage_WhenSessionExists() {
+        // Arrange
         UUID sessionId = UUID.randomUUID();
-        SessionInformation sessionInfo = mock(SessionInformation.class);
-        SecurityUser user = new SecurityUser();
-        when(sessionRegistry.getSessionInformation(sessionId.toString())).thenReturn(sessionInfo);
-        when(sessionInfo.getPrincipal()).thenReturn(user);
+        when(securityService.evictSession(sessionId.toString())).thenReturn(true);
 
+        // Act
         String result = adminService.evictSession(sessionId);
 
+        // Assertions
         assertEquals(ErrorMessageConstants.SESSION_EVICTED, result);
-        verify(tokenService).revokeTokensOfUser(user);
-        verify(sessionRepository).deleteById(sessionId.toString());
-        verify(sessionRegistry).removeSessionInformation(sessionId.toString());
+        verify(securityService).evictSession(sessionId.toString());
     }
 
     @Test
     void evictSession_ShouldReturnNotFoundMessage_WhenSessionDoesNotExist() {
+        // Arrange
         UUID sessionId = UUID.randomUUID();
-        when(sessionRegistry.getSessionInformation(sessionId.toString())).thenReturn(null);
+        when(securityService.evictSession(sessionId.toString())).thenReturn(false);
 
+        // Act
         String result = adminService.evictSession(sessionId);
 
+        // Assertions
         assertEquals(ErrorMessageConstants.SESSION_NOT_FOUND, result);
+        verify(securityService).evictSession(sessionId.toString());
     }
 
     @Test
-    void evictAllSessions_ShouldEvictAllSessions_WhenEvictionRequested() {
-        SecurityUser user = new SecurityUser();
-        user.setId(1L);
-        SessionInformation sessionInfo = mock(SessionInformation.class);
-        when(sessionRegistry.getAllPrincipals()).thenReturn(List.of(user));
-        when(sessionRegistry.getAllSessions(user, false)).thenReturn(List.of(sessionInfo));
-
+    void evictAllSessions_ShouldDelegateToSessionService_WhenEvictionRequested() {
+        // Act
         adminService.evictAllSessions();
 
-        verify(sessionRepository).deleteById(sessionInfo.getSessionId());
-        verify(sessionRegistry).removeSessionInformation(sessionInfo.getSessionId());
+        // Assertions
+        verify(securityService).evictAllSessions();
     }
 }
