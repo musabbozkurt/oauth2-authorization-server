@@ -16,23 +16,19 @@ import mb.oauth2authorizationserver.model.request.ClientUpdateFormData;
 import mb.oauth2authorizationserver.model.request.UserFormData;
 import mb.oauth2authorizationserver.service.AdminService;
 import mb.oauth2authorizationserver.service.ClientService;
+import mb.oauth2authorizationserver.service.SecurityService;
 import mb.oauth2authorizationserver.service.UserService;
 import mb.oauth2authorizationserver.utils.SecurityUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.session.SessionInformation;
-import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.session.FindByIndexNameSessionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.CollectionUtils;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 
 @Slf4j
@@ -47,9 +43,8 @@ public class AdminServiceImpl implements AdminService {
     private final UserService userService;
     private final TokenService tokenService;
     private final UserLoginAttemptService userLoginAttemptService;
-    private final SessionRegistry sessionRegistry;
-    private final FindByIndexNameSessionRepository<?> sessionRepository;
     private final PasswordEncoder passwordEncoder;
+    private final SecurityService securityService;
 
     // ── Token ──────────────────────────────────────────────
 
@@ -219,28 +214,13 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     public Map<SecurityUser, List<SessionInformation>> getActiveUserSessions() {
-        Map<SecurityUser, List<SessionInformation>> userSessionMap = new HashMap<>();
-
-        for (Object principal : sessionRegistry.getAllPrincipals()) {
-            if (principal instanceof SecurityUser user) {
-                List<SessionInformation> activeSessions = sessionRegistry.getAllSessions(principal, false);
-                if (!CollectionUtils.isEmpty(activeSessions)) {
-                    userSessionMap.put(user, activeSessions);
-                }
-            }
-        }
-        return userSessionMap;
+        return securityService.getActiveUserSessions();
     }
 
     @Override
     @Transactional
     public String evictSession(UUID sessionId) {
-        SessionInformation sessionInformation = sessionRegistry.getSessionInformation(sessionId.toString());
-
-        if (Objects.nonNull(sessionInformation) && sessionInformation.getPrincipal() instanceof SecurityUser user) {
-            tokenService.revokeTokensOfUser(user);
-            sessionRepository.deleteById(sessionId.toString());
-            sessionRegistry.removeSessionInformation(sessionId.toString());
+        if (securityService.evictSession(sessionId.toString())) {
             return ErrorMessageConstants.SESSION_EVICTED;
         }
         return ErrorMessageConstants.SESSION_NOT_FOUND;
@@ -249,13 +229,7 @@ public class AdminServiceImpl implements AdminService {
     @Override
     @Transactional
     public void evictAllSessions() {
-        sessionRegistry.getAllPrincipals().forEach(principal -> {
-            List<SessionInformation> sessions = sessionRegistry.getAllSessions(principal, false);
-            sessions.forEach(session -> {
-                sessionRepository.deleteById(session.getSessionId());
-                sessionRegistry.removeSessionInformation(session.getSessionId());
-            });
-        });
+        securityService.evictAllSessions();
     }
 
     // ── Private helpers ────────────────────────────────────

@@ -2,6 +2,7 @@ package mb.oauth2authorizationserver.constants;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+import org.springframework.session.FindByIndexNameSessionRepository;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class ServiceConstants {
@@ -48,4 +49,22 @@ public final class ServiceConstants {
     public static final String USER_UPDATED = "User updated";
 
     public static final String AUTHORIZATION_LOCK = "oauth2-authorization-server:authorizationLock:%s:%s:%s";
+
+    public static final String SESSION_REDIS_NAMESPACE = "spring:session";
+    public static final String PRINCIPAL_INDEX_KEY_PREFIX = "%s:index:%s:".formatted(SESSION_REDIS_NAMESPACE, FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME);
+    public static final String PRINCIPAL_INDEX_KEY_PATTERN = PRINCIPAL_INDEX_KEY_PREFIX + "*";
+    public static final String SESSION_KEY_PREFIX = SESSION_REDIS_NAMESPACE + ":sessions:";
+    public static final String SESSION_EXPIRES_KEY_PREFIX = SESSION_KEY_PREFIX + "expires:";
+
+    public static String principalIndexKey(String principalName) {
+        return PRINCIPAL_INDEX_KEY_PREFIX + principalName;
+    }
+
+    public static String sessionKey(String sessionId) {
+        return SESSION_KEY_PREFIX + sessionId;
+    }
+
+    public static String sessionExpiresKey(String sessionId) {
+        return SESSION_EXPIRES_KEY_PREFIX + sessionId;
+    }
 }

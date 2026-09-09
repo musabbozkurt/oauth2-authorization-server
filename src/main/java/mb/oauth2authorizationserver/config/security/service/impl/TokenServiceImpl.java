@@ -44,7 +44,7 @@ public class TokenServiceImpl implements TokenService {
     @Transactional
     public long revokeAllTokens() {
         long count = authorizationRepository.count();
-        authorizationRepository.deleteAll();
+        authorizationRepository.deleteAllTokens();
         return count;
     }
 

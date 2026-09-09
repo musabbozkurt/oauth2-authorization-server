@@ -185,6 +185,7 @@ public class SecurityConfig {
      */
     @Bean
     @Order(1)
+    @SuppressWarnings("java:S4502") // Suppress SonarQube CSRF warning after architectural review
     public SecurityFilterChain asSecurityFilterChain(HttpSecurity httpSecurity,
                                                      ObjectMapper objectMapper,
                                                      @Qualifier("customAccessDeniedHandler") AccessDeniedHandler accessDeniedHandler,
@@ -238,6 +239,7 @@ public class SecurityConfig {
 
     @Bean
     @Order(2)
+    @SuppressWarnings("java:S4502") // Suppress SonarQube CSRF warning after architectural review
     public SecurityFilterChain appSecurityFilterChain(HttpSecurity http,
                                                       CustomOneTimeTokenServiceImpl customOneTimeTokenService,
                                                       OneTimeTokenSuccessHandlerImpl oneTimeTokenSuccessHandler,
@@ -283,7 +285,7 @@ public class SecurityConfig {
      * {@code @Bean}
      * {@code @Order(3)}
      */
-    @SuppressWarnings("unused")
+    @SuppressWarnings({"unused", "java:S4502"}) // Suppresses both the unused warning and the SonarQube CSRF hotspot
     public SecurityFilterChain mvcRequestSecurityFilterChain(HttpSecurity http,
                                                              @Qualifier("customSavedRequestAwareAuthenticationSuccessHandler") AuthenticationSuccessHandler customSavedRequestAwareAuthenticationSuccessHandler,
                                                              CustomSimpleUrlAuthenticationFailureHandler customSimpleUrlAuthenticationFailureHandler) {
@@ -417,16 +419,16 @@ public class SecurityConfig {
             }
             if (context.getTokenType().getValue().equals("access_token")) {
                 context.getClaims().claim("Test", "Test Access Token");
-                Set<String> authorities = principal.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.toSet());
-                context.getClaims().claim(AUTHORITIES, authorities).claim("user", principal.getName());
+                if (Objects.nonNull(principal)) {
+                    Set<String> authorities = principal.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.toSet());
+                    context.getClaims().claim(AUTHORITIES, authorities).claim("user", principal.getName());
+                }
             }
-            if (principal.getDetails() instanceof CustomPasswordUser(SecurityUser user)) {
+            if (Objects.nonNull(principal) && principal.getDetails() instanceof CustomPasswordUser(SecurityUser user)) {
                 if (new AuthorizationGrantType(ServiceConstants.CUSTOM_PASSWORD).equals(context.getAuthorizationGrantType())) {
                     updateContextClaims(context, user);
                 }
-            } else if (AuthorizationGrantType.REFRESH_TOKEN.equals(context.getAuthorizationGrantType())
-                    && Objects.nonNull(context.getAuthorization())
-                    && Objects.nonNull(context.getAuthorization().getAttributes())) {
+            } else if (AuthorizationGrantType.REFRESH_TOKEN.equals(context.getAuthorizationGrantType()) && Objects.nonNull(context.getAuthorization())) {
                 String username = String.valueOf(context.getAuthorization().getAttributes().get(ServiceConstants.USERNAME_WITH_UNDERSCORE));
                 try {
                     SecurityUser user = (SecurityUser) userDetailsService().loadUserByUsername(username);
@@ -434,14 +436,15 @@ public class SecurityConfig {
                 } catch (Exception _) {
                     log.warn("Failed to load user for refresh token claims: {}", username);
                 }
-            } else if (AuthorizationGrantType.AUTHORIZATION_CODE.equals(context.getAuthorizationGrantType())
-                    && Objects.nonNull(context.getAuthorization())
-                    && Objects.nonNull(context.getAuthorization().getPrincipalName())) {
-                try {
-                    SecurityUser user = (SecurityUser) userDetailsService().loadUserByUsername(context.getAuthorization().getPrincipalName());
-                    updateContextClaims(context, user);
-                } catch (Exception _) {
-                    log.warn("Failed to load user for authorization code claims: {}", context.getAuthorization().getPrincipalName());
+            } else {
+                if (AuthorizationGrantType.AUTHORIZATION_CODE.equals(context.getAuthorizationGrantType()) && Objects.nonNull(context.getAuthorization())) {
+                    context.getAuthorization().getPrincipalName();
+                    try {
+                        SecurityUser user = (SecurityUser) userDetailsService().loadUserByUsername(context.getAuthorization().getPrincipalName());
+                        updateContextClaims(context, user);
+                    } catch (Exception _) {
+                        log.warn("Failed to load user for authorization code claims: {}", context.getAuthorization().getPrincipalName());
+                    }
                 }
             }
             customizeRefreshToken(context, principal);

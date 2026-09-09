@@ -2,6 +2,7 @@ package mb.oauth2authorizationserver.service.impl;
 
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import mb.oauth2authorizationserver.config.security.service.TokenService;
 import mb.oauth2authorizationserver.config.security.service.impl.UserDetailsManagerImpl;
 import mb.oauth2authorizationserver.constants.ServiceConstants;
 import mb.oauth2authorizationserver.data.entity.SecurityUser;
@@ -12,6 +13,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.redisson.api.RKeys;
+import org.redisson.api.RSet;
+import org.redisson.api.RType;
+import org.redisson.api.RedissonClient;
+import org.redisson.api.options.KeysScanOptions;
+import org.redisson.client.codec.StringCodec;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -20,22 +27,22 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.session.SessionInformation;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.session.FindByIndexNameSessionRepository;
+import org.springframework.session.Session;
 
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class SecurityServiceImplTest {
@@ -53,7 +60,7 @@ class SecurityServiceImplTest {
     private HttpServletRequest servletRequest;
 
     @Mock
-    private FindByIndexNameSessionRepository<?> sessionRepository;
+    private FindByIndexNameSessionRepository<Session> sessionRepository;
 
     @Mock
     private SessionRegistry sessionRegistry;
@@ -67,6 +74,17 @@ class SecurityServiceImplTest {
     @Mock
     private SecurityUser securityUser;
 
+    @Mock
+    private RedissonClient redissonClient;
+
+    @Mock
+    private TokenService tokenService;
+
+    @Mock
+    private RKeys rKeys;
+
+    private SecurityUser userDetails;
+
     private SecurityServiceImpl securityService;
 
     @BeforeEach
@@ -77,8 +95,14 @@ class SecurityServiceImplTest {
                 authenticationManager,
                 servletRequest,
                 sessionRepository,
-                sessionRegistry
+                sessionRegistry,
+                redissonClient,
+                tokenService
         );
+        userDetails = mock(SecurityUser.class);
+        authentication = mock(Authentication.class);
+        lenient().when(redissonClient.getKeys()).thenReturn(rKeys);
+        lenient().when(rKeys.getKeys(any(KeysScanOptions.class))).thenReturn(Set.of());
     }
 
     @Test
@@ -341,5 +365,103 @@ class SecurityServiceImplTest {
             verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
             verify(securityContext).setAuthentication(any(UsernamePasswordAuthenticationToken.class));
         }
+    }
+
+    @Test
+    void getActiveUserSessions_ShouldReturnSessionsFromRedis_WhenActiveSessionsExist() {
+        // Arrange
+        String sessionId = "1333c60e-7c61-4815-b71a-0f74ca40bf48";
+        String principalName = "123456";
+        String principalIndexKey = ServiceConstants.principalIndexKey(principalName);
+        Session session = mock(Session.class);
+        RSet<Object> sessionIdSet = mock(RSet.class);
+        when(userDetailsService.loadUserByUsername(principalName)).thenReturn(userDetails);
+        when(rKeys.getKeys(any(KeysScanOptions.class))).thenReturn(Set.of(principalIndexKey));
+        when(rKeys.getType(principalIndexKey)).thenReturn(RType.SET);
+        when(redissonClient.getSet(principalIndexKey, StringCodec.INSTANCE)).thenReturn(sessionIdSet);
+        when(sessionIdSet.readAll()).thenReturn(Set.of("\"" + sessionId + "\""));
+        when(sessionRepository.findById(sessionId)).thenReturn(session);
+        when(session.getLastAccessedTime()).thenReturn(Instant.parse("2026-01-01T00:00:00Z"));
+
+        // Act
+        Map<SecurityUser, List<SessionInformation>> result = securityService.getActiveUserSessions();
+
+        // Assertions
+        assertEquals(1, result.size());
+        assertEquals(sessionId, result.get(userDetails).getFirst().getSessionId());
+    }
+
+    @Test
+    void evictAllSessions_ShouldRevokeAllTokensAndRemoveSessions_WhenSessionsExist() {
+        // Arrange
+        String sessionId = "1333c60e-7c61-4815-b71a-0f74ca40bf48";
+        String principalIndexKey = ServiceConstants.principalIndexKey("123456");
+        RSet<Object> sessionIdSet = mock(RSet.class);
+        when(rKeys.getKeys(any(KeysScanOptions.class))).thenReturn(Set.of(principalIndexKey));
+        when(rKeys.getType(principalIndexKey)).thenReturn(RType.SET);
+        when(redissonClient.getSet(principalIndexKey, StringCodec.INSTANCE)).thenReturn(sessionIdSet);
+        when(sessionIdSet.readAll()).thenReturn(Set.of("\"" + sessionId + "\""));
+
+        // Act
+        securityService.evictAllSessions();
+
+        // Assertions
+        verify(tokenService).revokeAllTokens();
+        verify(sessionRepository).deleteById(sessionId);
+        verify(sessionRegistry).removeSessionInformation(sessionId);
+        verify(tokenService, times(0)).revokeTokensOfUser(any());
+    }
+
+    @Test
+    void evictAllSessions_ShouldRevokeAllTokens_WhenNoSessionsExist() {
+        // Arrange
+        when(rKeys.getKeys(any(KeysScanOptions.class))).thenReturn(Set.of());
+
+        // Act
+        securityService.evictAllSessions();
+
+        // Assertions
+        verify(tokenService).revokeAllTokens();
+        verify(sessionRepository, never()).deleteById(anyString());
+        verify(sessionRegistry, never()).removeSessionInformation(anyString());
+    }
+
+    @Test
+    void evictSession_ShouldRevokeUserTokensAndRemoveSession_WhenSessionExistsInRedis() {
+        // Arrange
+        String sessionId = "1333c60e-7c61-4815-b71a-0f74ca40bf48";
+        String principalName = "123456";
+        String principalIndexKey = ServiceConstants.principalIndexKey(principalName);
+        RSet<Object> sessionIdSet = mock(RSet.class);
+        when(userDetailsService.loadUserByUsername(principalName)).thenReturn(userDetails);
+        when(rKeys.getKeys(any(KeysScanOptions.class))).thenReturn(Set.of(principalIndexKey));
+        when(rKeys.getType(principalIndexKey)).thenReturn(RType.SET);
+        when(redissonClient.getSet(principalIndexKey, StringCodec.INSTANCE)).thenReturn(sessionIdSet);
+        when(sessionIdSet.contains(sessionId)).thenReturn(true);
+
+        // Act
+        boolean result = securityService.evictSession(sessionId);
+
+        // Assertions
+        assertTrue(result);
+        verify(tokenService).revokeTokensOfUser(userDetails);
+        verify(sessionRepository).deleteById(sessionId);
+        verify(sessionRegistry).removeSessionInformation(sessionId);
+    }
+
+    @Test
+    void evictSession_ShouldReturnFalse_WhenSessionDoesNotExist() {
+        // Arrange
+        String sessionId = "1333c60e-7c61-4815-b71a-0f74ca40bf48";
+        when(sessionRepository.findById(sessionId)).thenReturn(null);
+
+        // Act
+        boolean result = securityService.evictSession(sessionId);
+
+        // Assertions
+        assertFalse(result);
+        verify(tokenService, never()).revokeTokensOfUser(any());
+        verify(sessionRepository, never()).deleteById(anyString());
+        verify(sessionRegistry, never()).removeSessionInformation(anyString());
     }
 }
