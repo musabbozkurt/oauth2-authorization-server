@@ -33,7 +33,7 @@
         <protobuf.version>4.36.1</protobuf.version>
         <logstash-logback-encoder.version>9.0</logstash-logback-encoder.version>
         <webmagic-core.version>1.0.3</webmagic-core.version>
-        <software.amazon.awssdk.s3.version>2.54.14</software.amazon.awssdk.s3.version>
+        <software.amazon.awssdk.s3.version>2.54.17</software.amazon.awssdk.s3.version>
         <minio.version>9.0.3</minio.version>
         <okhttp-urlconnection.version>5.5.0</okhttp-urlconnection.version>
         <uap-java.version>1.6.1</uap-java.version>
