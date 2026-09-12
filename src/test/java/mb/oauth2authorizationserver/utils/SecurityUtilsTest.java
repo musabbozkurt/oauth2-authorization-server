@@ -6,7 +6,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import mb.oauth2authorizationserver.exception.BaseException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.mockito.Mockito;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientAuthenticationToken;
@@ -39,7 +38,7 @@ class SecurityUtilsTest {
         // Act
         RSAKey rsaKey = SecurityUtils.loadOrGenerateRsa(keyPath);
 
-        // Assert
+        // Assertions
         assertNotNull(rsaKey);
         assertInstanceOf(RSAPublicKey.class, rsaKey.toRSAPublicKey());
         assertInstanceOf(RSAPrivateKey.class, rsaKey.toRSAPrivateKey());
@@ -82,13 +81,13 @@ class SecurityUtilsTest {
     @Test
     void getParameters_ShouldReturnEmptyMap_WhenNoParameters() {
         // Arrange
-        HttpServletRequest request = Mockito.mock(HttpServletRequest.class);
+        HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getParameterMap()).thenReturn(Collections.emptyMap());
 
         // Act
         MultiValueMap<String, String> result = SecurityUtils.getParameters(request);
 
-        // Assert
+        // Assertions
         assertNotNull(result);
         assertTrue(result.isEmpty());
     }
@@ -96,7 +95,7 @@ class SecurityUtilsTest {
     @Test
     void getParameters_ShouldConvertParameters_WhenRequestHasParameters() {
         // Arrange
-        HttpServletRequest request = Mockito.mock(HttpServletRequest.class);
+        HttpServletRequest request = mock(HttpServletRequest.class);
         Map<String, String[]> parameterMap = new HashMap<>();
         parameterMap.put("single", new String[]{"value"});
         parameterMap.put("multiple", new String[]{"value1", "value2"});
