@@ -156,8 +156,16 @@ services:
     networks:
       - oauth2-network
 
+  # why cgr.dev/chainguard/minio:latest?
+  # Because it is a minimal and secure image for running MinIO, which is a high-performance object storage server.
+  # The Chainguard images are designed to be small, secure, and free from unnecessary components, making them ideal for production environments.
+  # Using this image helps reduce the attack surface and ensures that only the essential parts are included, improving security and performance.
+  # why cgr.dev/?
+  # Avoiding Docker Hub Rate Limits: If your local machine or your CI/CD pipelines (GitHub Actions, GitLab CI, Jenkins) run a lot of integration tests, you can quickly hit Docker Hub's anonymous pull request limits (resulting in 429 Too Many Requests). Pulling directly from Chainguard's cgr.dev registry bypasses Docker Hub completely.
+  # Enterprise & Paid Production Images: Chainguard only pushes their free "Starter/Developer" images to Docker Hub. If your company upgrades to Chainguard's enterprise tier—which provides long-term support (LTS) tags, older version pinning, and FIPS compliance—those paid images are exclusively hosted on cgr.dev and cannot be pulled from Docker Hub.
+  # First-Party Updates: Images on cgr.dev are updated immediately as soon as a new patch or vulnerability fix is built by Chainguard, whereas Docker Hub mirrors can occasionally have slight replication lag.
   minio:
-    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    image: cgr.dev/chainguard/minio:latest
     container_name: minio
     environment:
       MINIO_ROOT_USER: "minio-admin"
