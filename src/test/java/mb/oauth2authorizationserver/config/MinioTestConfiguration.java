@@ -1,6 +1,7 @@
 package mb.oauth2authorizationserver.config;
 
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.util.TestPropertyValues;
 import org.springframework.context.ApplicationContextInitializer;
@@ -14,7 +15,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 @TestConfiguration
 public class MinioTestConfiguration {
 
-    private static final MinIOContainer minio = new MinIOContainer(DockerImageName.parse("minio/minio:RELEASE.2025-09-07T16-13-09Z"))
+    private static final MinIOContainer minio = new MinIOContainer(DockerImageName.parse("cgr.dev/chainguard/minio:latest")
+            .asCompatibleSubstituteFor("minio/minio"))
             .withEnv("MINIO_ACCESS_KEY", "minio-admin")
             .withEnv("MINIO_SECRET_KEY", "minio-password")
             .withCommand("server /data")
@@ -40,7 +42,7 @@ public class MinioTestConfiguration {
     public static class Initializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
 
         @Override
-        public void initialize(ConfigurableApplicationContext applicationContext) {
+        public void initialize(@NonNull ConfigurableApplicationContext applicationContext) {
             TestPropertyValues values = TestPropertyValues.of(
                     "minio.accessKey=minio-admin",
                     "minio.secretKey=minio-password",
