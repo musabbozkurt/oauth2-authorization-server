@@ -6,7 +6,9 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.SpringBootVersion;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.context.annotation.Bean;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.data.web.config.EnableSpringDataWebSupport;
 import org.springframework.scheduling.annotation.EnableAsync;
 
@@ -16,6 +18,8 @@ import static org.springframework.data.web.config.EnableSpringDataWebSupport.Pag
 @EnableAsync
 @SpringBootApplication
 @EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO)
+@EntityScan(basePackages = "mb.oauth2authorizationserver.data.entity")
+@EnableJpaRepositories(basePackages = "mb.oauth2authorizationserver.data.repository")
 public class OAuth2AuthorizationServerApplication {
 
     static void main(String[] args) {

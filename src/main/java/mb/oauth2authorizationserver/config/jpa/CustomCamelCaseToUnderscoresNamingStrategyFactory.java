@@ -1,7 +1,12 @@
 package mb.oauth2authorizationserver.config.jpa;
 
 import com.zaxxer.hikari.HikariDataSource;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.jspecify.annotations.NonNull;
+import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.stereotype.Component;
 
 /**
@@ -75,14 +80,36 @@ import org.springframework.stereotype.Component;
  *
  * @see CustomPhysicalNamingStrategy
  */
+@Slf4j
 @Component
-public class CustomCamelCaseToUnderscoresNamingStrategyFactory {
+public class CustomCamelCaseToUnderscoresNamingStrategyFactory implements BeanPostProcessor {
 
     @Value("${namespace:#{null}}")
     private String namespace;
 
     @Value("${spring.profiles.active:#{null}}")
     private String activeProfile;
+
+    @Value("${oracle-schema-name:OAUTH2_AUTHORIZATION_SERVER}")
+    private String defaultSchemaName;
+
+    /**
+     * Intercepts HikariDataSource beans right after creation and before they are started or sealed,
+     * applying the required connection initialization parameters safely at context bootstrap.
+     */
+    @Override
+    public Object postProcessBeforeInitialization(@NonNull Object bean, @NonNull String beanName) throws BeansException {
+        if (bean instanceof HikariDataSource hikariDataSource) {
+            try {
+                // Pre-configure the connection block dynamically on application startup
+                applyInitSqlConfiguration(true, hikariDataSource, defaultSchemaName);
+                log.info("Successfully post-processed and attached Turkish Linguistic rules to HikariDataSource.");
+            } catch (Exception e) {
+                log.error("Failed to post-process HikariDataSource configuration setup. Exception: {}", ExceptionUtils.getStackTrace(e));
+            }
+        }
+        return bean;
+    }
 
     /**
      * Creates a naming strategy with namespace suffix enabled and configures the given
@@ -96,9 +123,7 @@ public class CustomCamelCaseToUnderscoresNamingStrategyFactory {
      * @return a new {@link CustomPhysicalNamingStrategy} instance with namespace suffix enabled
      */
     public CustomPhysicalNamingStrategy create(HikariDataSource hikariDataSource, String schema) {
-        CustomPhysicalNamingStrategy strategy = create(true);
-        hikariDataSource.setConnectionInitSql("ALTER SESSION SET CURRENT_SCHEMA = %s".formatted(strategy.resolveSchema(schema)));
-        return strategy;
+        return create(true, hikariDataSource, schema);
     }
 
     /**
@@ -116,7 +141,11 @@ public class CustomCamelCaseToUnderscoresNamingStrategyFactory {
      */
     public CustomPhysicalNamingStrategy create(boolean enabled, HikariDataSource hikariDataSource, String schema) {
         CustomPhysicalNamingStrategy strategy = create(enabled);
-        hikariDataSource.setConnectionInitSql("ALTER SESSION SET CURRENT_SCHEMA = %s".formatted(strategy.resolveSchema(schema)));
+        try {
+            applyInitSqlConfiguration(enabled, hikariDataSource, schema);
+        } catch (Exception e) {
+            log.error("Failed to set connectionInitSql on HikariDataSource. Exception: {}", ExceptionUtils.getStackTrace(e));
+        }
         return strategy;
     }
 
@@ -143,5 +172,49 @@ public class CustomCamelCaseToUnderscoresNamingStrategyFactory {
      */
     public CustomPhysicalNamingStrategy create(boolean enabled) {
         return new CustomPhysicalNamingStrategy(null, namespace, activeProfile, enabled);
+    }
+
+    /**
+     * Shared helper to cleanly evaluate pool state and format the PL/SQL execution payload block.
+     */
+    private void applyInitSqlConfiguration(boolean enabled, HikariDataSource hikariDataSource, String schema) {
+        if (!isOracle(hikariDataSource)) {
+            log.info("HikariDataSource is not Oracle. Skipping Turkish linguistic init SQL.");
+            return;
+        }
+
+        // Check if the Hikari init SQL already contains our Turkish linguistic configurations
+        String existingInitSql = hikariDataSource.getConnectionInitSql();
+        if (existingInitSql != null && existingInitSql.contains("GENERIC_M_AI")) {
+            log.info("HikariDataSource connectionInitSql already configured with Turkish linguistic rules. Skipping execution.");
+            return;
+        }
+
+        // Check if it's running/sealed only when we actually need to change the configuration
+        if (hikariDataSource.isRunning()) {
+            log.warn("HikariDataSource is already running and sealed. Cannot append connectionInitSql.");
+            return;
+        }
+
+        // We wrap the executions in a PL/SQL anonymous block so Hikari can send it as a single execution string.
+        CustomPhysicalNamingStrategy strategy = create(enabled);
+        StringBuilder initSqlBuilder = new StringBuilder("BEGIN ");
+
+        if (enabled) {
+            initSqlBuilder.append("EXECUTE IMMEDIATE 'ALTER SESSION SET CURRENT_SCHEMA = %s'; ".formatted(strategy.resolveSchema(schema)));
+        }
+
+        // Globally inject Turkish linguistic adjustments to cover all Native Queries, JPQL, and Criteria API
+        initSqlBuilder.append("EXECUTE IMMEDIATE 'ALTER SESSION SET NLS_COMP = LINGUISTIC'; ");
+        initSqlBuilder.append("EXECUTE IMMEDIATE 'ALTER SESSION SET NLS_SORT = GENERIC_M_AI'; ");
+        initSqlBuilder.append("END;");
+
+        hikariDataSource.setConnectionInitSql(initSqlBuilder.toString());
+        log.info("Successfully attached Schema and Turkish Linguistic rules to HikariDataSource initialization SQL.");
+    }
+
+    private boolean isOracle(HikariDataSource hikariDataSource) {
+        String jdbcUrl = hikariDataSource.getJdbcUrl();
+        return jdbcUrl != null && jdbcUrl.startsWith("jdbc:oracle");
     }
 }

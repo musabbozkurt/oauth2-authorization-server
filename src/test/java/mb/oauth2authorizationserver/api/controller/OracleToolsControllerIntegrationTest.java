@@ -3,6 +3,7 @@ package mb.oauth2authorizationserver.api.controller;
 import mb.oauth2authorizationserver.api.request.DatabaseConfig;
 import mb.oauth2authorizationserver.api.request.MigrationRequest;
 import mb.oauth2authorizationserver.api.request.ScriptGenerationRequest;
+import mb.oauth2authorizationserver.config.PostgresTestContainer;
 import mb.oauth2authorizationserver.config.RedisTestConfiguration;
 import mb.oauth2authorizationserver.config.TestSecurityConfig;
 import org.junit.jupiter.api.BeforeAll;
@@ -46,11 +47,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import({RedisTestConfiguration.class, TestSecurityConfig.class})
 class OracleToolsControllerIntegrationTest {
 
-    @Container
-    private static final PostgreSQLContainer postgres = new PostgreSQLContainer(DockerImageName.parse("postgres:16-alpine"))
-            .withDatabaseName("testdb")
-            .withUsername("testuser")
-            .withPassword("testpass");
+    private static final PostgreSQLContainer postgres = PostgresTestContainer.instance();
 
     @Container
     private static final OracleContainer oracle = new OracleContainer(DockerImageName.parse("gvenzl/oracle-free:23-slim-faststart"))
@@ -68,7 +65,8 @@ class OracleToolsControllerIntegrationTest {
         try (Connection conn = DriverManager.getConnection(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
              Statement stmt = conn.createStatement()) {
 
-            stmt.execute("CREATE SCHEMA IF NOT EXISTS test_schema");
+            stmt.execute("DROP SCHEMA IF EXISTS test_schema CASCADE");
+            stmt.execute("CREATE SCHEMA test_schema");
             stmt.execute("""
                     CREATE TABLE test_schema.users (
                         id SERIAL PRIMARY KEY,

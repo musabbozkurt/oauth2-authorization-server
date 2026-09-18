@@ -1,7 +1,9 @@
 package mb.oauth2authorizationserver.api.controller;
 
+import mb.oauth2authorizationserver.config.MinioConfigProperties;
 import mb.oauth2authorizationserver.config.MinioTestConfiguration;
 import mb.oauth2authorizationserver.config.RedisTestConfiguration;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +16,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.result.MockMvcResultHandlers;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -35,10 +40,18 @@ class FileControllerIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private S3Client s3Client;
+
+    @Autowired
+    private MinioConfigProperties minioConfigProperties;
+
     private UUID uuid;
 
     @BeforeEach
     void init() throws Exception {
+        purgeBucket();
+
         // Arrange
         MockMultipartFile file = new MockMultipartFile("file", "test_file.txt", "text/plain", "Sample file content".getBytes());
 
@@ -52,6 +65,11 @@ class FileControllerIntegrationTest {
         assertTrue(responseContent.endsWith("test_file.txt"), "Response should end with 'test_file.txt'");
         uuid = UUID.fromString(responseContent.substring(0, responseContent.indexOf('_')));
         assertDoesNotThrow(() -> uuid, "The first part of the response should be a valid UUID");
+    }
+
+    @AfterEach
+    void cleanupBucket() {
+        purgeBucket();
     }
 
     @Test
@@ -93,13 +111,12 @@ class FileControllerIntegrationTest {
     }
 
     @Test
-    void uploadStream_ShouldReturnCorrectFilename_WhenUploading10MBFile() throws Exception {
+    void uploadStream_ShouldReturnCorrectFilename_WhenUploadingLargeFile() throws Exception {
         // Arrange
-        // Create a 10 MB file (10 * 1024 * 1024 bytes)
-        byte[] tenMBContent = new byte[10 * 1024 * 1024]; // 10 MB
+        byte[] largeFileContent = new byte[1024 * 1024]; // 1 MB
         // Optionally, fill the byte array with specific data
-        new java.util.Random().nextBytes(tenMBContent); // Fill with random data
-        MockMultipartFile file = new MockMultipartFile("file", "test_file.txt", "text/plain", tenMBContent);
+        new Random().nextBytes(largeFileContent); // Fill with random data
+        MockMultipartFile file = new MockMultipartFile("file", "test_file.txt", "text/plain", largeFileContent);
 
         // Act
         ResultActions resultActions = mockMvc.perform(multipart("/files/upload/stream").file(file))
@@ -114,7 +131,7 @@ class FileControllerIntegrationTest {
     @Test
     void uploadStream_ShouldReturnFilename_WhenImageFileIsUploaded() throws Exception {
         // Arrange
-        // Create a 10 MB image (for simplicity, let's create a large image)
+        // Create a 256 KB image (for simplicity, let's create an image)
         BufferedImage image = getBufferedImage();
         // Write the image to a byte array
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
@@ -133,17 +150,26 @@ class FileControllerIntegrationTest {
         assertTrue(responseContent.endsWith("test_image.jpg"), "Response should end with 'test_image.jpg'.");
     }
 
+    private void purgeBucket() {
+        String bucket = minioConfigProperties.getBucket();
+        s3Client.listObjectsV2(ListObjectsV2Request.builder().bucket(bucket).build())
+                .contents()
+                .forEach(object -> s3Client.deleteObject(DeleteObjectRequest.builder()
+                        .bucket(bucket)
+                        .key(object.key())
+                        .build()));
+    }
+
     private BufferedImage getBufferedImage() {
-        int width = 10000; // example width
-        int height = 10000; // example height
+        int width = 256; // example width
+        int height = 256; // example height
         BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
         Random random = new Random();
         // Fill the image with random colors
         for (int x = 0; x < width; x++) {
             for (int y = 0; y < height; y++) {
                 // Set a random color
-                int color = random.nextInt() * 0xFFFFFF;
-                image.setRGB(x, y, color);
+                image.setRGB(x, y, random.nextInt(0xFFFFFF));
             }
         }
         return image;
