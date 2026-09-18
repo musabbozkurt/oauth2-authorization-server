@@ -35,7 +35,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      TESTCONTAINERS_REUSE_ENABLE: true # https://java.testcontainers.org/features/reuse/
+      TESTCONTAINERS_REUSE_ENABLE: false # https://java.testcontainers.org/features/reuse/
 
     permissions:
       contents: write

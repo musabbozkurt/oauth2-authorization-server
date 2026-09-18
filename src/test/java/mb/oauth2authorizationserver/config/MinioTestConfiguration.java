@@ -9,6 +9,8 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.testcontainers.containers.MinIOContainer;
 import org.testcontainers.utility.DockerImageName;
 
+import java.util.Map;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Slf4j
@@ -21,6 +23,7 @@ public class MinioTestConfiguration {
             .withEnv("MINIO_SECRET_KEY", "minio-password")
             .withCommand("server /data")
             .withExposedPorts(9000)
+            .withTmpFs(Map.of("/data", "rw")) // Use tmpfs for /data to avoid permission issues
             .withReuse(true);
 
     static {
@@ -32,9 +35,9 @@ public class MinioTestConfiguration {
         // Register shutdown hook to stop the container when the JVM exits
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             if (minio.isRunning()) {
-                log.info("Stopping LLDAP container.");
+                log.info("Stopping MinIO container.");
                 minio.stop();
-                log.info("LLDAP container stopped.");
+                log.info("MinIO container stopped.");
             }
         }));
     }
