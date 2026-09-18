@@ -50,7 +50,8 @@ class OracleToolsServiceImplIntegrationTest {
     @Container
     private static final OracleContainer oracle = new OracleContainer(DockerImageName.parse("gvenzl/oracle-free:23-slim-faststart"))
             .withUsername("testuser")
-            .withPassword("testpass");
+            .withPassword("testpass")
+            .withReuse(true);
 
     @Autowired
     private OracleToolsService oracleToolsService;

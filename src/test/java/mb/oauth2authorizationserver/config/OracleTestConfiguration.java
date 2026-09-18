@@ -20,7 +20,8 @@ public class OracleTestConfiguration {
         oracleContainer = new OracleContainer(DockerImageName.parse("gvenzl/oracle-free:23-slim-faststart"))
                 .withCopyFileToContainer(MountableFile.forClasspathResource("init_users.sql"), "/container-entrypoint-initdb.d/init_users.sql")
                 .withUsername(OAUTH2_AUTHORIZATION_SERVER_OWNER)
-                .withPassword(PASSWORD);
+                .withPassword(PASSWORD)
+                .withReuse(true);
         oracleContainer.start();  // 🟢 start container early
     }
 
