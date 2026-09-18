@@ -11,6 +11,7 @@ import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Root;
 import mb.oauth2authorizationserver.OAuth2AuthorizationServerApplication;
 import mb.oauth2authorizationserver.config.OracleTestConfiguration;
+import mb.oauth2authorizationserver.config.RedisTestConfiguration;
 import org.hibernate.Session;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -48,9 +49,10 @@ interface TurkishSearchTestRepository extends JpaRepository<TurkishSearchTestEnt
         }
 )
 @SpringBootTest(classes = {
-        OAuth2AuthorizationServerApplication.class,
+        RedisTestConfiguration.class,
         OracleTestConfiguration.class,
-        TurkishSearchJpaTestConfiguration.class
+        TurkishSearchJpaTestConfiguration.class,
+        OAuth2AuthorizationServerApplication.class
 })
 class CustomCamelCaseToUnderscoresNamingStrategyIntegrationTest {
 
