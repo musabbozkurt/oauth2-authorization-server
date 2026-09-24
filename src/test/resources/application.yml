@@ -34,6 +34,8 @@ spring:
       api-key: ${OPENAI_API_KEY:test-openai-api-key}
       chat:
         model: gpt-4o
+    typesafe:
+      api-key: ${TYPESAFE_API_KEY:typesafe-api-key}
       # Multi-provider support (same code, different backend):
       # Azure OpenAI:
       #   base-url: https://<deployment>.openai.azure.com

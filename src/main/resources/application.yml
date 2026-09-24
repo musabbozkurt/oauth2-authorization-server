@@ -44,6 +44,8 @@ spring:
       chat:
         base-url: http://localhost:12434/engines/llama.cpp
         model: ai/gemma3:4B-Q4_K_M
+    typesafe:
+      api-key: ${TYPESAFE_API_KEY:test-typesafe-api-key}
       # Multi-provider support (same code, different backend):
       # Azure OpenAI:
       #   base-url: https://<deployment>.openai.azure.com
