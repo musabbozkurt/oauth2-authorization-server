@@ -40,7 +40,7 @@
         <uap-java.version>1.6.1</uap-java.version>
         <commons-io.version>2.22.0</commons-io.version>
         <commons-compress.version>1.28.0</commons-compress.version>
-        <org.owasp.encoder.version>1.4.0</org.owasp.encoder.version>
+        <org.owasp.encoder.version>1.4.1</org.owasp.encoder.version>
         <fastexcel.version>0.20.2</fastexcel.version>
         <testcontainers-bom.version>2.0.5</testcontainers-bom.version>
         <jackson-bom.version>3.2.3</jackson-bom.version>
