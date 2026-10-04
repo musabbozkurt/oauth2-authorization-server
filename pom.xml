@@ -18,8 +18,8 @@
     <properties>
         <java.version>26</java.version>
         <spring-ai.version>2.0.0-M8</spring-ai.version>
-        <spring-ai-starter-typesafe.version>0.2.0</spring-ai-starter-typesafe.version>
-        <redisson-spring-boot-starter.version>4.7.0</redisson-spring-boot-starter.version>
+        <spring-ai-starter-typesafe.version>0.4.0</spring-ai-starter-typesafe.version>
+        <redisson-spring-boot-starter.version>4.8.0</redisson-spring-boot-starter.version>
         <thymeleaf-extras-springsecurity6.version>3.1.5.RELEASE</thymeleaf-extras-springsecurity6.version>
         <mariadb-java-client.version>3.5.10</mariadb-java-client.version>
         <ojdbc17.version>23.26.3.0.0</ojdbc17.version>
@@ -34,13 +34,13 @@
         <protobuf.version>4.36.2</protobuf.version>
         <logstash-logback-encoder.version>9.0</logstash-logback-encoder.version>
         <webmagic-core.version>1.0.3</webmagic-core.version>
-        <software.amazon.awssdk.s3.version>2.55.6</software.amazon.awssdk.s3.version>
+        <software.amazon.awssdk.s3.version>2.55.11</software.amazon.awssdk.s3.version>
         <minio.version>9.0.3</minio.version>
         <okhttp-urlconnection.version>5.5.0</okhttp-urlconnection.version>
         <uap-java.version>1.6.1</uap-java.version>
         <commons-io.version>2.22.0</commons-io.version>
         <commons-compress.version>1.28.0</commons-compress.version>
-        <org.owasp.encoder.version>1.4.1</org.owasp.encoder.version>
+        <org.owasp.encoder.version>1.5.0</org.owasp.encoder.version>
         <fastexcel.version>0.20.2</fastexcel.version>
         <testcontainers-bom.version>2.0.5</testcontainers-bom.version>
         <jackson-bom.version>3.2.3</jackson-bom.version>
