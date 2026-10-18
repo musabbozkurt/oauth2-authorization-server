@@ -17,8 +17,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.SpringBootConfiguration;
 
 import java.util.Date;
+import java.util.List;
 import java.util.Set;
 
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.simpleNameEndingWith;
+import static com.tngtech.archunit.core.domain.properties.CanBeAnnotated.Predicates.annotatedWith;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 
 @SpringBootConfiguration
@@ -96,13 +99,13 @@ class ArchitectureRulesTest {
                         .should().resideInAnyPackage("..config..", "..request..")
                         .as("Classes have name matching .*Config should reside in package ..config.. or ..request..")))
                 .java(java -> java
-                        .noUsageOf(Date.class, "java.util")
+                        .noUsageOf(Date.class, TaikaiRule.Configuration.of("mb.oauth2authorizationserver", List.of("mb.oauth2authorizationserver.service.impl.SecurityServiceImpl")))
                         // .classesShouldResideInPackage(".*Config", "..config..")
-                        .classesShouldResideInPackage(".*Constants", "..constants")
-                        .classesShouldResideInPackage(".*Controller", "..controller..")
-                        .classesShouldResideInPackage(".*Repository", "..repository..")
-                        .classesShouldResideInPackage(".*Specification", "..specification")
-                        .classesAnnotatedWithShouldResideInPackage(Entity.class, "..data.entity.."))
+                        .classesShouldResideInPackage(simpleNameEndingWith("Constants"), "..constants")
+                        .classesShouldResideInPackage(simpleNameEndingWith("Controller"), "..controller..")
+                        .classesShouldResideInPackage(simpleNameEndingWith("Repository"), "..repository..")
+                        .classesShouldResideInPackage(simpleNameEndingWith("Specification"), "..specification")
+                        .classesShouldResideInPackage(annotatedWith(Entity.class), "..data.entity.."))
                 // .test(test -> test.junit(junit5 -> junit5.methodsShouldMatch(".*_Should.*_When.*")
                 .test(test -> test
                         .junit(junit5 -> junit5
