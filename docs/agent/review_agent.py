@@ -171,18 +171,18 @@ def parse_json(text):
     return None
 
 
-def build_llm(openai_key):
-    """Return the OpenAI model if a key is set, otherwise the local Ollama model; both in JSON mode."""
+def build_llm(openai_key, json_mode=True):
+    """Return the OpenAI model if a key is set, otherwise the local Ollama model; JSON mode for reviews, plain text otherwise."""
     if openai_key:
         print("Using OpenAI.")
         llm = ChatOpenAI(model=os.getenv("OPENAI_MODEL", "gpt-4o"), temperature=0.2, api_key=openai_key, timeout=120)
-        return llm.bind(response_format={"type": "json_object"})
+        return llm.bind(response_format={"type": "json_object"}) if json_mode else llm
     model = os.getenv("OLLAMA_MODEL", "qwen2.5-coder:3b")
     host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
     print(f"OPENAI_API_KEY not set; using Ollama model {model} at {host}.", flush=True)
     requests.get(f"{host}/api/tags", timeout=10).raise_for_status()  # fail fast if the server is down
-    return ChatOllama(model=model, temperature=0.2, num_ctx=8192, num_predict=1536, format=REVIEW_SCHEMA, base_url=host,
-                      client_kwargs={"timeout": 240})
+    return ChatOllama(model=model, temperature=0.2, num_ctx=8192, num_predict=1536 if json_mode else 100,
+                      format=REVIEW_SCHEMA if json_mode else None, base_url=host, client_kwargs={"timeout": 240})
 
 
 def snap_line(files, path, line, code):
@@ -364,6 +364,62 @@ def post_review(pr, api_headers, summary, inline):
     print("Posted fallback PR comment.")
 
 
+GRAPHQL_URL = "https://api.github.com/graphql"
+BOT_LOGINS = ("github-actions", "github-actions[bot]")
+THREADS_QUERY = """query($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) { pullRequest(number: $number) { reviewThreads(first: 100) { nodes {
+    id isResolved isOutdated
+    comments(first: 1) { nodes { body author { login } } }
+  } } } }
+}"""
+REPLY_MUTATION = """mutation($id: ID!, $body: String!) {
+  addPullRequestReviewThreadReply(input: {pullRequestReviewThreadId: $id, body: $body}) { comment { id } }
+}"""
+RESOLVE_MUTATION = "mutation($id: ID!) { resolveReviewThread(input: {threadId: $id}) { thread { id } } }"
+RESOLVE_PROMPT = ("The code a review comment pointed at was changed or removed. In ONE short sentence (max 20 words) "
+                  "say the comment no longer applies because that code changed, naming its topic. No preamble.")
+
+
+def graphql(headers, query, variables):
+    """Run a GitHub GraphQL request and return its data; raise on HTTP or GraphQL errors."""
+    response = requests.post(GRAPHQL_URL, headers=headers, json={"query": query, "variables": variables}, timeout=60)
+    response.raise_for_status()
+    body = response.json()
+    if body.get("errors"):
+        raise RuntimeError(body["errors"])
+    return body["data"]
+
+
+def is_stale_bot_thread(thread):
+    """True for open threads started by this bot whose code has since changed (GitHub marks them outdated)."""
+    comments = thread["comments"]["nodes"]
+    author = (comments[0]["author"] or {}).get("login") if comments else None
+    return thread["isOutdated"] and not thread["isResolved"] and author in BOT_LOGINS
+
+
+def resolve_stale_threads(pr, headers, llm):
+    """Reply to and resolve this bot's outdated review threads with a one-line model-written note."""
+    base = pr["base"]["repo"]
+    try:
+        data = graphql(headers, THREADS_QUERY,
+                       {"owner": base["owner"]["login"], "name": base["name"], "number": pr["number"]})
+        threads = [t for t in data["repository"]["pullRequest"]["reviewThreads"]["nodes"] if is_stale_bot_thread(t)]
+    except (requests.RequestException, RuntimeError, KeyError) as e:
+        print(f"Could not list review threads: {e}")
+        return
+    chain = ChatPromptTemplate.from_messages(
+        [("system", RESOLVE_PROMPT), ("user", "{comment}")]) | llm | StrOutputParser()
+    for thread in threads:
+        try:
+            note = chain.invoke({"comment": thread["comments"]["nodes"][0]["body"][:1000]}).strip().splitlines()
+            reason = note[0][:200] if note else "The code this comment referred to has changed."
+            graphql(headers, REPLY_MUTATION, {"id": thread["id"], "body": f"✅ Resolved: {reason}"})
+            graphql(headers, RESOLVE_MUTATION, {"id": thread["id"]})
+        except Exception as e:  # one failing thread must not stop the others
+            print(f"Could not resolve thread {thread['id']}: {e}")
+    print(f"Processed {len(threads)} stale thread(s).")
+
+
 def load_pull_request(token):
     """Return the pull_request payload from the Actions event file, or None if unavailable."""
     event_path = os.getenv("GITHUB_EVENT_PATH")
@@ -386,6 +442,7 @@ def main():
         return
 
     api_headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+    resolve_stale_threads(pr, api_headers, build_llm(openai_key, json_mode=False))
     diff_response = requests.get(pr["url"], headers={**api_headers, "Accept": "application/vnd.github.v3.diff"},
                                  timeout=60)
     diff_response.raise_for_status()

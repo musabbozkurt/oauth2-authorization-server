@@ -4,7 +4,9 @@
          name="sonar-like"
          xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
          xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
-    <description>Java, Spring Boot, SOLID and layered-architecture rules approximating common SonarQube findings
+    <description>
+        Programming Mistake Detector(PMD) - Java, Spring Boot, SOLID and layered-architecture rules approximating common
+        SonarQube findings
     </description>
 
     <!-- Standard PMD rules -->

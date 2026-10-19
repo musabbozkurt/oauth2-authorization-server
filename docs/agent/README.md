@@ -14,7 +14,8 @@ flowchart TD
     D -- yes --> F[Use OpenAI]
     E --> G[review_agent.py]
     F --> G
-    G --> H[Fetch PR diff and keep only added lines]
+    G --> R[Resolve stale bot threads<br/>one-line LLM reply, then resolve]
+    R --> H[Fetch PR diff and keep only added lines]
     H --> I[PMD / SpotBugs / Gitleaks findings on changed lines]
     H --> J[LLM review per chunk<br/>tagged high / medium / low]
     H --> K[Sonar issues, optional<br/>tagged Sonar]
@@ -51,6 +52,12 @@ flowchart TD
 | `OPENAI_MODEL`                                         | `gpt-4o`           |                                           |
 | `OLLAMA_MODEL`                                         | `qwen2.5-coder:3b` | Use `qwen2.5-coder:3b` for better quality |
 | `SONAR_TOKEN` / `SONAR_PROJECT_KEY` / `SONAR_HOST_URL` | not set            | Optional Sonar issues                     |
+
+## Stale comments
+
+On every run the agent finds its own review threads that GitHub marks **outdated** (the commented code changed or was
+removed). It replies with a one-sentence note written by the LLM (`✅ Resolved: ...`) and resolves the thread. At most 30
+threads are handled per run. Threads whose code did not change stay open.
 
 ## Limits
 
