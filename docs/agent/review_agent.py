@@ -172,7 +172,7 @@ def parse_json(text):
     return None
 
 
-def build_llm(openai_key, json_mode=True):
+def build_llm(openai_key, json_mode=True, schema=None):
     """Return the OpenAI model if a key is set, otherwise the local Ollama model; JSON mode for reviews, plain text otherwise."""
     if openai_key:
         print("Using OpenAI.")
@@ -183,7 +183,8 @@ def build_llm(openai_key, json_mode=True):
     print(f"OPENAI_API_KEY not set; using Ollama model {model} at {host}.", flush=True)
     requests.get(f"{host}/api/tags", timeout=10).raise_for_status()  # fail fast if the server is down
     return ChatOllama(model=model, temperature=0.2, num_ctx=8192, num_predict=700 if json_mode else 60,
-                      format=REVIEW_SCHEMA if json_mode else None, base_url=host, client_kwargs={"timeout": 120})
+                      format=(schema or REVIEW_SCHEMA) if json_mode else None, base_url=host,
+                      client_kwargs={"timeout": 120})
 
 
 def snap_line(files, path, line, code):
@@ -372,7 +373,7 @@ GRAPHQL_URL = "https://api.github.com/graphql"
 BOT_LOGINS = ("github-actions", "github-actions[bot]")
 THREADS_QUERY = """query($owner: String!, $name: String!, $number: Int!) {
   repository(owner: $owner, name: $name) { pullRequest(number: $number) { reviewThreads(first: 100) { nodes {
-    id isResolved isOutdated
+    id isResolved isOutdated path line originalLine
     comments(first: 1) { nodes { body author { login } } }
   } } } }
 }"""
@@ -402,16 +403,37 @@ def is_stale_bot_thread(thread):
     return thread["isOutdated"] and not thread["isResolved"] and author in BOT_LOGINS
 
 
-def resolve_stale_threads(pr, headers, resolve_headers, llm, notes_deadline):
-    """Resolve this bot's outdated review threads and add a one-line model-written note to each.
+def rule_ids(body):
+    """Rule names such as (`CloseResource`) quoted in a bot comment body."""
+    return set(re.findall(r"\(`(\w+)`\)", body))
+
+
+def still_reported(thread, current):
+    """True if a comment in the fresh review repeats this thread's finding near the same place (the fix did not work)."""
+    old = thread["comments"]["nodes"][0]["body"]
+    near = thread.get("originalLine") or 0
+    return any(c["path"] == thread["path"] and abs(c["line"] - near) <= 10
+               and (c["body"] == old or rule_ids(old) & rule_ids(c["body"])) for c in current)
+
+
+def fetch_bot_threads(pr, headers):
+    """Return all review threads of the PR (raises on failure)."""
+    base = pr["base"]["repo"]
+    data = graphql(headers, THREADS_QUERY,
+                   {"owner": base["owner"]["login"], "name": base["name"], "number": pr["number"]})
+    return data["repository"]["pullRequest"]["reviewThreads"]["nodes"]
+
+
+def resolve_stale_threads(pr, headers, resolve_headers, llm, notes_deadline, current):
+    """Resolve this bot's outdated threads whose finding is gone and add a one-line model-written note to each.
+
+    Threads whose finding is still reported in `current` stay open: the fresh review already comments on the new code.
 
     Resolving needs a personal access token: the default GITHUB_TOKEN is not allowed to call resolveReviewThread.
     """
-    base = pr["base"]["repo"]
     try:
-        data = graphql(headers, THREADS_QUERY,
-                       {"owner": base["owner"]["login"], "name": base["name"], "number": pr["number"]})
-        threads = [t for t in data["repository"]["pullRequest"]["reviewThreads"]["nodes"] if is_stale_bot_thread(t)]
+        threads = [t for t in fetch_bot_threads(pr, headers) if
+                   is_stale_bot_thread(t) and not still_reported(t, current)]
     except (requests.RequestException, RuntimeError, KeyError) as e:
         print(f"Could not list review threads: {e}")
         return
@@ -460,8 +482,6 @@ def main():
     resolve_headers = {**api_headers, "Authorization": f"Bearer {os.getenv('RESOLVE_TOKEN') or token}"}
     started = time.monotonic()
     budget = float(os.getenv("REVIEW_TIME_BUDGET", "150"))  # seconds the model may work in total
-    resolve_stale_threads(pr, api_headers, resolve_headers, build_llm(openai_key, json_mode=False),
-                          started + budget * 0.25)
     diff_response = requests.get(pr["url"], headers={**api_headers, "Accept": "application/vnd.github.v3.diff"},
                                  timeout=60)
     diff_response.raise_for_status()
@@ -482,11 +502,12 @@ def main():
     summaries, ai_inline, unplaced, not_reviewed = review_chunks(chain, chunks, files, seen, started + budget)
     skipped += not_reviewed
     inline += ai_inline
-    if not inline and not unplaced:
+    if inline or unplaced:
+        post_review(pr, api_headers, build_summary(summaries, unplaced, skipped), inline)
+    else:
         print("No issues found by the AI reviewer; not posting a review.")
-        return
-
-    post_review(pr, api_headers, build_summary(summaries, unplaced, skipped), inline)
+    resolve_stale_threads(pr, api_headers, resolve_headers, build_llm(openai_key, json_mode=False),
+                          time.monotonic() + budget * 0.25, inline)
 
 
 if __name__ == "__main__":

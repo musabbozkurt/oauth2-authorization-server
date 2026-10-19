@@ -13,7 +13,7 @@ jobs:
     # Fork PRs and Dependabot PRs don't get access to repository secrets
     if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 14
     permissions:
       pull-requests: write # Essential permission allowing the script to comment on your PRs
       contents: read
@@ -23,8 +23,20 @@ jobs:
       OLLAMA_MODEL: qwen2.5-coder:3b
       OLLAMA_MODELS: ${{ github.workspace }}/.ollama-models # cached between runs
     steps:
-      - name: Check out repo code
+      - name: Create GitHub App token
+        id: app-token
+        continue-on-error: true # the agent falls back to GITHUB_TOKEN (cannot resolve threads)
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Check out PR branch
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.ref }} # the fix agent pushes to this branch
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token || github.token }} # app pushes re-trigger this workflow
 
       - name: Set up Python environment
         uses: actions/setup-python@v7
@@ -98,14 +110,6 @@ jobs:
           FINDSECBUGS_VERSION: 1.14.0
           GITLEAKS_VERSION: 8.30.1
 
-      - name: Create GitHub App token
-        id: app-token
-        continue-on-error: true # the agent falls back to GITHUB_TOKEN (cannot resolve threads)
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ vars.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-
       - name: Run LangChain Agent
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Generated automatically by GitHub
@@ -119,6 +123,17 @@ jobs:
           SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }} # Optional, defaults to https://sonarcloud.io
         timeout-minutes: 6
         run: python -u docs/agent/review_agent.py
+
+      # Fixes open comments, pushes an "ai-fix:" commit; the push re-runs this workflow, which re-checks the fixes
+      # (fixed -> thread resolved, still present -> thread kept and a new comment added). Max 2 rounds per PR.
+      - name: Fix review comments
+        if: steps.app-token.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_MODEL: gpt-4o
+        run: python -u docs/agent/review_fix_agent.py
 
 # Step 3: Add Your Secret Key
 # 1. Go to your target repository on GitHub.com.
