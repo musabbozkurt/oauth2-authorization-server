@@ -8,14 +8,14 @@ Reviews every pull request and posts **inline comments on the changed lines**.
 flowchart TD
     A[PR opened / updated] --> B{Fork or Dependabot PR?}
     B -- yes --> Z[Skip: no secrets available]
-    B -- no --> C[Run PMD static analysis<br/>pmd-ruleset.xml]
+    B -- no --> C[Run PMD + SpotBugs/FindSecBugs + Gitleaks]
     C --> D{OPENAI_API_KEY set?}
     D -- no --> E[Install Ollama + pull model]
     D -- yes --> F[Use OpenAI]
     E --> G[review_agent.py]
     F --> G
     G --> H[Fetch PR diff and keep only added lines]
-    H --> I[PMD findings on changed lines<br/>tagged Static analysis]
+    H --> I[PMD / SpotBugs / Gitleaks findings on changed lines]
     H --> J[LLM review per chunk<br/>tagged high / medium / low]
     H --> K[Sonar issues, optional<br/>tagged Sonar]
     I --> L[Merge and de-duplicate]
@@ -27,11 +27,13 @@ flowchart TD
 
 ## Where a comment comes from
 
-| Comment starts with                       | Source                                                                      |
-|-------------------------------------------|-----------------------------------------------------------------------------|
-| `**[Static analysis]**`                   | PMD rules in `pmd-ruleset.xml` (fixed, rule-based)                          |
-| `**[high]**`, `**[medium]**`, `**[low]**` | LLM (Ollama or OpenAI): design, SOLID, security, bugs                       |
-| `**[Sonar ...]**`                         | SonarCloud/SonarQube, only if `SONAR_TOKEN` and `SONAR_PROJECT_KEY` are set |
+| Comment starts with                       | Source                                                                                  |
+|-------------------------------------------|-----------------------------------------------------------------------------------------|
+| `**[Static analysis]**`                   | PMD rules in `pmd-ruleset.xml` (fixed, rule-based)                                      |
+| `**[Security/bug analysis]**`             | SpotBugs + FindSecBugs on compiled code (SQL injection, path traversal, resource leaks) |
+| `**[Secret scan]**`                       | Gitleaks (secret values are redacted)                                                   |
+| `**[high]**`, `**[medium]**`, `**[low]**` | LLM (Ollama or OpenAI): design, SOLID, security, bugs                                   |
+| `**[Sonar ...]**`                         | SonarCloud/SonarQube, only if `SONAR_TOKEN` and `SONAR_PROJECT_KEY` are set             |
 
 ## Files
 
@@ -43,12 +45,12 @@ flowchart TD
 
 ## Configuration
 
-| Setting                                                | Default              | Notes                                     |
-|--------------------------------------------------------|----------------------|-------------------------------------------|
-| `OPENAI_API_KEY` (secret)                              | not set              | If set, OpenAI is used; otherwise Ollama  |
-| `OPENAI_MODEL`                                         | `gpt-4o`             |                                           |
-| `OLLAMA_MODEL`                                         | `qwen2.5-coder:1.5b` | Use `qwen2.5-coder:3b` for better quality |
-| `SONAR_TOKEN` / `SONAR_PROJECT_KEY` / `SONAR_HOST_URL` | not set              | Optional Sonar issues                     |
+| Setting                                                | Default            | Notes                                     |
+|--------------------------------------------------------|--------------------|-------------------------------------------|
+| `OPENAI_API_KEY` (secret)                              | not set            | If set, OpenAI is used; otherwise Ollama  |
+| `OPENAI_MODEL`                                         | `gpt-4o`           |                                           |
+| `OLLAMA_MODEL`                                         | `qwen2.5-coder:3b` | Use `qwen2.5-coder:3b` for better quality |
+| `SONAR_TOKEN` / `SONAR_PROJECT_KEY` / `SONAR_HOST_URL` | not set            | Optional Sonar issues                     |
 
 ## Limits
 

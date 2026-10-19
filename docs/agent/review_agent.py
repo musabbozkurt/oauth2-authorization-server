@@ -3,6 +3,7 @@ import os
 import re
 import requests
 import sys
+import xml.etree.ElementTree as ET
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama import ChatOllama
@@ -44,7 +45,7 @@ include a short corrected code snippet when helpful.
 
 Respond with ONLY a JSON object, no markdown fences, in this exact shape:
 {{"summary": "1-3 sentence overall assessment of this part of the diff",
-  "comments": [{{"path": "path/in/repo.java", "line": 42, "severity": "high|medium|low", "body": "markdown comment"}}]}}"""
+  "comments": [{{"path": "path/in/repo.java", "line": 42, "code": "exact added line copied without the L<n>: + prefix", "severity": "high|medium|low", "body": "markdown comment"}}]}}"""
 
 # Files not worth reviewing: lockfiles, binaries, docs
 # Short prompt for small local models, which struggle with the long one
@@ -60,7 +61,7 @@ Look for real problems in these areas:
 
 Each comment needs: the problem, why it matters, and a concrete fix. If you see problems you MUST report them; \
 return an empty comments list only when the code is truly clean.
-Reply as JSON: summary (string) and comments (list of path, line, severity high|medium|low, body)."""
+Reply as JSON: summary (string) and comments (list of path, line, code, severity high|medium|low, body). `code` is the exact added line you are commenting on, copied without the L<n>: +  prefix."""
 
 # JSON schema enforced on Ollama so small models always return a parseable structure
 REVIEW_SCHEMA = {
@@ -72,10 +73,11 @@ REVIEW_SCHEMA = {
             "properties": {
                 "path": {"type": "string"},
                 "line": {"type": "integer"},
+                "code": {"type": "string"},
                 "severity": {"type": "string", "enum": ["high", "medium", "low"]},
                 "body": {"type": "string"},
             },
-            "required": ["path", "line", "severity", "body"],
+            "required": ["path", "line", "code", "severity", "body"],
         }},
     },
     "required": ["summary", "comments"],
@@ -100,7 +102,7 @@ def annotate_line(raw, new_line):
 
 def annotate_block(block):
     """Return (annotated_lines, added_line_numbers) for one file's diff block."""
-    out, added, new_line, in_hunk = [], set(), 0, False
+    out, added, new_line, in_hunk = [], {}, 0, False
     for raw in block.splitlines():
         hunk = HUNK.match(raw)
         if hunk:
@@ -113,7 +115,7 @@ def annotate_block(block):
         if text is not None:
             out.append(text)
         if is_added:
-            added.add(new_line)
+            added[new_line] = raw[1:].strip()
         new_line += step
     return out, added
 
@@ -175,12 +177,18 @@ def build_llm(openai_key):
         print("Using OpenAI.")
         llm = ChatOpenAI(model=os.getenv("OPENAI_MODEL", "gpt-4o"), temperature=0.2, api_key=openai_key, timeout=120)
         return llm.bind(response_format={"type": "json_object"})
-    model = os.getenv("OLLAMA_MODEL", "qwen2.5-coder:1.5b")
+    model = os.getenv("OLLAMA_MODEL", "qwen2.5-coder:3b")
     host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
     print(f"OPENAI_API_KEY not set; using Ollama model {model} at {host}.", flush=True)
     requests.get(f"{host}/api/tags", timeout=10).raise_for_status()  # fail fast if the server is down
     return ChatOllama(model=model, temperature=0.2, num_ctx=8192, num_predict=1536, format=REVIEW_SCHEMA, base_url=host,
                       client_kwargs={"timeout": 240})
+
+
+def snap_line(files, path, line, code):
+    """Models often miscount lines: if the quoted code matches an added line, use the nearest such line."""
+    matches = [n for n, text in files.get(path, ("", {}))[1].items() if code and text == code]
+    return min(matches, key=lambda n: abs(n - line)) if matches else line
 
 
 def to_comment(c, files):
@@ -191,6 +199,7 @@ def to_comment(c, files):
         return None
     if not body:
         return None
+    line = snap_line(files, path, line, str(c.get("code", "")).strip())
     sev = str(c.get("severity", "")).lower()
     key = (path, line, body)
     if sev in ("high", "medium", "low"):
@@ -265,27 +274,66 @@ def fetch_sonar_comments(pr, files, seen):
     return comments
 
 
+def report_path(env_name):
+    """Return the report file path from the environment variable if the file exists, else None."""
+    path = os.getenv(env_name)
+    return path if path and os.path.exists(path) else None
+
+
+def line_comments(findings, files, seen, label):
+    """Turn (path, line, message, rule) findings on changed lines into one inline comment per line."""
+    by_line = {}
+    for path, line, message, rule in findings:
+        if path in files and line in files[path][1]:
+            by_line.setdefault((path, line), {})[message] = rule
+    comments = []
+    for (path, line), messages in by_line.items():
+        body = f"**[{label}]**\n" + "\n".join(f"- {m} (`{r}`)" for m, r in messages.items())
+        seen.add((path, line, body))
+        comments.append({"path": path, "line": line, "side": "RIGHT", "body": body})
+    print(f"Added {len(comments)} {label} comment(s).")
+    return comments
+
+
 def load_pmd_comments(files, seen):
-    """Return one inline comment per changed line with PMD (Sonar-like) violations; empty if no report exists."""
-    report = os.getenv("PMD_REPORT")
-    if not report or not os.path.exists(report):
+    """Return inline comments for PMD (Sonar-like) violations on changed lines."""
+    report = report_path("PMD_REPORT")
+    if not report:
         return []
     with open(report, "r") as f:
         data = json.load(f)
-    by_line = {}
-    for file_report in data.get("files", []):
-        path = os.path.relpath(file_report["filename"]).replace(os.sep, "/")
-        for v in file_report.get("violations", []):
-            line, message = v["beginline"], v["description"]
-            if path in files and line in files[path][1]:
-                by_line.setdefault((path, line), {})[message] = v["rule"]
-    comments = []
-    for (path, line), messages in by_line.items():
-        body = "**[Static analysis]**\n" + "\n".join(f"- {m} (`{r}`)" for m, r in messages.items())
-        seen.add((path, line, body))
-        comments.append({"path": path, "line": line, "side": "RIGHT", "body": body})
-    print(f"Added {len(comments)} static analysis comment(s).")
-    return comments
+    findings = [(os.path.relpath(fr["filename"]).replace(os.sep, "/"), v["beginline"], v["description"], v["rule"])
+                for fr in data.get("files", []) for v in fr.get("violations", [])]
+    return line_comments(findings, files, seen, "Static analysis")
+
+
+def load_spotbugs_comments(files, seen):
+    """Return inline comments for SpotBugs/FindSecBugs findings (bytecode and security analysis)."""
+    report = report_path("SPOTBUGS_REPORT")
+    if not report:
+        return []
+    findings = []
+    for bug in ET.parse(report).getroot().findall("BugInstance"):
+        source = bug.find(".//SourceLine[@primary='true']")
+        if source is None or bug.get("type") == "SPRING_ENDPOINT" or int(bug.get("priority", 3)) > 2:
+            continue
+        path = next((p for p in files if p.endswith("/" + source.get("sourcepath"))), None)
+        if path and source.get("start"):
+            findings.append((path, int(source.get("start")), bug.findtext("LongMessage"), bug.get("type")))
+    return line_comments(findings, files, seen, "Security/bug analysis")
+
+
+def load_gitleaks_comments(files, seen):
+    """Return inline comments for secrets detected by Gitleaks (secret values are redacted)."""
+    report = report_path("GITLEAKS_REPORT")
+    if not report:
+        return []
+    with open(report, "r") as f:
+        leaks = json.load(f) or []
+    findings = [(os.path.relpath(x["File"]).replace(os.sep, "/"), x["StartLine"],
+                 f"Possible secret committed: {x['Description']}. Remove it, rotate it and load it from a secret store",
+                 x["RuleID"]) for x in leaks]
+    return line_comments(findings, files, seen, "Secret scan")
 
 
 def build_summary(summaries, unplaced, skipped):
@@ -353,7 +401,8 @@ def main():
     ]) | build_llm(openai_key) | StrOutputParser()
 
     seen = set()
-    inline = load_pmd_comments(files, seen) + fetch_sonar_comments(pr, files, seen)
+    inline = (load_gitleaks_comments(files, seen) + load_spotbugs_comments(files, seen)
+              + load_pmd_comments(files, seen) + fetch_sonar_comments(pr, files, seen))
     summaries, ai_inline, unplaced = review_chunks(chain, chunks, files, seen)
     inline += ai_inline
     if not inline and not unplaced:
