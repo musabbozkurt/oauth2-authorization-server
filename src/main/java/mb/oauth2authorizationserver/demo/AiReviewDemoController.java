@@ -1,6 +1,5 @@
 package mb.oauth2authorizationserver.demo;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -29,9 +28,8 @@ public class AiReviewDemoController {
     private static final String DB_PASSWORD = "admin123";
     private static final String CLIENT_SECRET = "super-secret-client-secret";
 
-    // field injection + concrete dependency + shared mutable state (thread safety)
-    @Autowired
-    private RestTemplate restTemplate;
+    // hard-wired concrete dependency (DIP violation) + shared mutable state (thread safety)
+    private final RestTemplate restTemplate = new RestTemplate();
     private final Map<String, Object> cache = new HashMap<>();
     private int requestCounter = 0;
 
