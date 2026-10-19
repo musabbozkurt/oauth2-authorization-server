@@ -45,7 +45,8 @@ def fixable_threads(pr, headers):
         if (author in BOT_LOGINS and not t["isResolved"] and not t["isOutdated"] and t.get("line")
                 and t["path"].endswith(".java") and not any(topic in body for topic in SKIP_TOPICS)):
             threads.append((t["path"], t["line"], body))
-    return threads[:MAX_FIXES]
+    unique = {(path, line): (path, line, body) for path, line, body in threads}  # one try per line
+    return list(unique.values())[:MAX_FIXES]
 
 
 def propose_line(chain, lines, line, body):

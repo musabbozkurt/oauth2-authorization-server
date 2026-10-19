@@ -312,6 +312,10 @@ def load_pmd_comments(files, seen):
     return line_comments(findings, files, seen, "Static analysis")
 
 
+# Constructor-injected Spring beans and endpoints are expected, not exposure bugs
+NOISY_BUG_TYPES = ("SPRING_ENDPOINT", "EI_EXPOSE_REP", "EI_EXPOSE_REP2")
+
+
 def load_spotbugs_comments(files, seen):
     """Return inline comments for SpotBugs/FindSecBugs findings (bytecode and security analysis)."""
     report = report_path("SPOTBUGS_REPORT")
@@ -320,7 +324,7 @@ def load_spotbugs_comments(files, seen):
     findings = []
     for bug in ET.parse(report).getroot().findall("BugInstance"):
         source = bug.find(".//SourceLine[@primary='true']")
-        if source is None or bug.get("type") == "SPRING_ENDPOINT" or int(bug.get("priority", 3)) > 2:
+        if source is None or bug.get("type") in NOISY_BUG_TYPES or int(bug.get("priority", 3)) > 2:
             continue
         path = next((p for p in files if p.endswith("/" + source.get("sourcepath"))), None)
         if path and source.get("start"):
