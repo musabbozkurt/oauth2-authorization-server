@@ -1,0 +1,45 @@
+name: AI Pull Request Reviewer
+
+on:
+  pull_request:
+    types: [ opened, synchronize ] # Fires when a PR is created or new code is pushed
+
+concurrency:
+  group: ai-pr-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # Fork PRs and Dependabot PRs don't get access to repository secrets
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pull-requests: write # Essential permission allowing the script to comment on your PRs
+      contents: read
+
+    steps:
+      - name: Check out repo code
+        uses: actions/checkout@v7
+
+      - name: Set up Python environment
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.15'
+
+      - name: Install dependencies
+        run: |
+          pip install langchain-core langchain-openai requests
+
+      - name: Run LangChain Agent
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Generated automatically by GitHub
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }} # Set by you in Repo Secrets
+        run: python docs/agent/review_agent.py
+
+# Step 3: Add Your Secret Key
+# 1. Go to your target repository on GitHub.com.
+# 2. Navigate to Settings -> Secrets and variables -> Actions.
+# 3. Click New repository secret.
+# 4. Name it OPENAI_API_KEY and paste your actual API key as the value.
+# (Note: You do not need to generate a GITHUB_TOKEN, GitHub creates and rotates that secret automatically for security during the run)
