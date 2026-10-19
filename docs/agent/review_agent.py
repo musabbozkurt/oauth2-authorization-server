@@ -47,6 +47,40 @@ Respond with ONLY a JSON object, no markdown fences, in this exact shape:
   "comments": [{{"path": "path/in/repo.java", "line": 42, "severity": "high|medium|low", "body": "markdown comment"}}]}}"""
 
 # Files not worth reviewing: lockfiles, binaries, docs
+# Short prompt for small local models, which struggle with the long one
+SMALL_PROMPT = """You are a strict senior Java/Spring Boot code reviewer. Review the diff below.
+Lines look like `L<number>: +code` (added) or `-code` (removed). Comment ONLY on added lines and use their exact path and line number.
+
+Look for real problems in these areas:
+- SOLID, KISS, DRY violations (god classes/methods, long if/else chains, duplicated code, magic numbers)
+- Design patterns that should be used (Strategy, Factory, Builder) and layered-architecture violations \
+(business logic or JDBC/repositories in controllers, entities returned from APIs, field injection)
+- Security (SQL injection, hardcoded secrets, path traversal, missing validation/authorization, logging secrets)
+- Bugs and performance (resource leaks, swallowed exceptions, N+1 calls, shared mutable state, unbounded caches)
+
+Each comment needs: the problem, why it matters, and a concrete fix. If you see problems you MUST report them; \
+return an empty comments list only when the code is truly clean.
+Reply as JSON: summary (string) and comments (list of path, line, severity high|medium|low, body)."""
+
+# JSON schema enforced on Ollama so small models always return a parseable structure
+REVIEW_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "summary": {"type": "string"},
+        "comments": {"type": "array", "items": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "line": {"type": "integer"},
+                "severity": {"type": "string", "enum": ["high", "medium", "low"]},
+                "body": {"type": "string"},
+            },
+            "required": ["path", "line", "severity", "body"],
+        }},
+    },
+    "required": ["summary", "comments"],
+}
+
 SKIP_FILE = re.compile(
     r"(\.lock$|package-lock\.json$|\.(png|jpe?g|gif|svg|ico|jar|class|pdf|zip)$|(^|/)docs/|\.md$)")
 # Hunk header; group 1 is the start line in the new file
@@ -145,7 +179,7 @@ def build_llm(openai_key):
     host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
     print(f"OPENAI_API_KEY not set; using Ollama model {model} at {host}.", flush=True)
     requests.get(f"{host}/api/tags", timeout=10).raise_for_status()  # fail fast if the server is down
-    return ChatOllama(model=model, temperature=0.2, num_ctx=8192, num_predict=1024, format="json", base_url=host,
+    return ChatOllama(model=model, temperature=0.2, num_ctx=8192, num_predict=1536, format=REVIEW_SCHEMA, base_url=host,
                       client_kwargs={"timeout": 240})
 
 
@@ -192,6 +226,7 @@ def review_chunks(chain, chunks, files, seen):
             print(f"Chunk {index} failed: {e}")
             continue
         data = parse_json(output)
+        print(f"Chunk {index} raw output: {str(output)[:300]!r}", flush=True)
         if not isinstance(data, dict):
             print("Model returned unparseable output for a chunk; skipping it.")
             continue
@@ -231,23 +266,24 @@ def fetch_sonar_comments(pr, files, seen):
 
 
 def load_pmd_comments(files, seen):
-    """Return inline comments for PMD (Sonar-like) violations on changed lines; empty if no report is available."""
+    """Return one inline comment per changed line with PMD (Sonar-like) violations; empty if no report exists."""
     report = os.getenv("PMD_REPORT")
     if not report or not os.path.exists(report):
         return []
     with open(report, "r") as f:
         data = json.load(f)
-    comments = []
+    by_line = {}
     for file_report in data.get("files", []):
         path = os.path.relpath(file_report["filename"]).replace(os.sep, "/")
         for v in file_report.get("violations", []):
             line, message = v["beginline"], v["description"]
-            key = (path, line, message)
-            if path not in files or line not in files[path][1] or key in seen:
-                continue
-            seen.add(key)
-            body = f"**[Static analysis]** {message} (`{v['rule']}`, [details]({v.get('externalInfoUrl', '')}))"
-            comments.append({"path": path, "line": line, "side": "RIGHT", "body": body})
+            if path in files and line in files[path][1]:
+                by_line.setdefault((path, line), {})[message] = v["rule"]
+    comments = []
+    for (path, line), messages in by_line.items():
+        body = "**[Static analysis]**\n" + "\n".join(f"- {m} (`{r}`)" for m, r in messages.items())
+        seen.add((path, line, body))
+        comments.append({"path": path, "line": line, "side": "RIGHT", "body": body})
     print(f"Added {len(comments)} static analysis comment(s).")
     return comments
 
@@ -312,7 +348,7 @@ def main():
 
     chunks, skipped = chunk_files(files, 100_000 if openai_key else 6_000, 5 if openai_key else 3)
     chain = ChatPromptTemplate.from_messages([
-        ("system", SYSTEM_PROMPT),
+        ("system", SYSTEM_PROMPT if openai_key else SMALL_PROMPT),
         ("user", "Review this part of the PR diff:\n\n{diff}"),
     ]) | build_llm(openai_key) | StrOutputParser()
 
