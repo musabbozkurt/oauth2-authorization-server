@@ -3,6 +3,7 @@ import os
 import re
 import requests
 import sys
+import time
 import xml.etree.ElementTree as ET
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
@@ -181,8 +182,8 @@ def build_llm(openai_key, json_mode=True):
     host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
     print(f"OPENAI_API_KEY not set; using Ollama model {model} at {host}.", flush=True)
     requests.get(f"{host}/api/tags", timeout=10).raise_for_status()  # fail fast if the server is down
-    return ChatOllama(model=model, temperature=0.2, num_ctx=8192, num_predict=1536 if json_mode else 100,
-                      format=REVIEW_SCHEMA if json_mode else None, base_url=host, client_kwargs={"timeout": 240})
+    return ChatOllama(model=model, temperature=0.2, num_ctx=8192, num_predict=700 if json_mode else 60,
+                      format=REVIEW_SCHEMA if json_mode else None, base_url=host, client_kwargs={"timeout": 120})
 
 
 def snap_line(files, path, line, code):
@@ -224,10 +225,13 @@ def collect_comments(data, files, seen):
     return inline, unplaced
 
 
-def review_chunks(chain, chunks, files, seen):
-    """Run the model on each chunk; return (summaries, inline comments, unplaced notes)."""
+def review_chunks(chain, chunks, files, seen, deadline):
+    """Run the model on each chunk until the deadline; return (summaries, inline, unplaced, chunks not reviewed)."""
     summaries, inline, unplaced = [], [], []
     for index, chunk in enumerate(chunks, 1):
+        if time.monotonic() > deadline:
+            print("Time budget used up; remaining chunks are not reviewed by the model.")
+            return summaries, inline, unplaced, len(chunks) - index + 1
         print(f"Reviewing chunk {index}/{len(chunks)}...", flush=True)
         try:
             output = chain.invoke({"diff": "\n\n".join(chunk)})
@@ -244,7 +248,7 @@ def review_chunks(chain, chunks, files, seen):
         chunk_inline, chunk_unplaced = collect_comments(data, files, seen)
         inline += chunk_inline
         unplaced += chunk_unplaced
-    return summaries, inline, unplaced
+    return summaries, inline, unplaced, 0
 
 
 def fetch_sonar_comments(pr, files, seen):
@@ -340,7 +344,7 @@ def build_summary(summaries, unplaced, skipped):
     """Build the markdown review body from summaries, unplaced notes and the skipped-chunk count."""
     summary = "## 🤖 AI Code Review\n\n" + "\n\n".join(summaries)
     if skipped:
-        summary += f"\n\n_{skipped} diff chunk(s) were not reviewed due to size limits._"
+        summary += f"\n\n_{skipped} diff chunk(s) were not reviewed by the model due to size or time limits._"
     if unplaced:
         summary += "\n\n### Additional notes\n" + "\n".join(unplaced)
     return summary
@@ -376,6 +380,7 @@ REPLY_MUTATION = """mutation($id: ID!, $body: String!) {
   addPullRequestReviewThreadReply(input: {pullRequestReviewThreadId: $id, body: $body}) { comment { id } }
 }"""
 RESOLVE_MUTATION = "mutation($id: ID!) { resolveReviewThread(input: {threadId: $id}) { thread { id } } }"
+DEFAULT_REASON = "The code this comment referred to has changed, so it no longer applies."
 RESOLVE_PROMPT = ("The code a review comment pointed at was changed or removed. In ONE short sentence (max 20 words) "
                   "say the comment no longer applies because that code changed, naming its topic. No preamble.")
 
@@ -397,8 +402,11 @@ def is_stale_bot_thread(thread):
     return thread["isOutdated"] and not thread["isResolved"] and author in BOT_LOGINS
 
 
-def resolve_stale_threads(pr, headers, llm):
-    """Reply to and resolve this bot's outdated review threads with a one-line model-written note."""
+def resolve_stale_threads(pr, headers, resolve_headers, llm, notes_deadline):
+    """Resolve this bot's outdated review threads and add a one-line model-written note to each.
+
+    Resolving needs a personal access token: the default GITHUB_TOKEN is not allowed to call resolveReviewThread.
+    """
     base = pr["base"]["repo"]
     try:
         data = graphql(headers, THREADS_QUERY,
@@ -411,12 +419,19 @@ def resolve_stale_threads(pr, headers, llm):
         [("system", RESOLVE_PROMPT), ("user", "{comment}")]) | llm | StrOutputParser()
     for thread in threads:
         try:
-            note = chain.invoke({"comment": thread["comments"]["nodes"][0]["body"][:1000]}).strip().splitlines()
-            reason = note[0][:200] if note else "The code this comment referred to has changed."
+            graphql(resolve_headers, RESOLVE_MUTATION, {"id": thread["id"]})
+        except (requests.RequestException, RuntimeError) as e:
+            print(
+                f"Could not resolve threads (configure the APP_ID variable and APP_PRIVATE_KEY secret for an app with pull-requests write access): {e}")
+            return
+        try:
+            reason = DEFAULT_REASON
+            if time.monotonic() < notes_deadline:  # past the budget, use the generic note to stay fast
+                note = chain.invoke({"comment": thread["comments"]["nodes"][0]["body"][:1000]}).strip().splitlines()
+                reason = note[0][:200] if note else reason
             graphql(headers, REPLY_MUTATION, {"id": thread["id"], "body": f"✅ Resolved: {reason}"})
-            graphql(headers, RESOLVE_MUTATION, {"id": thread["id"]})
-        except Exception as e:  # one failing thread must not stop the others
-            print(f"Could not resolve thread {thread['id']}: {e}")
+        except Exception as e:  # the thread is already resolved; a missing note is not fatal
+            print(f"Could not add the note to thread {thread['id']}: {e}")
     print(f"Processed {len(threads)} stale thread(s).")
 
 
@@ -442,7 +457,11 @@ def main():
         return
 
     api_headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
-    resolve_stale_threads(pr, api_headers, build_llm(openai_key, json_mode=False))
+    resolve_headers = {**api_headers, "Authorization": f"Bearer {os.getenv('RESOLVE_TOKEN') or token}"}
+    started = time.monotonic()
+    budget = float(os.getenv("REVIEW_TIME_BUDGET", "150"))  # seconds the model may work in total
+    resolve_stale_threads(pr, api_headers, resolve_headers, build_llm(openai_key, json_mode=False),
+                          started + budget * 0.25)
     diff_response = requests.get(pr["url"], headers={**api_headers, "Accept": "application/vnd.github.v3.diff"},
                                  timeout=60)
     diff_response.raise_for_status()
@@ -451,7 +470,7 @@ def main():
         print("No reviewable changes found.")
         return
 
-    chunks, skipped = chunk_files(files, 100_000 if openai_key else 6_000, 5 if openai_key else 3)
+    chunks, skipped = chunk_files(files, 100_000 if openai_key else 5_000, 5 if openai_key else 2)
     chain = ChatPromptTemplate.from_messages([
         ("system", SYSTEM_PROMPT if openai_key else SMALL_PROMPT),
         ("user", "Review this part of the PR diff:\n\n{diff}"),
@@ -460,7 +479,8 @@ def main():
     seen = set()
     inline = (load_gitleaks_comments(files, seen) + load_spotbugs_comments(files, seen)
               + load_pmd_comments(files, seen) + fetch_sonar_comments(pr, files, seen))
-    summaries, ai_inline, unplaced = review_chunks(chain, chunks, files, seen)
+    summaries, ai_inline, unplaced, not_reviewed = review_chunks(chain, chunks, files, seen, started + budget)
+    skipped += not_reviewed
     inline += ai_inline
     if not inline and not unplaced:
         print("No issues found by the AI reviewer; not posting a review.")

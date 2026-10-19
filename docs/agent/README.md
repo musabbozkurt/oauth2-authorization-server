@@ -59,9 +59,18 @@ On every run the agent finds its own review threads that GitHub marks **outdated
 removed). It replies with a one-sentence note written by the LLM (`✅ Resolved: ...`) and resolves the thread. At most 30
 threads are handled per run. Threads whose code did not change stay open.
 
+**Setup:** GitHub does not let the default `GITHUB_TOKEN` resolve threads, so the workflow mints a short-lived GitHub
+App token (`actions/create-github-app-token`) from the variable `APP_ID` and the secret `APP_PRIVATE_KEY` (same as
+`dependency-update.yml`). The app needs **Pull requests: Read and write** and must be installed on this repo. Without it
+the agent logs a hint and leaves threads open.
+
 ## Limits
 
-- Large diffs are split by file into chunks. Ollama reviews at most 3 chunks of about 6k characters, OpenAI at most 5
+- Large diffs are split by file into chunks. Ollama reviews at most 2 chunks of about 5k characters, OpenAI at most 5
+  chunks of about 100k characters.
+- Speed: the tools and the Ollama setup run in parallel, and the model gets a time budget (`REVIEW_TIME_BUDGET`, default
+  150 s). Chunks left after the budget are not reviewed by the model and the review says so. Stale-thread notes use the
+  generic text once a quarter of the budget is spent. The whole job is capped at 12 minutes.
   chunks of about 100k characters.
 - Lockfiles, binaries, `docs/` and `*.md` files are ignored.
 - CPU-only Ollama on GitHub runners is slow, and small models give shallower reviews.

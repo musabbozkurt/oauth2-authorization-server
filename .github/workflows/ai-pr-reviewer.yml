@@ -13,7 +13,7 @@ jobs:
     # Fork PRs and Dependabot PRs don't get access to repository secrets
     if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 12
     permissions:
       pull-requests: write # Essential permission allowing the script to comment on your PRs
       contents: read
@@ -35,47 +35,12 @@ jobs:
         run: |
           pip install langchain-core langchain-ollama langchain-openai requests
 
-      - name: Run PMD static analysis (free, Sonar-like rules)
-        continue-on-error: true
-        run: |
-          curl -fsSL -o pmd.zip "https://github.com/pmd/pmd/releases/download/pmd_releases/${PMD_VERSION}/pmd-dist-${PMD_VERSION}-bin.zip"
-          unzip -q pmd.zip -d "$RUNNER_TEMP"
-          "$RUNNER_TEMP/pmd-bin-${PMD_VERSION}/bin/pmd" check -d src -R docs/agent/pmd-ruleset.xml \
-            -f json -r "$RUNNER_TEMP/pmd-report.json" --no-cache --no-progress --no-fail-on-violation
-        env:
-          PMD_VERSION: 7.28.0
-
       - name: Set up JDK 26
         uses: actions/setup-java@v5
         with:
           java-version: '26'
           distribution: 'temurin'
           cache: maven
-
-      - name: Run SpotBugs + FindSecBugs (bytecode and security analysis)
-        continue-on-error: true
-        run: |
-          mvn -B -q -DskipTests compile
-          mvn -B -q dependency:build-classpath -Dmdep.outputFile="$RUNNER_TEMP/classpath.txt"
-          curl -fsSL -o sb.tgz "https://github.com/spotbugs/spotbugs/releases/download/${SPOTBUGS_VERSION}/spotbugs-${SPOTBUGS_VERSION}.tgz"
-          tar xzf sb.tgz -C "$RUNNER_TEMP"
-          curl -fsSL -o "$RUNNER_TEMP/findsecbugs.jar" "https://repo1.maven.org/maven2/com/h3xstream/findsecbugs/findsecbugs-plugin/${FINDSECBUGS_VERSION}/findsecbugs-plugin-${FINDSECBUGS_VERSION}.jar"
-          "$RUNNER_TEMP/spotbugs-${SPOTBUGS_VERSION}/bin/spotbugs" -textui -xml:withMessages -effort:max -low \
-            -pluginList "$RUNNER_TEMP/findsecbugs.jar" -auxclasspath "$(cat "$RUNNER_TEMP/classpath.txt")" \
-            -sourcepath src/main/java -output "$RUNNER_TEMP/spotbugs.xml" target/classes
-        env:
-          SPOTBUGS_VERSION: 4.10.5
-          FINDSECBUGS_VERSION: 1.14.0
-
-      - name: Run Gitleaks (secret scan)
-        continue-on-error: true
-        run: |
-          curl -fsSL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
-          tar xzf gitleaks.tgz -C "$RUNNER_TEMP" gitleaks
-          "$RUNNER_TEMP/gitleaks" dir . --redact --no-banner --exit-code 0 \
-            --report-format json --report-path "$RUNNER_TEMP/gitleaks.json"
-        env:
-          GITLEAKS_VERSION: 8.30.1
 
       - name: Cache Ollama models
         if: env.OPENAI_API_KEY == ''
@@ -84,19 +49,67 @@ jobs:
           path: ${{ env.OLLAMA_MODELS }}
           key: ollama-${{ env.OLLAMA_MODEL }}
 
-      - name: Install Ollama and pull model (only when no OPENAI_API_KEY)
-        if: env.OPENAI_API_KEY == ''
+      # PMD, SpotBugs, Gitleaks and the Ollama setup are independent, so they run in parallel to save time.
+      - name: Run analysis tools and prepare Ollama in parallel
+        continue-on-error: true
         run: |
-          curl -fsSL https://ollama.com/install.sh | sh
-          # Run our own server so models are stored in the cached folder instead of the system one
-          sudo systemctl stop ollama || true
-          nohup ollama serve > "$RUNNER_TEMP/ollama.log" 2>&1 &
-          for i in $(seq 1 30); do curl -sf http://localhost:11434/api/tags && break || sleep 2; done
-          ollama pull "$OLLAMA_MODEL" # instant when restored from cache
+          pmd() {
+            curl -fsSL -o pmd.zip "https://github.com/pmd/pmd/releases/download/pmd_releases/${PMD_VERSION}/pmd-dist-${PMD_VERSION}-bin.zip"
+            unzip -q pmd.zip -d "$RUNNER_TEMP"
+            "$RUNNER_TEMP/pmd-bin-${PMD_VERSION}/bin/pmd" check -d src -R docs/agent/pmd-ruleset.xml \
+              -f json -r "$RUNNER_TEMP/pmd-report.json" --no-cache --no-progress --no-fail-on-violation
+          }
+          spotbugs() {
+            curl -fsSL -o sb.tgz "https://github.com/spotbugs/spotbugs/releases/download/${SPOTBUGS_VERSION}/spotbugs-${SPOTBUGS_VERSION}.tgz"
+            tar xzf sb.tgz -C "$RUNNER_TEMP"
+            curl -fsSL -o "$RUNNER_TEMP/findsecbugs.jar" "https://repo1.maven.org/maven2/com/h3xstream/findsecbugs/findsecbugs-plugin/${FINDSECBUGS_VERSION}/findsecbugs-plugin-${FINDSECBUGS_VERSION}.jar"
+            mvn -B -q -T 1C -DskipTests compile
+            mvn -B -q dependency:build-classpath -Dmdep.outputFile="$RUNNER_TEMP/classpath.txt"
+            "$RUNNER_TEMP/spotbugs-${SPOTBUGS_VERSION}/bin/spotbugs" -textui -xml:withMessages -low \
+              -pluginList "$RUNNER_TEMP/findsecbugs.jar" -auxclasspath "$(cat "$RUNNER_TEMP/classpath.txt")" \
+              -sourcepath src/main/java -output "$RUNNER_TEMP/spotbugs.xml" target/classes
+          }
+          gitleaks() {
+            curl -fsSL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+            tar xzf gitleaks.tgz -C "$RUNNER_TEMP" gitleaks
+            "$RUNNER_TEMP/gitleaks" dir . --redact --no-banner --exit-code 0 \
+              --report-format json --report-path "$RUNNER_TEMP/gitleaks.json"
+          }
+          ollama_setup() {
+            [ -n "$OPENAI_API_KEY" ] && return 0
+            curl -fsSL https://ollama.com/install.sh | sh
+            # Run our own server so models are stored in the cached folder instead of the system one
+            sudo systemctl stop ollama || true
+            nohup ollama serve > "$RUNNER_TEMP/ollama.log" 2>&1 &
+            for i in $(seq 1 30); do curl -sf http://localhost:11434/api/tags && break || sleep 2; done
+            ollama pull "$OLLAMA_MODEL" # instant when restored from cache
+          }
+
+          pids=""
+          for task in pmd spotbugs gitleaks ollama_setup; do
+            $task > "$RUNNER_TEMP/$task.log" 2>&1 &
+            pids="$pids $!"
+          done
+          for pid in $pids; do wait "$pid" || echo "A background task failed (non-fatal), see logs below"; done
+          tail -n 5 "$RUNNER_TEMP"/*.log
+        env:
+          PMD_VERSION: 7.28.0
+          SPOTBUGS_VERSION: 4.10.5
+          FINDSECBUGS_VERSION: 1.14.0
+          GITLEAKS_VERSION: 8.30.1
+
+      - name: Create GitHub App token
+        id: app-token
+        continue-on-error: true # the agent falls back to GITHUB_TOKEN (cannot resolve threads)
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
       - name: Run LangChain Agent
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Generated automatically by GitHub
+          RESOLVE_TOKEN: ${{ steps.app-token.outputs.token }} # app token resolves threads (GITHUB_TOKEN cannot)
           OPENAI_MODEL: gpt-4o
           PMD_REPORT: ${{ runner.temp }}/pmd-report.json
           SPOTBUGS_REPORT: ${{ runner.temp }}/spotbugs.xml
@@ -104,7 +117,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} # Optional: adds Sonar issues as inline comments
           SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
           SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }} # Optional, defaults to https://sonarcloud.io
-        timeout-minutes: 15
+        timeout-minutes: 6
         run: python -u docs/agent/review_agent.py
 
 # Step 3: Add Your Secret Key
