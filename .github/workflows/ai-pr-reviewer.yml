@@ -13,11 +13,13 @@ jobs:
     # Fork PRs and Dependabot PRs don't get access to repository secrets
     if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     permissions:
       pull-requests: write # Essential permission allowing the script to comment on your PRs
       contents: read
 
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }} # Optional: if set, OpenAI is used instead of Ollama
     steps:
       - name: Check out repo code
         uses: actions/checkout@v7
@@ -29,12 +31,22 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install langchain-core langchain-openai requests
+          pip install langchain-core langchain-ollama langchain-openai requests
+
+      - name: Install Ollama and pull model (only when no OPENAI_API_KEY)
+        if: env.OPENAI_API_KEY == ''
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          for i in $(seq 1 30); do curl -sf http://localhost:11434/api/tags && break || sleep 2; done
+          ollama pull "$OLLAMA_MODEL"
+        env:
+          OLLAMA_MODEL: qwen2.5-coder:1.5b
 
       - name: Run LangChain Agent
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Generated automatically by GitHub
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }} # Set by you in Repo Secrets
+          OPENAI_MODEL: gpt-4o
+          OLLAMA_MODEL: qwen2.5-coder:1.5b
         run: python docs/agent/review_agent.py
 
 # Step 3: Add Your Secret Key
@@ -43,3 +55,7 @@ jobs:
 # 3. Click New repository secret.
 # 4. Name it OPENAI_API_KEY and paste your actual API key as the value.
 # (Note: You do not need to generate a GITHUB_TOKEN, GitHub creates and rotates that secret automatically for security during the run)
+
+# Default: Ollama runs locally on the runner (free). Optionally add an OPENAI_API_KEY repo secret
+# (Settings -> Secrets and variables -> Actions) to use OpenAI instead.
+# Note: CPU-only inference on GitHub-hosted runners is slow (several minutes per review).

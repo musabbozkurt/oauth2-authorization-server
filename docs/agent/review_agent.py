@@ -4,6 +4,7 @@ import requests
 import sys
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
 
 
@@ -11,6 +12,7 @@ def main():
     # 1. Grab environment variables provided by GitHub Actions
     token = os.getenv("GITHUB_TOKEN")
     openai_key = os.getenv("OPENAI_API_KEY")
+    ollama_model = os.getenv("OLLAMA_MODEL", "qwen2.5-coder:1.5b")
     event_path = os.getenv("GITHUB_EVENT_PATH")
 
     if not event_path or not os.path.exists(event_path):
@@ -21,8 +23,8 @@ def main():
     with open(event_path, 'r') as f:
         event_data = json.load(f)
 
-    if not token or not openai_key:
-        print("GITHUB_TOKEN or OPENAI_API_KEY is missing; skipping review.")
+    if not token:
+        print("GITHUB_TOKEN is missing; skipping review.")
         return
 
     pr = event_data["pull_request"]
@@ -43,13 +45,21 @@ def main():
         print("No diff found or PR is empty.")
         return
 
-    max_chars = 200_000  # keep within the model context window
+    max_chars = 200_000 if openai_key else 30_000  # Ollama's num_ctx below limits the local model
     if len(pr_diff) > max_chars:
         pr_diff = pr_diff[:max_chars] + "\n\n[diff truncated]"
 
     # 4. Invoke the LangChain review workflow
     # Using low temperature for deterministic, analysis-focused code evaluation
-    llm = ChatOpenAI(model="gpt-4o", temperature=0.2, api_key=openai_key, timeout=120)
+    if openai_key:
+        print("Using OpenAI.")
+        llm = ChatOpenAI(model=os.getenv("OPENAI_MODEL", "gpt-4o"), temperature=0.2,
+                         api_key=openai_key, timeout=120)
+    else:
+        print(f"OPENAI_API_KEY not set; using Ollama model {ollama_model}.")
+        llm = ChatOllama(model=ollama_model, temperature=0.2, num_ctx=16384,
+                         base_url=os.getenv("OLLAMA_HOST", "http://localhost:11434"),
+                         client_kwargs={"timeout": 1200})
 
     prompt = ChatPromptTemplate.from_messages([
         ("system", (
