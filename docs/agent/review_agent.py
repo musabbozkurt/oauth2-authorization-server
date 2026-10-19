@@ -30,7 +30,10 @@ on remote calls, idempotency, distributed transactions, configuration externalis
 N+1 queries, missing indexes, blocking calls in reactive code, resource leaks, thread safety, Optional misuse, exception handling.
 8. Security - injection, secrets in code, CORS/CSRF misconfiguration, missing authorization checks, weak token/PKCE/redirect-URI \
 handling, logging sensitive data, missing input validation (@Valid).
-9. Readability and testability - naming, method length, missing tests for new logic.
+9. SonarQube-style code smells and bugs - cognitive complexity above 15, duplicated string literals, unused imports/variables/private \
+methods, empty catch blocks, `System.out`/`printStackTrace` instead of a logger, generic exceptions, nested ternaries, too many parameters, \
+commented-out code, mutable static fields, resources not closed (try-with-resources), `equals` on possibly-null values, and unnecessary boxing.
+10. Readability and testability - naming, method length, missing tests for new logic.
 
 Rules:
 - Report only real, specific, actionable problems or concrete improvements. No praise, no generic advice, no nitpicks on formatting.
@@ -136,14 +139,14 @@ def build_llm(openai_key):
     """Return the OpenAI model if a key is set, otherwise the local Ollama model; both in JSON mode."""
     if openai_key:
         print("Using OpenAI.")
-        llm = ChatOpenAI(model=os.getenv("OPENAI_MODEL", "gpt-4o"), temperature=0.2,
-                         api_key=openai_key, timeout=120)
+        llm = ChatOpenAI(model=os.getenv("OPENAI_MODEL", "gpt-4o"), temperature=0.2, api_key=openai_key, timeout=120)
         return llm.bind(response_format={"type": "json_object"})
     model = os.getenv("OLLAMA_MODEL", "qwen2.5-coder:1.5b")
-    print(f"OPENAI_API_KEY not set; using Ollama model {model}.")
-    return ChatOllama(model=model, temperature=0.2, num_ctx=16384, format="json",
-                      base_url=os.getenv("OLLAMA_HOST", "http://localhost:11434"),
-                      client_kwargs={"timeout": 1200})
+    host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+    print(f"OPENAI_API_KEY not set; using Ollama model {model} at {host}.", flush=True)
+    requests.get(f"{host}/api/tags", timeout=10).raise_for_status()  # fail fast if the server is down
+    return ChatOllama(model=model, temperature=0.2, num_ctx=8192, num_predict=1024, format="json", base_url=host,
+                      client_kwargs={"timeout": 240})
 
 
 def to_comment(c, files):
@@ -178,11 +181,17 @@ def collect_comments(data, files, seen):
     return inline, unplaced
 
 
-def review_chunks(chain, chunks, files):
+def review_chunks(chain, chunks, files, seen):
     """Run the model on each chunk; return (summaries, inline comments, unplaced notes)."""
-    summaries, inline, unplaced, seen = [], [], [], set()
-    for chunk in chunks:
-        data = parse_json(chain.invoke({"diff": "\n\n".join(chunk)}))
+    summaries, inline, unplaced = [], [], []
+    for index, chunk in enumerate(chunks, 1):
+        print(f"Reviewing chunk {index}/{len(chunks)}...", flush=True)
+        try:
+            output = chain.invoke({"diff": "\n\n".join(chunk)})
+        except Exception as e:  # a slow or failing chunk must not block the whole review
+            print(f"Chunk {index} failed: {e}")
+            continue
+        data = parse_json(output)
         if not isinstance(data, dict):
             print("Model returned unparseable output for a chunk; skipping it.")
             continue
@@ -192,6 +201,55 @@ def review_chunks(chain, chunks, files):
         inline += chunk_inline
         unplaced += chunk_unplaced
     return summaries, inline, unplaced
+
+
+def fetch_sonar_comments(pr, files, seen):
+    """Return inline comments for open Sonar issues on changed lines; empty if Sonar is not configured or fails."""
+    token, project = os.getenv("SONAR_TOKEN"), os.getenv("SONAR_PROJECT_KEY")
+    if not token or not project:
+        return []
+    host = (os.getenv("SONAR_HOST_URL") or "https://sonarcloud.io").rstrip("/")
+    try:
+        response = requests.get(f"{host}/api/issues/search", auth=(token, ""), timeout=60, params={
+            "componentKeys": project, "pullRequest": pr["number"], "resolved": "false", "ps": 500})
+        response.raise_for_status()
+        issues = response.json().get("issues", [])
+    except (requests.RequestException, ValueError) as e:
+        print(f"Could not fetch Sonar issues: {e}")
+        return []
+    comments = []
+    for issue in issues:
+        path, line = issue["component"].split(":", 1)[-1], issue.get("line")
+        key = (path, line, issue["message"])
+        if path not in files or line not in files[path][1] or key in seen:
+            continue
+        seen.add(key)
+        body = f"**[Sonar {issue.get('severity', 'INFO').lower()}]** {issue['message']} (`{issue.get('rule')}`)"
+        comments.append({"path": path, "line": line, "side": "RIGHT", "body": body})
+    print(f"Added {len(comments)} Sonar issue comment(s).")
+    return comments
+
+
+def load_pmd_comments(files, seen):
+    """Return inline comments for PMD (Sonar-like) violations on changed lines; empty if no report is available."""
+    report = os.getenv("PMD_REPORT")
+    if not report or not os.path.exists(report):
+        return []
+    with open(report, "r") as f:
+        data = json.load(f)
+    comments = []
+    for file_report in data.get("files", []):
+        path = os.path.relpath(file_report["filename"]).replace(os.sep, "/")
+        for v in file_report.get("violations", []):
+            line, message = v["beginline"], v["description"]
+            key = (path, line, message)
+            if path not in files or line not in files[path][1] or key in seen:
+                continue
+            seen.add(key)
+            body = f"**[Static analysis]** {message} (`{v['rule']}`, [details]({v.get('externalInfoUrl', '')}))"
+            comments.append({"path": path, "line": line, "side": "RIGHT", "body": body})
+    print(f"Added {len(comments)} static analysis comment(s).")
+    return comments
 
 
 def build_summary(summaries, unplaced, skipped):
@@ -252,13 +310,16 @@ def main():
         print("No reviewable changes found.")
         return
 
-    chunks, skipped = chunk_files(files, 100_000 if openai_key else 12_000, 5 if openai_key else 3)
+    chunks, skipped = chunk_files(files, 100_000 if openai_key else 6_000, 5 if openai_key else 3)
     chain = ChatPromptTemplate.from_messages([
         ("system", SYSTEM_PROMPT),
         ("user", "Review this part of the PR diff:\n\n{diff}"),
     ]) | build_llm(openai_key) | StrOutputParser()
 
-    summaries, inline, unplaced = review_chunks(chain, chunks, files)
+    seen = set()
+    inline = load_pmd_comments(files, seen) + fetch_sonar_comments(pr, files, seen)
+    summaries, ai_inline, unplaced = review_chunks(chain, chunks, files, seen)
+    inline += ai_inline
     if not inline and not unplaced:
         print("No issues found by the AI reviewer; not posting a review.")
         return

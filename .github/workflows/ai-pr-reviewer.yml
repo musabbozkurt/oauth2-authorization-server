@@ -13,7 +13,7 @@ jobs:
     # Fork PRs and Dependabot PRs don't get access to repository secrets
     if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 25
     permissions:
       pull-requests: write # Essential permission allowing the script to comment on your PRs
       contents: read
@@ -27,11 +27,21 @@ jobs:
       - name: Set up Python environment
         uses: actions/setup-python@v7
         with:
-          python-version: '3.15'
+          python-version: '3.12'
 
       - name: Install dependencies
         run: |
           pip install langchain-core langchain-ollama langchain-openai requests
+
+      - name: Run PMD static analysis (free, Sonar-like rules)
+        continue-on-error: true
+        run: |
+          curl -fsSL -o pmd.zip "https://github.com/pmd/pmd/releases/download/pmd_releases/${PMD_VERSION}/pmd-dist-${PMD_VERSION}-bin.zip"
+          unzip -q pmd.zip -d "$RUNNER_TEMP"
+          "$RUNNER_TEMP/pmd-bin-${PMD_VERSION}/bin/pmd" check -d src -R docs/agent/pmd-ruleset.xml \
+            -f json -r "$RUNNER_TEMP/pmd-report.json" --no-cache --no-progress --no-fail-on-violation
+        env:
+          PMD_VERSION: 7.28.0
 
       - name: Install Ollama and pull model (only when no OPENAI_API_KEY)
         if: env.OPENAI_API_KEY == ''
@@ -46,8 +56,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Generated automatically by GitHub
           OPENAI_MODEL: gpt-4o
+          PMD_REPORT: ${{ runner.temp }}/pmd-report.json
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} # Optional: adds Sonar issues as inline comments
+          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }} # Optional, defaults to https://sonarcloud.io
           OLLAMA_MODEL: qwen2.5-coder:1.5b
-        run: python docs/agent/review_agent.py
+        timeout-minutes: 15
+        run: python -u docs/agent/review_agent.py
 
 # Step 3: Add Your Secret Key
 # 1. Go to your target repository on GitHub.com.
