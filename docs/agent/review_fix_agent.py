@@ -2,7 +2,6 @@
 
 The next review run re-checks the new code: fixed findings are resolved, remaining ones are kept or re-commented.
 """
-import json
 import os
 import re
 import subprocess
@@ -136,7 +135,7 @@ def main():
         ("system", FIX_PROMPT),
         ("user", "Review comment:\n{comment}\n\nFlagged line: {line}\n{code}"),
     ]) | build_llm(available_providers()[0], schema=FIX_SCHEMA) | StrOutputParser()
-    kept = apply_fixes(chain, threads, time.monotonic() + float(os.getenv("FIX_TIME_BUDGET", "120")))
+    kept = apply_fixes(chain, threads, time.monotonic() + float(os.getenv("FIX_TIME_BUDGET", "90")))
     if not kept:
         print("No fixes kept.")
         return

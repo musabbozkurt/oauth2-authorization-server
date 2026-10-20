@@ -26,7 +26,7 @@ jobs:
       PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
       USE_OLLAMA: ${{ secrets.OPENAI_API_KEY == '' && secrets.GEMINI_API_KEY == '' && secrets.ANTHROPIC_API_KEY == '' && secrets.PERPLEXITY_API_KEY == '' }}
       OLLAMA_MODEL: qwen2.5-coder:3b
-      OLLAMA_MODELS: ${{ github.workspace }}/.ollama-models # cached between runs
+      OLLAMA_MODELS: /home/runner/.ollama-models # cached between runs; outside the workspace so Gitleaks skips it
     steps:
       - name: Create GitHub App token
         id: app-token
@@ -74,14 +74,14 @@ jobs:
         continue-on-error: true
         run: |
           pmd() {
-            curl -fsSL -o pmd.zip "https://github.com/pmd/pmd/releases/download/pmd_releases/${PMD_VERSION}/pmd-dist-${PMD_VERSION}-bin.zip"
-            unzip -q pmd.zip -d "$RUNNER_TEMP"
+            curl -fsSL -o "$RUNNER_TEMP/pmd.zip" "https://github.com/pmd/pmd/releases/download/pmd_releases/${PMD_VERSION}/pmd-dist-${PMD_VERSION}-bin.zip"
+            unzip -q "$RUNNER_TEMP/pmd.zip" -d "$RUNNER_TEMP"
             "$RUNNER_TEMP/pmd-bin-${PMD_VERSION}/bin/pmd" check -d src -R docs/agent/pmd-ruleset.xml \
               -f json -r "$RUNNER_TEMP/pmd-report.json" --no-cache --no-progress --no-fail-on-violation
           }
           spotbugs() {
-            curl -fsSL -o sb.tgz "https://github.com/spotbugs/spotbugs/releases/download/${SPOTBUGS_VERSION}/spotbugs-${SPOTBUGS_VERSION}.tgz"
-            tar xzf sb.tgz -C "$RUNNER_TEMP"
+            curl -fsSL -o "$RUNNER_TEMP/sb.tgz" "https://github.com/spotbugs/spotbugs/releases/download/${SPOTBUGS_VERSION}/spotbugs-${SPOTBUGS_VERSION}.tgz"
+            tar xzf "$RUNNER_TEMP/sb.tgz" -C "$RUNNER_TEMP"
             curl -fsSL -o "$RUNNER_TEMP/findsecbugs.jar" "https://repo1.maven.org/maven2/com/h3xstream/findsecbugs/findsecbugs-plugin/${FINDSECBUGS_VERSION}/findsecbugs-plugin-${FINDSECBUGS_VERSION}.jar"
             mvn -B -q -T 1C -DskipTests compile
             mvn -B -q dependency:build-classpath -Dmdep.outputFile="$RUNNER_TEMP/classpath.txt"
@@ -90,8 +90,8 @@ jobs:
               -sourcepath src/main/java -output "$RUNNER_TEMP/spotbugs.xml" target/classes
           }
           gitleaks() {
-            curl -fsSL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
-            tar xzf gitleaks.tgz -C "$RUNNER_TEMP" gitleaks
+            curl -fsSL -o "$RUNNER_TEMP/gitleaks.tgz" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+            tar xzf "$RUNNER_TEMP/gitleaks.tgz" -C "$RUNNER_TEMP" gitleaks
             "$RUNNER_TEMP/gitleaks" dir . --redact --no-banner --exit-code 0 \
               --report-format json --report-path "$RUNNER_TEMP/gitleaks.json"
           }

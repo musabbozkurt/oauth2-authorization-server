@@ -69,8 +69,7 @@ has access to.
 After posting the review, the agent looks at its own review threads that GitHub marks **outdated** (the commented code
 changed or was removed). If the finding is **gone** (no new comment with the same rule or text within 10 lines), it
 replies with a one-sentence LLM note (`✅ Resolved: ...`) and resolves the thread. If the finding is **still reported**,
-the old thread stays open and the new review comments on the new code. Unchanged code keeps its open thread. At most 30
-threads are handled per run.
+the old thread stays open and the new review comments on the new code. Unchanged code keeps its open thread.
 
 **Setup:** GitHub does not let the default `GITHUB_TOKEN` resolve threads or trigger new runs on push, so the workflow
 mints a short-lived GitHub App token (`actions/create-github-app-token`) from the variable `APP_ID` and the secret
@@ -87,7 +86,7 @@ and write** and **Contents: Read and write**. Without it the agent logs a hint, 
 3. Commits `ai-fix: ...` and pushes with the app token, which re-triggers the workflow. The next run re-checks the code:
    fixed findings are resolved, remaining ones are kept and commented again.
 
-Safety limits: at most 2 `ai-fix:` rounds per PR, 120 s model budget (`FIX_TIME_BUDGET`), 4 min step timeout. Multi-line
+Safety limits: at most 2 `ai-fix:` rounds per PR, 90 s budget (`FIX_TIME_BUDGET`), 4 min step timeout. Multi-line
 problems (for example try-with-resources) are left for a human.
 
 ## Limits

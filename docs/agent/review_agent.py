@@ -399,8 +399,9 @@ def post_review(pr, api_headers, summary, inline):
 
 GRAPHQL_URL = "https://api.github.com/graphql"
 BOT_LOGINS = ("github-actions", "github-actions[bot]")
-THREADS_QUERY = """query($owner: String!, $name: String!, $number: Int!) {
-  repository(owner: $owner, name: $name) { pullRequest(number: $number) { reviewThreads(first: 100) { nodes {
+THREADS_QUERY = """query($owner: String!, $name: String!, $number: Int!, $after: String) {
+  repository(owner: $owner, name: $name) { pullRequest(number: $number) {
+    reviewThreads(first: 100, after: $after) { pageInfo { hasNextPage endCursor } nodes {
     id isResolved isOutdated path line originalLine
     comments(first: 1) { nodes { body author { login } } }
   } } } }
@@ -445,11 +446,17 @@ def still_reported(thread, current):
 
 
 def fetch_bot_threads(pr, headers):
-    """Return all review threads of the PR (raises on failure)."""
+    """Return all review threads of the PR, following pagination (raises on failure)."""
     base = pr["base"]["repo"]
-    data = graphql(headers, THREADS_QUERY,
-                   {"owner": base["owner"]["login"], "name": base["name"], "number": pr["number"]})
-    return data["repository"]["pullRequest"]["reviewThreads"]["nodes"]
+    threads, after = [], None
+    while True:
+        page = graphql(headers, THREADS_QUERY, {"owner": base["owner"]["login"], "name": base["name"],
+                                                "number": pr["number"], "after": after})
+        page = page["repository"]["pullRequest"]["reviewThreads"]
+        threads += page["nodes"]
+        if not page["pageInfo"]["hasNextPage"]:
+            return threads
+        after = page["pageInfo"]["endCursor"]
 
 
 def drop_already_commented(inline, pr, headers):
@@ -473,7 +480,7 @@ def drop_already_commented(inline, pr, headers):
     return fresh
 
 
-def resolve_stale_threads(pr, headers, resolve_headers, llm, notes_deadline, current):
+def resolve_stale_threads(pr, headers, resolve_headers, provider, notes_deadline, current):
     """Resolve this bot's outdated threads whose finding is gone and add a one-line model-written note to each.
 
     Threads whose finding is still reported in `current` stay open: the fresh review already comments on the new code.
@@ -486,8 +493,15 @@ def resolve_stale_threads(pr, headers, resolve_headers, llm, notes_deadline, cur
     except (requests.RequestException, RuntimeError, KeyError) as e:
         print(f"Could not list review threads: {e}")
         return
-    chain = ChatPromptTemplate.from_messages(
-        [("system", RESOLVE_PROMPT), ("user", "{comment}")]) | llm | StrOutputParser()
+    if not threads:
+        return
+    try:
+        chain = ChatPromptTemplate.from_messages(
+            [("system", RESOLVE_PROMPT), ("user", "{comment}")]) | build_llm(provider,
+                                                                             json_mode=False) | StrOutputParser()
+    except Exception as e:  # model unavailable: still resolve, with the generic note
+        print(f"Model unavailable for notes, using the generic note: {e}")
+        chain, notes_deadline = None, 0
     for thread in threads:
         try:
             graphql(resolve_headers, RESOLVE_MUTATION, {"id": thread["id"]})
@@ -497,7 +511,7 @@ def resolve_stale_threads(pr, headers, resolve_headers, llm, notes_deadline, cur
             return
         try:
             reason = DEFAULT_REASON
-            if time.monotonic() < notes_deadline:  # past the budget, use the generic note to stay fast
+            if chain and time.monotonic() < notes_deadline:  # past the budget, use the generic note to stay fast
                 note = chain.invoke({"comment": thread["comments"]["nodes"][0]["body"][:1000]}).strip().splitlines()
                 reason = note[0][:200] if note else reason
             graphql(headers, REPLY_MUTATION, {"id": thread["id"], "body": f"✅ Resolved: {reason}"})
@@ -548,6 +562,9 @@ def main():
     budget = float(os.getenv("REVIEW_TIME_BUDGET", "150"))  # seconds the model may work in total
     diff_response = requests.get(pr["url"], headers={**api_headers, "Accept": "application/vnd.github.v3.diff"},
                                  timeout=60)
+    if diff_response.status_code == 406:  # GitHub refuses diffs over 20,000 lines / 300 files
+        print("PR diff is too large for the GitHub diff API; skipping the review.")
+        return
     diff_response.raise_for_status()
     files = parse_diff(diff_response.text)
     if not files:
@@ -573,7 +590,7 @@ def main():
         post_review(pr, api_headers, build_summary(summaries, unplaced, skipped), new_inline)
     else:
         print("No issues found by the AI reviewer; not posting a review.")
-    resolve_stale_threads(pr, api_headers, resolve_headers, build_llm(providers[0], json_mode=False),
+    resolve_stale_threads(pr, api_headers, resolve_headers, providers[0],
                           time.monotonic() + budget * 0.25, inline)
 
 
