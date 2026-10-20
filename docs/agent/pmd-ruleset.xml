@@ -1,0 +1,402 @@
+<?xml version="1.0"?>
+<!-- Sonar-like static analysis rules used by the AI PR reviewer (no Sonar account needed) -->
+<ruleset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         name="sonar-like"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+    <description>
+        Programming Mistake Detector(PMD) - Java, Spring Boot, SOLID and layered-architecture rules approximating common
+        SonarQube findings
+    </description>
+
+    <!-- Standard PMD rules -->
+    <rule ref="category/java/design.xml/AvoidDeeplyNestedIfStmts"/>
+    <rule ref="category/java/design.xml/AvoidRethrowingException"/>
+    <rule ref="category/java/design.xml/AvoidThrowingNullPointerException"/>
+    <rule ref="category/java/design.xml/AvoidThrowingRawExceptionTypes"/>
+    <rule ref="category/java/errorprone.xml/AvoidCatchingGenericException"/>
+    <rule ref="category/java/design.xml/AvoidUncheckedExceptionsInSignatures"/>
+    <rule ref="category/java/design.xml/ClassWithOnlyPrivateConstructorsShouldBeFinal"/>
+    <rule ref="category/java/design.xml/CouplingBetweenObjects"/>
+    <rule ref="category/java/design.xml/CognitiveComplexity">
+        <properties>
+            <property name="reportLevel" value="15"/>
+        </properties>
+    </rule>
+    <rule ref="category/java/design.xml/CyclomaticComplexity"/>
+    <rule ref="category/java/design.xml/DataClass"/>
+    <rule ref="category/java/design.xml/ExcessiveImports"/>
+    <rule ref="category/java/design.xml/ExcessiveParameterList"/>
+    <rule ref="category/java/design.xml/GodClass"/>
+    <rule ref="category/java/design.xml/ImmutableField"/>
+    <rule ref="category/java/design.xml/LogicInversion"/>
+    <rule ref="category/java/design.xml/NPathComplexity"/>
+    <rule ref="category/java/design.xml/SignatureDeclareThrowsException"/>
+    <rule ref="category/java/design.xml/SimplifiedTernary"/>
+    <rule ref="category/java/design.xml/SimplifyBooleanReturns"/>
+    <rule ref="category/java/design.xml/SimplifyConditional"/>
+    <rule ref="category/java/design.xml/SingularField"/>
+    <rule ref="category/java/design.xml/SwitchDensity"/>
+    <rule ref="category/java/design.xml/TooManyFields"/>
+    <rule ref="category/java/design.xml/TooManyMethods"/>
+    <rule ref="category/java/design.xml/InstantiableUtilityClass"/>
+    <rule ref="category/java/design.xml/AvoidThrowingNewInstanceOfSameException"/>
+    <rule ref="category/java/bestpractices.xml/AccessorMethodGeneration"/>
+    <rule ref="category/java/bestpractices.xml/AvoidPrintStackTrace"/>
+    <rule ref="category/java/bestpractices.xml/AvoidReassigningParameters"/>
+    <rule ref="category/java/bestpractices.xml/AvoidStringBufferField"/>
+    <rule ref="category/java/bestpractices.xml/AvoidUsingHardCodedIP"/>
+    <rule ref="category/java/bestpractices.xml/ConstantsInInterface"/>
+    <rule ref="category/java/bestpractices.xml/ForLoopCanBeForeach"/>
+    <rule ref="category/java/bestpractices.xml/LiteralsFirstInComparisons"/>
+    <rule ref="category/java/bestpractices.xml/LooseCoupling"/>
+    <rule ref="category/java/bestpractices.xml/MissingOverride"/>
+    <rule ref="category/java/bestpractices.xml/OneDeclarationPerLine"/>
+    <rule ref="category/java/bestpractices.xml/PreserveStackTrace"/>
+    <rule ref="category/java/bestpractices.xml/ReplaceHashtableWithMap"/>
+    <rule ref="category/java/bestpractices.xml/ReplaceVectorWithList"/>
+    <rule ref="category/java/bestpractices.xml/SystemPrintln"/>
+    <rule ref="category/java/bestpractices.xml/UnusedAssignment"/>
+    <rule ref="category/java/bestpractices.xml/UnusedFormalParameter"/>
+    <rule ref="category/java/bestpractices.xml/UnusedLocalVariable"/>
+    <rule ref="category/java/bestpractices.xml/UnusedPrivateField"/>
+    <rule ref="category/java/bestpractices.xml/UnusedPrivateMethod"/>
+    <rule ref="category/java/bestpractices.xml/UseCollectionIsEmpty"/>
+    <rule ref="category/java/bestpractices.xml/UseStandardCharsets"/>
+    <rule ref="category/java/bestpractices.xml/UseVarargs"/>
+    <rule ref="category/java/bestpractices.xml/DoubleBraceInitialization"/>
+    <rule ref="category/java/errorprone.xml/AssignmentInOperand"/>
+    <rule ref="category/java/errorprone.xml/AssignmentToNonFinalStatic"/>
+    <rule ref="category/java/errorprone.xml/AvoidBranchingStatementAsLastInLoop"/>
+    <rule ref="category/java/errorprone.xml/AvoidCallingFinalize"/>
+    <rule ref="category/java/errorprone.xml/AvoidDuplicateLiterals"/>
+    <rule ref="category/java/errorprone.xml/AvoidFieldNameMatchingMethodName"/>
+    <rule ref="category/java/errorprone.xml/AvoidInstanceofChecksInCatchClause"/>
+    <rule ref="category/java/errorprone.xml/AvoidLiteralsInIfCondition"/>
+    <rule ref="category/java/errorprone.xml/CloseResource"/>
+    <rule ref="category/java/errorprone.xml/CompareObjectsWithEquals"/>
+    <rule ref="category/java/errorprone.xml/ConstructorCallsOverridableMethod"/>
+    <rule ref="category/java/errorprone.xml/DoNotExtendJavaLangThrowable"/>
+    <rule ref="category/java/errorprone.xml/DoNotTerminateVM"/>
+    <rule ref="category/java/errorprone.xml/EmptyCatchBlock"/>
+    <rule ref="category/java/errorprone.xml/EqualsNull"/>
+    <rule ref="category/java/errorprone.xml/ImplicitSwitchFallThrough"/>
+    <rule ref="category/java/errorprone.xml/MissingStaticMethodInNonInstantiatableClass"/>
+    <rule ref="category/java/errorprone.xml/NullAssignment"/>
+    <rule ref="category/java/errorprone.xml/ReturnEmptyCollectionRatherThanNull"/>
+    <rule ref="category/java/errorprone.xml/ReturnFromFinallyBlock"/>
+    <rule ref="category/java/errorprone.xml/SimpleDateFormatNeedsLocale"/>
+    <rule ref="category/java/errorprone.xml/UseLocaleWithCaseConversions"/>
+    <rule ref="category/java/errorprone.xml/UseProperClassLoader"/>
+    <rule ref="category/java/multithreading.xml/AvoidSynchronizedAtMethodLevel"/>
+    <rule ref="category/java/multithreading.xml/AvoidThreadGroup"/>
+    <rule ref="category/java/multithreading.xml/DoubleCheckedLocking"/>
+    <rule ref="category/java/multithreading.xml/NonThreadSafeSingleton"/>
+    <rule ref="category/java/multithreading.xml/UnsynchronizedStaticFormatter"/>
+    <rule ref="category/java/multithreading.xml/UseConcurrentHashMap"/>
+    <rule ref="category/java/performance.xml/AvoidInstantiatingObjectsInLoops"/>
+    <rule ref="category/java/performance.xml/InefficientStringBuffering"/>
+    <rule ref="category/java/performance.xml/StringInstantiation"/>
+    <rule ref="category/java/performance.xml/UseStringBufferForStringAppends"/>
+    <rule ref="category/java/performance.xml/AvoidFileStream"/>
+    <rule ref="category/java/codestyle.xml/ControlStatementBraces"/>
+    <rule ref="category/java/codestyle.xml/ExtendsObject"/>
+    <rule ref="category/java/codestyle.xml/FieldDeclarationsShouldBeAtStartOfClass"/>
+    <rule ref="category/java/codestyle.xml/IdenticalCatchBranches"/>
+    <rule ref="category/java/codestyle.xml/PrematureDeclaration"/>
+    <rule ref="category/java/codestyle.xml/UnnecessaryBoxing"/>
+    <rule ref="category/java/codestyle.xml/UnnecessaryCast"/>
+    <rule ref="category/java/codestyle.xml/UnnecessaryConstructor"/>
+    <rule ref="category/java/codestyle.xml/UnnecessaryFullyQualifiedName"/>
+    <rule ref="category/java/codestyle.xml/UnnecessaryImport"/>
+    <rule ref="category/java/codestyle.xml/UnnecessaryModifier"/>
+    <rule ref="category/java/codestyle.xml/UnnecessaryReturn"/>
+    <rule ref="category/java/codestyle.xml/UnnecessarySemicolon"/>
+    <rule ref="category/java/codestyle.xml/UseDiamondOperator"/>
+    <rule ref="category/java/codestyle.xml/UselessParentheses"/>
+    <rule ref="category/java/codestyle.xml/ForLoopShouldBeWhileLoop"/>
+    <rule ref="category/java/security.xml/HardCodedCryptoKey"/>
+    <rule ref="category/java/security.xml/InsecureCryptoIv"/>
+
+    <!-- Custom Spring Boot / architecture / design rules -->
+    <rule name="SpringFieldInjection" language="java"
+          message="Use constructor injection instead of field injection with @Autowired (testability, immutability, DIP)."
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>Use constructor injection instead of field injection with @Autowired (testability, immutability,
+            DIP).
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//FieldDeclaration[ModifierList/Annotation[@SimpleName='Autowired']]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+    <rule name="MapContainsKeyThenPut" language="java"
+          message="Replace this &quot;Map.containsKey()&quot; check followed by &quot;put()&quot; with &quot;Map.computeIfAbsent()&quot; (or putIfAbsent/merge)."
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>Replace this &quot;Map.containsKey()&quot; check followed by &quot;put()&quot; with &quot;Map.computeIfAbsent()&quot;
+            (or putIfAbsent/merge).
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//IfStatement[(UnaryExpression[@Operator='!']/MethodCall[@MethodName='containsKey']) or MethodCall[@MethodName='containsKey']][.//MethodCall[@MethodName='put']]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+    <rule name="UnusedCatchParameter" language="java"
+          message="Replace the unused catch parameter with an unnamed variable (_) or handle/log the exception."
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>Replace the unused catch parameter with an unnamed variable (_) or handle/log the exception.
+        </description>
+        <priority>4</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//CatchClause[CatchParameter[@Name != '_']][let $n := CatchParameter/@Name return not(.//VariableAccess[@Name = $n])]/CatchParameter
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+    <rule name="HardcodedSecret" language="java"
+          message="Hardcoded credential: move secrets to environment variables, config properties or a secrets manager."
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>Hardcoded credential: move secrets to environment variables, config properties or a secrets
+            manager.
+        </description>
+        <priority>1</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//VariableDeclarator[matches(VariableId/@Name,'(password|passwd|secret|apikey|api_key|token)','i')][StringLiteral[@Empty=false()]]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+    <rule name="LongIfElseChain" language="java"
+          message="Long if/else-if chain: consider polymorphism, the Strategy pattern, a Map of handlers or a switch expression (Open/Closed Principle)."
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>Long if/else-if chain: consider polymorphism, the Strategy pattern, a Map of handlers or a switch
+            expression (Open/Closed Principle).
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//IfStatement[not(parent::IfStatement)][IfStatement/IfStatement]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+    <rule name="DirectRestTemplateInstantiation" language="java"
+          message="Do not instantiate RestTemplate directly; inject a RestTemplateBuilder/RestClient bean configured with timeouts (DIP, resilience)."
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>Do not instantiate RestTemplate directly; inject a RestTemplateBuilder/RestClient bean configured
+            with timeouts (DIP, resilience).
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//ConstructorCall/ClassType[@SimpleName='RestTemplate']
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+    <rule name="LegacyDateApi" language="java"
+          message="Prefer java.time (Instant, LocalDateTime, ZonedDateTime) over legacy Date/Calendar/SimpleDateFormat."
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>Prefer java.time (Instant, LocalDateTime, ZonedDateTime) over legacy
+            Date/Calendar/SimpleDateFormat.
+        </description>
+        <priority>4</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//ConstructorCall/ClassType[@SimpleName=('Date','SimpleDateFormat')] | //ClassType[@SimpleName='Calendar']
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+    <rule name="ControllerUsesRepository" language="java"
+          message="Layering violation: controllers must not access repositories directly; delegate to a service."
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>Layering violation: controllers must not access repositories directly; delegate to a service.
+        </description>
+        <priority>2</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//ClassDeclaration[ModifierList/Annotation[@SimpleName=('RestController','Controller')]]//FieldDeclaration/ClassType[ends-with(@SimpleName,'Repository')]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+    <rule name="ControllerExposesEntity" language="java"
+          message="Do not expose JPA entities from controllers; return a DTO and map it in the service layer."
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>Do not expose JPA entities from controllers; return a DTO and map it in the service layer.
+        </description>
+        <priority>2</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//ClassDeclaration[ModifierList/Annotation[@SimpleName=('RestController','Controller')]]//MethodDeclaration/ResultType//ClassType[ends-with(@SimpleName,'Entity')]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+    <rule name="ControllerJdbcAccess" language="java"
+          message="Layering violation: controllers must not use JDBC/data-access APIs directly; use a repository behind a service."
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>Layering violation: controllers must not use JDBC/data-access APIs directly; use a repository
+            behind a service.
+        </description>
+        <priority>2</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//ClassDeclaration[ModifierList/Annotation[@SimpleName=('RestController','Controller')]]//ClassType[@SimpleName=('DriverManager','Connection','Statement','PreparedStatement','ResultSet','JdbcTemplate','EntityManager')]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+    <rule name="RequestBodyAsMap" language="java"
+          message="Bind @RequestBody to a typed, validated DTO (@Valid) instead of Map/Object."
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>Bind @RequestBody to a typed, validated DTO (@Valid) instead of Map/Object.</description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//FormalParameter[ModifierList/Annotation[@SimpleName='RequestBody']]/ClassType[@SimpleName=('Map','Object')]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+    <rule name="MutableStateInSingletonBean" language="java"
+          message="Spring beans are singletons: avoid mutable instance fields (thread safety); use local variables, atomics or external state."
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>Spring beans are singletons: avoid mutable instance fields (thread safety); use local variables,
+            atomics or external state.
+        </description>
+        <priority>2</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//ClassDeclaration[ModifierList/Annotation[@SimpleName=('RestController','Controller','Service','Component','Repository')]]/ClassBody/FieldDeclaration[@Static=false()][VariableDeclarator/VariableId[@Final=false()]][not(ModifierList/Annotation[@SimpleName=('Autowired','Value','Inject','Resource','PersistenceContext')])]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+    <rule name="LombokDataOnEntity" language="java"
+          message="Avoid Lombok @Data/@EqualsAndHashCode/@ToString on JPA entities (lazy-loading, equals/hashCode and recursion problems)."
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>Avoid Lombok @Data/@EqualsAndHashCode/@ToString on JPA entities (lazy-loading, equals/hashCode and
+            recursion problems).
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//ClassDeclaration[ModifierList/Annotation[@SimpleName='Entity']][ModifierList/Annotation[@SimpleName=('Data','EqualsAndHashCode','ToString')]]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+    <rule name="EagerFetch" language="java"
+          message="FetchType.EAGER causes N+1 queries and over-fetching; prefer LAZY with fetch joins or entity graphs."
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>FetchType.EAGER causes N+1 queries and over-fetching; prefer LAZY with fetch joins or entity
+            graphs.
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//Annotation//MemberValuePair[@Name='fetch'][.//*[@Name='EAGER' or @SimpleName='EAGER']]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+    <rule name="JavaxNamespace" language="java"
+          message="Spring Boot 3+/4 uses the jakarta.* namespace; replace javax.persistence/servlet/validation/annotation imports."
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>Spring Boot 3+/4 uses the jakarta.* namespace; replace
+            javax.persistence/servlet/validation/annotation imports.
+        </description>
+        <priority>2</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//ImportDeclaration[matches(@ImportedName,'^javax\.(persistence|servlet|validation|annotation|transaction|inject)')]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+    <rule name="DeprecatedSpringSecurityApi" language="java"
+          message="Deprecated/removed in Spring Security 6+: use authorizeHttpRequests with requestMatchers and SecurityFilterChain beans (no WebSecurityConfigurerAdapter)."
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>Deprecated/removed in Spring Security 6+: use authorizeHttpRequests with requestMatchers and
+            SecurityFilterChain beans (no WebSecurityConfigurerAdapter).
+        </description>
+        <priority>2</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//MethodCall[@MethodName=('antMatchers','mvcMatchers','regexMatchers','authorizeRequests')] | //ExtendsList/ClassType[@SimpleName='WebSecurityConfigurerAdapter'] | //Annotation[@SimpleName='EnableGlobalMethodSecurity']
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+    <rule name="DeprecatedMockBean" language="java"
+          message="@MockBean/@SpyBean are deprecated in Spring Boot 3.4+ and removed in 4: use @MockitoBean/@MockitoSpyBean."
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>@MockBean/@SpyBean are deprecated in Spring Boot 3.4+ and removed in 4: use
+            @MockitoBean/@MockitoSpyBean.
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//Annotation[@SimpleName=('MockBean','SpyBean')]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+    <rule name="ThreadSleepInRequest" language="java"
+          message="Avoid Thread.sleep in application code (blocks request threads); use scheduling, async or reactive delays."
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>Avoid Thread.sleep in application code (blocks request threads); use scheduling, async or reactive
+            delays.
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//MethodCall[@MethodName='sleep'][*[1][@SimpleName='Thread']]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+    <rule name="TransactionalOnPrivateMethod" language="java"
+          message="@Transactional has no effect on private methods (Spring proxies); make it public or move it to another bean."
+          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>@Transactional has no effect on private methods (Spring proxies); make it public or move it to
+            another bean.
+        </description>
+        <priority>2</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//MethodDeclaration[@Visibility='private'][ModifierList/Annotation[@SimpleName='Transactional']]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+</ruleset>

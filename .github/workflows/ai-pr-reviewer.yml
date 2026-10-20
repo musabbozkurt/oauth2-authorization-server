@@ -1,0 +1,155 @@
+name: AI Pull Request Reviewer
+
+on:
+  pull_request:
+    types: [ opened, synchronize ] # Fires when a PR is created or new code is pushed
+
+concurrency:
+  group: ai-pr-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # Fork PRs and Dependabot PRs don't get access to repository secrets
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    permissions:
+      pull-requests: write # Essential permission allowing the script to comment on your PRs
+      contents: read
+
+    env:
+      # All AI providers are optional. If several keys are set, only the cheapest provider is used (Gemini, Perplexity, OpenAI, Claude); with none, free local Ollama.
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+      USE_OLLAMA: ${{ secrets.OPENAI_API_KEY == '' && secrets.GEMINI_API_KEY == '' && secrets.ANTHROPIC_API_KEY == '' && secrets.PERPLEXITY_API_KEY == '' }}
+      OLLAMA_MODEL: qwen2.5-coder:3b
+      OLLAMA_MODELS: /home/runner/.ollama-models # cached between runs; outside the workspace so Gitleaks skips it
+    steps:
+      - name: Create GitHub App token
+        id: app-token
+        continue-on-error: true # the agent falls back to GITHUB_TOKEN (cannot resolve threads)
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Check out PR branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.ref }} # the fix agent pushes to this branch
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token || github.token }} # app pushes re-trigger this workflow
+
+      - name: Set up Python environment
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install langchain-core langchain-ollama langchain-openai requests
+          [ -n "$GEMINI_API_KEY" ] && pip install langchain-google-genai
+          [ -n "$ANTHROPIC_API_KEY" ] && pip install langchain-anthropic
+          true
+
+      - name: Set up JDK 26
+        uses: actions/setup-java@v5
+        with:
+          java-version: '26'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Cache Ollama models
+        if: env.USE_OLLAMA == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.OLLAMA_MODELS }}
+          key: ollama-${{ env.OLLAMA_MODEL }}
+
+      # PMD, SpotBugs, Gitleaks and the Ollama setup are independent, so they run in parallel to save time.
+      - name: Run analysis tools and prepare Ollama in parallel
+        continue-on-error: true
+        run: |
+          pmd() {
+            curl -fsSL -o "$RUNNER_TEMP/pmd.zip" "https://github.com/pmd/pmd/releases/download/pmd_releases/${PMD_VERSION}/pmd-dist-${PMD_VERSION}-bin.zip"
+            unzip -q "$RUNNER_TEMP/pmd.zip" -d "$RUNNER_TEMP"
+            "$RUNNER_TEMP/pmd-bin-${PMD_VERSION}/bin/pmd" check -d src -R docs/agent/pmd-ruleset.xml \
+              -f json -r "$RUNNER_TEMP/pmd-report.json" --no-cache --no-progress --no-fail-on-violation
+          }
+          spotbugs() {
+            curl -fsSL -o "$RUNNER_TEMP/sb.tgz" "https://github.com/spotbugs/spotbugs/releases/download/${SPOTBUGS_VERSION}/spotbugs-${SPOTBUGS_VERSION}.tgz"
+            tar xzf "$RUNNER_TEMP/sb.tgz" -C "$RUNNER_TEMP"
+            curl -fsSL -o "$RUNNER_TEMP/findsecbugs.jar" "https://repo1.maven.org/maven2/com/h3xstream/findsecbugs/findsecbugs-plugin/${FINDSECBUGS_VERSION}/findsecbugs-plugin-${FINDSECBUGS_VERSION}.jar"
+            mvn -B -q -T 1C -DskipTests compile
+            mvn -B -q dependency:build-classpath -Dmdep.outputFile="$RUNNER_TEMP/classpath.txt"
+            "$RUNNER_TEMP/spotbugs-${SPOTBUGS_VERSION}/bin/spotbugs" -textui -xml:withMessages -low \
+              -pluginList "$RUNNER_TEMP/findsecbugs.jar" -auxclasspath "$(cat "$RUNNER_TEMP/classpath.txt")" \
+              -sourcepath src/main/java -output "$RUNNER_TEMP/spotbugs.xml" target/classes
+          }
+          gitleaks() {
+            curl -fsSL -o "$RUNNER_TEMP/gitleaks.tgz" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+            tar xzf "$RUNNER_TEMP/gitleaks.tgz" -C "$RUNNER_TEMP" gitleaks
+            "$RUNNER_TEMP/gitleaks" dir . --redact --no-banner --exit-code 0 \
+              --report-format json --report-path "$RUNNER_TEMP/gitleaks.json"
+          }
+          ollama_setup() {
+            [ "$USE_OLLAMA" = "true" ] || return 0
+            curl -fsSL https://ollama.com/install.sh | sh
+            # Run our own server so models are stored in the cached folder instead of the system one
+            sudo systemctl stop ollama || true
+            nohup ollama serve > "$RUNNER_TEMP/ollama.log" 2>&1 &
+            for i in $(seq 1 30); do curl -sf http://localhost:11434/api/tags && break || sleep 2; done
+            ollama pull "$OLLAMA_MODEL" # instant when restored from cache
+          }
+
+          pids=""
+          for task in pmd spotbugs gitleaks ollama_setup; do
+            $task > "$RUNNER_TEMP/$task.log" 2>&1 &
+            pids="$pids $!"
+          done
+          for pid in $pids; do wait "$pid" || echo "A background task failed (non-fatal), see logs below"; done
+          tail -n 5 "$RUNNER_TEMP"/*.log
+        env:
+          PMD_VERSION: 7.28.0
+          SPOTBUGS_VERSION: 4.10.5
+          FINDSECBUGS_VERSION: 1.14.0
+          GITLEAKS_VERSION: 8.30.1
+
+      - name: Run LangChain Agent
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Generated automatically by GitHub
+          RESOLVE_TOKEN: ${{ steps.app-token.outputs.token }} # app token resolves threads (GITHUB_TOKEN cannot)
+          PMD_REPORT: ${{ runner.temp }}/pmd-report.json
+          SPOTBUGS_REPORT: ${{ runner.temp }}/spotbugs.xml
+          GITLEAKS_REPORT: ${{ runner.temp }}/gitleaks.json
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} # Optional: adds Sonar issues as inline comments
+          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }} # Optional, defaults to https://sonarcloud.io
+        timeout-minutes: 6
+        run: python -u docs/agent/review_agent.py
+
+      # Fixes open comments, pushes an "ai-fix:" commit; the push re-runs this workflow, which re-checks the fixes
+      # (fixed -> thread resolved, still present -> thread kept and a new comment added). Max 2 rounds per PR.
+      - name: Fix review comments
+        if: steps.app-token.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python -u docs/agent/review_fix_agent.py
+
+# Step 3: Add Your Secret Key
+# 1. Go to your target repository on GitHub.com.
+# 2. Navigate to Settings -> Secrets and variables -> Actions.
+# 3. Click New repository secret.
+# 4. Name it OPENAI_API_KEY and paste your actual API key as the value.
+# (Note: You do not need to generate a GITHUB_TOKEN, GitHub creates and rotates that secret automatically for security during the run)
+
+# Default: Ollama runs locally on the runner (free). Optionally add any of the repo secrets OPENAI_API_KEY,
+# GEMINI_API_KEY, ANTHROPIC_API_KEY, PERPLEXITY_API_KEY (Settings -> Secrets and variables -> Actions).
+# If several are set, the cheapest is used; model names can be set with OPENAI_MODEL, GEMINI_MODEL,
+# ANTHROPIC_MODEL, PERPLEXITY_MODEL.
+# Note: CPU-only inference on GitHub-hosted runners is slow (several minutes per review).
