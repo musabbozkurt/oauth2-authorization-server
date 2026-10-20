@@ -452,6 +452,27 @@ def fetch_bot_threads(pr, headers):
     return data["repository"]["pullRequest"]["reviewThreads"]["nodes"]
 
 
+def drop_already_commented(inline, pr, headers):
+    """Skip comments the bot already has open on the same line (same text or same rule), so pushes do not add duplicates."""
+    try:
+        open_threads = [t for t in fetch_bot_threads(pr, headers) if not t["isResolved"] and not t["isOutdated"]]
+    except (requests.RequestException, RuntimeError, KeyError) as e:
+        print(f"Could not list review threads for de-duplication: {e}")
+        return inline
+    existing = {}
+    for t in open_threads:
+        body = t["comments"]["nodes"][0]["body"] if t["comments"]["nodes"] else ""
+        existing.setdefault((t["path"], t.get("line")), []).append(body)
+
+    def duplicate(c):
+        return any(c["body"] == old or (rule_ids(c["body"]) and rule_ids(c["body"]) <= rule_ids(old))
+                   for old in existing.get((c["path"], c["line"]), []))
+
+    fresh = [c for c in inline if not duplicate(c)]
+    print(f"Skipped {len(inline) - len(fresh)} comment(s) that are already open.")
+    return fresh
+
+
 def resolve_stale_threads(pr, headers, resolve_headers, llm, notes_deadline, current):
     """Resolve this bot's outdated threads whose finding is gone and add a one-line model-written note to each.
 
@@ -547,8 +568,9 @@ def main():
         inline += [{**c, "body": c["body"] + tag} for c in provider_inline]
         unplaced += [x + tag for x in provider_unplaced]
         skipped += provider_skipped
-    if inline or unplaced:
-        post_review(pr, api_headers, build_summary(summaries, unplaced, skipped), inline)
+    new_inline = drop_already_commented(inline, pr, api_headers)
+    if new_inline or unplaced:
+        post_review(pr, api_headers, build_summary(summaries, unplaced, skipped), new_inline)
     else:
         print("No issues found by the AI reviewer; not posting a review.")
     resolve_stale_threads(pr, api_headers, resolve_headers, build_llm(providers[0], json_mode=False),
