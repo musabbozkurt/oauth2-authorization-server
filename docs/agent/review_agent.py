@@ -85,7 +85,7 @@ REVIEW_SCHEMA = {
 }
 
 SKIP_FILE = re.compile(
-    r"(\.lock$|package-lock\.json$|\.(png|jpe?g|gif|svg|ico|jar|class|pdf|zip)$|(^|/)docs/|\.md$)")
+    r"(\.lock$|package-lock\.json$|\.(png|jpe?g|gif|svg|ico|jar|class|pdf|zip)$|(^|/)(docs|\.github)/|\.md$)")
 # Hunk header; group 1 is the start line in the new file
 HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 

@@ -89,5 +89,5 @@ problems (for example try-with-resources) are left for a human.
 - Speed: the tools and the Ollama setup run in parallel, and the model gets a time budget (`REVIEW_TIME_BUDGET`, default
   150 s). Chunks left after the budget are not reviewed by the model and the review says so. Stale-thread notes use the
   generic text once a quarter of the budget is spent. The job is capped at 14 minutes (the fix step is capped at 4).
-- Lockfiles, binaries, `docs/` and `*.md` files are ignored.
+- Lockfiles, binaries, `docs/`, `.github/` (workflows) and `*.md` files are ignored.
 - CPU-only Ollama on GitHub runners is slow, and small models give shallower reviews.

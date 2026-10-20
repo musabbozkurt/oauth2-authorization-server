@@ -4,6 +4,7 @@ The next review run re-checks the new code: fixed findings are resolved, remaini
 """
 import json
 import os
+import re
 import subprocess
 import time
 from langchain_core.output_parsers import StrOutputParser
@@ -13,7 +14,7 @@ from review_agent import BOT_LOGINS, build_llm, fetch_bot_threads, load_pull_req
 
 COMMIT_PREFIX = "ai-fix:"
 MAX_ROUNDS = 2  # fix commits per PR, prevents endless fix -> review -> fix loops
-MAX_FIXES = 5  # fixes per run
+MAX_FIXES = 8  # fixes kept per run
 SKIP_TOPICS = ("Secret scan", "HardcodedSecret", "Hardcoded")  # secrets must be rotated by a human
 CONTEXT = 3
 FIX_SCHEMA = {"type": "object", "properties": {"new": {"type": "string"}}, "required": ["new"]}
@@ -46,11 +47,30 @@ def fixable_threads(pr, headers):
                 and t["path"].endswith(".java") and not any(topic in body for topic in SKIP_TOPICS)):
             threads.append((t["path"], t["line"], body))
     unique = {(path, line): (path, line, body) for path, line, body in threads}  # one try per line
-    return list(unique.values())[:MAX_FIXES]
+    return list(unique.values())
+
+
+RULE_FIXES = {
+    # "x.equals("a")" -> ""a".equals(x)" (null-safe)
+    "LiteralsFirstInComparisons": (re.compile(r'(\b[\w.()]+?)\.(equals|equalsIgnoreCase)\(("[^"]*")\)'), r'\3.\2(\1)'),
+    # unused catch parameter -> unnamed variable (Java 22+)
+    "UnusedCatchParameter": (re.compile(r'catch \(([\w.| ]+?) \w+\)'), r'catch (\1 _)'),
+}
+
+
+def rule_fix(line_text, body):
+    """Deterministic fix for well-known rules, which is faster and safer than asking the model; None if none applies."""
+    for rule, (pattern, replacement) in RULE_FIXES.items():
+        if f"`{rule}`" in body and pattern.search(line_text):
+            return pattern.sub(replacement, line_text, count=1)
+    return None
 
 
 def propose_line(chain, lines, line, body):
-    """Ask the model for a replacement of one line; return it or None."""
+    """Return a replacement for one line: a deterministic rule fix first, otherwise the model's proposal, or None."""
+    fixed = rule_fix(lines[line - 1], body)
+    if fixed and fixed != lines[line - 1]:
+        return fixed
     start = max(1, line - CONTEXT)
     window = "\n".join(f"{n}: {lines[n - 1]}" for n in range(start, min(len(lines), line + CONTEXT) + 1))
     raw = chain.invoke({"comment": body[:800], "line": line, "code": window})
@@ -70,7 +90,7 @@ def apply_fixes(chain, threads, deadline):
     """Apply each proposed fix, keeping only those that compile; return the number kept."""
     kept = 0
     for path, line, body in threads:
-        if time.monotonic() > deadline:
+        if kept >= MAX_FIXES or time.monotonic() > deadline:
             print("Time budget used up; remaining comments are left for a human.")
             break
         with open(path) as f:
@@ -107,6 +127,7 @@ def main():
         return
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
     threads = fixable_threads(pr, headers)
+    print(f"{len(threads)} open comment(s) to try.", flush=True)
     if not threads:
         print("No fixable review comments.")
         return
