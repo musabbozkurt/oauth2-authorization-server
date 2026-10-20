@@ -9,9 +9,9 @@ flowchart TD
     A[PR opened / updated] --> B{Fork or Dependabot PR?}
     B -- yes --> Z[Skip: no secrets available]
     B -- no --> C[Run PMD + SpotBugs/FindSecBugs + Gitleaks]
-    C --> D{OPENAI_API_KEY set?}
+    C --> D{Any AI API key set?}
     D -- no --> E[Install Ollama + pull model]
-    D -- yes --> F[Use OpenAI]
+    D -- yes --> F[Use the cheapest provider with a key<br/>Gemini, Perplexity, OpenAI, Claude]
     E --> G[review_agent.py]
     F --> G
     G --> H[Fetch PR diff and keep only added lines]
@@ -35,7 +35,7 @@ flowchart TD
 | `**[Static analysis]**`                   | PMD rules in `pmd-ruleset.xml` (fixed, rule-based)                                      |
 | `**[Security/bug analysis]**`             | SpotBugs + FindSecBugs on compiled code (SQL injection, path traversal, resource leaks) |
 | `**[Secret scan]**`                       | Gitleaks (secret values are redacted)                                                   |
-| `**[high]**`, `**[medium]**`, `**[low]**` | LLM (Ollama or OpenAI): design, SOLID, security, bugs                                   |
+| `**[high]**`, `**[medium]**`, `**[low]**` | LLM (Ollama or one cloud provider): design, SOLID, security, bugs                       |
 | `**[Sonar ...]**`                         | SonarCloud/SonarQube, only if `SONAR_TOKEN` and `SONAR_PROJECT_KEY` are set             |
 
 ## Files
@@ -49,12 +49,20 @@ flowchart TD
 
 ## Configuration
 
-| Setting                                                | Default            | Notes                                     |
-|--------------------------------------------------------|--------------------|-------------------------------------------|
-| `OPENAI_API_KEY` (secret)                              | not set            | If set, OpenAI is used; otherwise Ollama  |
-| `OPENAI_MODEL`                                         | `gpt-4o`           |                                           |
-| `OLLAMA_MODEL`                                         | `qwen2.5-coder:3b` | Use `qwen2.5-coder:3b` for better quality |
-| `SONAR_TOKEN` / `SONAR_PROJECT_KEY` / `SONAR_HOST_URL` | not set            | Optional Sonar issues                     |
+All AI providers are optional. If several keys are set, only the **cheapest** provider is used (order: Gemini,
+Perplexity, OpenAI, Claude, by default model price). With no key at all, free local Ollama is used.
+
+| Setting (repo secret)                                  | Default             | Notes                              |
+|--------------------------------------------------------|---------------------|------------------------------------|
+| `OPENAI_API_KEY` / `OPENAI_MODEL`                      | `gpt-4o`            | ChatGPT                            |
+| `GEMINI_API_KEY` / `GEMINI_MODEL`                      | `gemini-2.0-flash`  | Google Gemini                      |
+| `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL`                | `claude-sonnet-4-5` | Claude                             |
+| `PERPLEXITY_API_KEY` / `PERPLEXITY_MODEL`              | `sonar`             | Perplexity (OpenAI-compatible API) |
+| `OLLAMA_MODEL`                                         | `qwen2.5-coder:3b`  | Fallback when no key is set        |
+| `SONAR_TOKEN` / `SONAR_PROJECT_KEY` / `SONAR_HOST_URL` | not set             | Optional Sonar issues              |
+
+Notes, auto-fix and the review all use that provider. Model names are examples: set `*_MODEL` to any model your account
+has access to.
 
 ## Stale comments
 
@@ -84,8 +92,8 @@ problems (for example try-with-resources) are left for a human.
 
 ## Limits
 
-- Large diffs are split by file into chunks. Ollama reviews at most 2 chunks of about 5k characters, OpenAI at most 5
-  chunks of about 100k characters.
+- Large diffs are split by file into chunks. Ollama reviews at most 2 chunks of about 5k characters, each cloud provider
+  at most 5 chunks of about 100k characters.
 - Speed: the tools and the Ollama setup run in parallel, and the model gets a time budget (`REVIEW_TIME_BUDGET`, default
   150 s). Chunks left after the budget are not reviewed by the model and the review says so. Stale-thread notes use the
   generic text once a quarter of the budget is spent. The job is capped at 14 minutes (the fix step is capped at 4).

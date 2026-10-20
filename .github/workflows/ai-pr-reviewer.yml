@@ -19,7 +19,12 @@ jobs:
       contents: read
 
     env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }} # Optional: if set, OpenAI is used instead of Ollama
+      # All AI providers are optional. If several keys are set, only the cheapest provider is used (Gemini, Perplexity, OpenAI, Claude); with none, free local Ollama.
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+      USE_OLLAMA: ${{ secrets.OPENAI_API_KEY == '' && secrets.GEMINI_API_KEY == '' && secrets.ANTHROPIC_API_KEY == '' && secrets.PERPLEXITY_API_KEY == '' }}
       OLLAMA_MODEL: qwen2.5-coder:3b
       OLLAMA_MODELS: ${{ github.workspace }}/.ollama-models # cached between runs
     steps:
@@ -46,6 +51,9 @@ jobs:
       - name: Install dependencies
         run: |
           pip install langchain-core langchain-ollama langchain-openai requests
+          [ -n "$GEMINI_API_KEY" ] && pip install langchain-google-genai
+          [ -n "$ANTHROPIC_API_KEY" ] && pip install langchain-anthropic
+          true
 
       - name: Set up JDK 26
         uses: actions/setup-java@v5
@@ -55,7 +63,7 @@ jobs:
           cache: maven
 
       - name: Cache Ollama models
-        if: env.OPENAI_API_KEY == ''
+        if: env.USE_OLLAMA == 'true'
         uses: actions/cache@v4
         with:
           path: ${{ env.OLLAMA_MODELS }}
@@ -88,7 +96,7 @@ jobs:
               --report-format json --report-path "$RUNNER_TEMP/gitleaks.json"
           }
           ollama_setup() {
-            [ -n "$OPENAI_API_KEY" ] && return 0
+            [ "$USE_OLLAMA" = "true" ] || return 0
             curl -fsSL https://ollama.com/install.sh | sh
             # Run our own server so models are stored in the cached folder instead of the system one
             sudo systemctl stop ollama || true
@@ -114,7 +122,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Generated automatically by GitHub
           RESOLVE_TOKEN: ${{ steps.app-token.outputs.token }} # app token resolves threads (GITHUB_TOKEN cannot)
-          OPENAI_MODEL: gpt-4o
           PMD_REPORT: ${{ runner.temp }}/pmd-report.json
           SPOTBUGS_REPORT: ${{ runner.temp }}/spotbugs.xml
           GITLEAKS_REPORT: ${{ runner.temp }}/gitleaks.json
@@ -132,7 +139,6 @@ jobs:
         timeout-minutes: 4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_MODEL: gpt-4o
         run: python -u docs/agent/review_fix_agent.py
 
 # Step 3: Add Your Secret Key
@@ -142,6 +148,8 @@ jobs:
 # 4. Name it OPENAI_API_KEY and paste your actual API key as the value.
 # (Note: You do not need to generate a GITHUB_TOKEN, GitHub creates and rotates that secret automatically for security during the run)
 
-# Default: Ollama runs locally on the runner (free). Optionally add an OPENAI_API_KEY repo secret
-# (Settings -> Secrets and variables -> Actions) to use OpenAI instead.
+# Default: Ollama runs locally on the runner (free). Optionally add any of the repo secrets OPENAI_API_KEY,
+# GEMINI_API_KEY, ANTHROPIC_API_KEY, PERPLEXITY_API_KEY (Settings -> Secrets and variables -> Actions).
+# If several are set, the cheapest is used; model names can be set with OPENAI_MODEL, GEMINI_MODEL,
+# ANTHROPIC_MODEL, PERPLEXITY_MODEL.
 # Note: CPU-only inference on GitHub-hosted runners is slow (several minutes per review).

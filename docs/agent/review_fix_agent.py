@@ -10,7 +10,7 @@ import time
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
-from review_agent import BOT_LOGINS, build_llm, fetch_bot_threads, load_pull_request
+from review_agent import BOT_LOGINS, parse_json, available_providers, build_llm, fetch_bot_threads, load_pull_request
 
 COMMIT_PREFIX = "ai-fix:"
 MAX_ROUNDS = 2  # fix commits per PR, prevents endless fix -> review -> fix loops
@@ -75,8 +75,8 @@ def propose_line(chain, lines, line, body):
     window = "\n".join(f"{n}: {lines[n - 1]}" for n in range(start, min(len(lines), line + CONTEXT) + 1))
     raw = chain.invoke({"comment": body[:800], "line": line, "code": window})
     try:
-        new = json.loads(raw).get("new", "").rstrip()
-    except (ValueError, AttributeError):
+        new = parse_json(raw).get("new", "").rstrip()
+    except AttributeError:
         return None
     return new if new.strip() and new.strip() != lines[line - 1].strip() and "\n" not in new else None
 
@@ -132,11 +132,10 @@ def main():
         print("No fixable review comments.")
         return
 
-    openai_key = os.getenv("OPENAI_API_KEY")
     chain = ChatPromptTemplate.from_messages([
         ("system", FIX_PROMPT),
         ("user", "Review comment:\n{comment}\n\nFlagged line: {line}\n{code}"),
-    ]) | build_llm(openai_key, schema=FIX_SCHEMA) | StrOutputParser()
+    ]) | build_llm(available_providers()[0], schema=FIX_SCHEMA) | StrOutputParser()
     kept = apply_fixes(chain, threads, time.monotonic() + float(os.getenv("FIX_TIME_BUDGET", "120")))
     if not kept:
         print("No fixes kept.")

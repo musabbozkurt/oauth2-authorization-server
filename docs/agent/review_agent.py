@@ -5,6 +5,7 @@ import requests
 import sys
 import time
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama import ChatOllama
@@ -172,19 +173,42 @@ def parse_json(text):
     return None
 
 
-def build_llm(openai_key, json_mode=True, schema=None):
-    """Return the OpenAI model if a key is set, otherwise the local Ollama model; JSON mode for reviews, plain text otherwise."""
-    if openai_key:
-        print("Using OpenAI.")
-        llm = ChatOpenAI(model=os.getenv("OPENAI_MODEL", "gpt-4o"), temperature=0.2, api_key=openai_key, timeout=120)
-        return llm.bind(response_format={"type": "json_object"}) if json_mode else llm
-    model = os.getenv("OLLAMA_MODEL", "qwen2.5-coder:3b")
-    host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-    print(f"OPENAI_API_KEY not set; using Ollama model {model} at {host}.", flush=True)
-    requests.get(f"{host}/api/tags", timeout=10).raise_for_status()  # fail fast if the server is down
-    return ChatOllama(model=model, temperature=0.2, num_ctx=8192, num_predict=700 if json_mode else 60,
-                      format=(schema or REVIEW_SCHEMA) if json_mode else None, base_url=host,
-                      client_kwargs={"timeout": 120})
+# Optional cloud providers, cheapest default model first: name -> (API key env var, model env var, default model)
+CLOUD_PROVIDERS = {
+    "Gemini": ("GEMINI_API_KEY", "GEMINI_MODEL", "gemini-2.0-flash"),
+    "Perplexity": ("PERPLEXITY_API_KEY", "PERPLEXITY_MODEL", "sonar"),
+    "OpenAI": ("OPENAI_API_KEY", "OPENAI_MODEL", "gpt-4o"),
+    "Claude": ("ANTHROPIC_API_KEY", "ANTHROPIC_MODEL", "claude-sonnet-4-5"),
+}
+
+
+def available_providers():
+    """The cheapest cloud provider whose API key is set (only one is used); Ollama (free, local) if none is."""
+    return [name for name, (key_env, _, _) in CLOUD_PROVIDERS.items() if os.getenv(key_env)][:1] or ["Ollama"]
+
+
+def build_llm(provider, json_mode=True, schema=None):
+    """Return the chat model of a provider; JSON mode for reviews, plain text otherwise (Ollama is the local fallback)."""
+    if provider == "Ollama":
+        model = os.getenv("OLLAMA_MODEL", "qwen2.5-coder:3b")
+        host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+        print(f"Using Ollama model {model} at {host}.", flush=True)
+        requests.get(f"{host}/api/tags", timeout=10).raise_for_status()  # fail fast if the server is down
+        return ChatOllama(model=model, temperature=0.2, num_ctx=8192, num_predict=700 if json_mode else 60,
+                          format=(schema or REVIEW_SCHEMA) if json_mode else None, base_url=host,
+                          client_kwargs={"timeout": 120})
+    key_env, model_env, default_model = CLOUD_PROVIDERS[provider]
+    key, model = os.getenv(key_env), os.getenv(model_env) or default_model
+    print(f"Using {provider} model {model}.", flush=True)
+    if provider == "Gemini":
+        from langchain_google_genai import ChatGoogleGenerativeAI  # imported lazily: only needed when a key is set
+        return ChatGoogleGenerativeAI(model=model, temperature=0.2, google_api_key=key, timeout=120)
+    if provider == "Claude":
+        from langchain_anthropic import ChatAnthropic
+        return ChatAnthropic(model=model, temperature=0.2, api_key=key, timeout=120, max_tokens=2000)
+    base_url = "https://api.perplexity.ai" if provider == "Perplexity" else None  # Perplexity is OpenAI-compatible
+    llm = ChatOpenAI(model=model, temperature=0.2, api_key=key, base_url=base_url, timeout=120)
+    return llm.bind(response_format={"type": "json_object"}) if json_mode and provider == "OpenAI" else llm
 
 
 def snap_line(files, path, line, code):
@@ -474,10 +498,25 @@ def load_pull_request(token):
         return json.load(f)["pull_request"]
 
 
+def review_with(provider, files, seen, deadline):
+    """Review the diff with one provider; a failing provider returns no comments instead of stopping the others."""
+    try:
+        local = provider == "Ollama"
+        chunks, skipped = chunk_files(files, 5_000 if local else 100_000, 2 if local else 5)
+        chain = ChatPromptTemplate.from_messages([
+            ("system", SMALL_PROMPT if local else SYSTEM_PROMPT),
+            ("user", "Review this part of the PR diff:\n\n{diff}"),
+        ]) | build_llm(provider) | StrOutputParser()
+        summaries, inline, unplaced, not_reviewed = review_chunks(chain, chunks, files, seen, deadline)
+        return summaries, inline, unplaced, skipped + not_reviewed
+    except Exception as e:
+        print(f"{provider} review failed: {e}", flush=True)
+        return [], [], [], 0
+
+
 def main():
     """Review the PR diff with an LLM and post the findings back to the pull request."""
     token = os.getenv("GITHUB_TOKEN")
-    openai_key = os.getenv("OPENAI_API_KEY")
     pr = load_pull_request(token)
     if not pr:
         return
@@ -494,23 +533,25 @@ def main():
         print("No reviewable changes found.")
         return
 
-    chunks, skipped = chunk_files(files, 100_000 if openai_key else 5_000, 5 if openai_key else 2)
-    chain = ChatPromptTemplate.from_messages([
-        ("system", SYSTEM_PROMPT if openai_key else SMALL_PROMPT),
-        ("user", "Review this part of the PR diff:\n\n{diff}"),
-    ]) | build_llm(openai_key) | StrOutputParser()
-
     seen = set()
     inline = (load_gitleaks_comments(files, seen) + load_spotbugs_comments(files, seen)
               + load_pmd_comments(files, seen) + fetch_sonar_comments(pr, files, seen))
-    summaries, ai_inline, unplaced, not_reviewed = review_chunks(chain, chunks, files, seen, started + budget)
-    skipped += not_reviewed
-    inline += ai_inline
+    providers = available_providers()
+    print(f"AI providers: {', '.join(providers)}", flush=True)
+    with ThreadPoolExecutor(max_workers=len(providers)) as pool:  # all configured providers review in parallel
+        results = list(pool.map(lambda name: review_with(name, files, set(seen), started + budget), providers))
+    summaries, unplaced, skipped = [], [], 0
+    for name, (provider_summaries, provider_inline, provider_unplaced, provider_skipped) in zip(providers, results):
+        tag = f" _(via {name})_" if len(providers) > 1 else ""
+        summaries += [f"{name}: {x}" if tag else x for x in provider_summaries]
+        inline += [{**c, "body": c["body"] + tag} for c in provider_inline]
+        unplaced += [x + tag for x in provider_unplaced]
+        skipped += provider_skipped
     if inline or unplaced:
         post_review(pr, api_headers, build_summary(summaries, unplaced, skipped), inline)
     else:
         print("No issues found by the AI reviewer; not posting a review.")
-    resolve_stale_threads(pr, api_headers, resolve_headers, build_llm(openai_key, json_mode=False),
+    resolve_stale_threads(pr, api_headers, resolve_headers, build_llm(providers[0], json_mode=False),
                           time.monotonic() + budget * 0.25, inline)
 
 
