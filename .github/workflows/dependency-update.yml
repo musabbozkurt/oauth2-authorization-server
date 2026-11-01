@@ -7,8 +7,10 @@
 # (docs/scripts/check-compose-image-updates.sh --apply).
 #
 # Behavior per trigger:
-#   pull_request       → Read-only check: displays available Maven + Compose updates in the log
-#   workflow_dispatch  → Same read-only check as pull_request (manual report)
+#   workflow_dispatch  → Read-only check: displays available Maven + Compose updates in the log
+#   pull_request       → Applies updates on the PR source branch, verifies compile and pushes
+#                        a commit to that same branch (skipped for fork PRs and for the
+#                        update branch itself)
 #   push (this file)   → Applies updates, verifies compile, creates a PR (for testing)
 #   schedule/dispatch  → Applies updates, verifies compile, creates or updates PR; if
 #                        automated/dependency-updates is already open, pushes commits there
@@ -39,7 +41,7 @@ env:
 # ---------------------------------------------------------------------------
 jobs:
   check-versions:
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     steps:
@@ -47,7 +49,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up JDK 26
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           java-version: '26'
           distribution: 'temurin'
@@ -76,8 +78,15 @@ jobs:
   # Job 2: Apply updates + create or update PR (runs on schedule / workflow_dispatch / push)
   # ---------------------------------------------------------------------------
   update-and-pr:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    if: >-
+      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' ||
+      (github.event_name == 'pull_request'
+        && github.event.pull_request.head.repo.full_name == github.repository
+        && github.event.pull_request.head.ref != 'automated/dependency-updates')
     runs-on: ubuntu-latest
+    concurrency:
+      group: dependency-update-pr
+      cancel-in-progress: false
 
     steps:
       # https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/making-authenticated-api-requests-with-a-github-app-in-a-github-actions-workflow
@@ -90,6 +99,7 @@ jobs:
 
       - name: Resolve update base branch
         id: update-base
+        if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
@@ -113,11 +123,11 @@ jobs:
       - name: Checkout update base
         uses: actions/checkout@v7
         with:
-          ref: ${{ steps.update-base.outputs.checkout_ref }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || steps.update-base.outputs.checkout_ref }}
           token: ${{ steps.generate-token.outputs.token }}
 
       - name: Set up JDK 26
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           java-version: '26'
           distribution: 'temurin'
@@ -202,8 +212,19 @@ jobs:
         if: steps.diff.outputs.has_changes == 'true' && steps.diff.outputs.has_pom_changes == 'true'
         run: mvn -B compile --file pom.xml
 
+      - name: Push updates to the PR source branch
+        if: github.event_name == 'pull_request' && steps.diff.outputs.has_changes == 'true'
+        env:
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pom.xml docker-compose.yml
+          git commit -m "build(deps): update Maven and Docker Compose dependency versions"
+          git push origin "HEAD:$PR_BRANCH"
+
       - name: Create or update Pull Request
-        if: steps.diff.outputs.has_changes == 'true'
+        if: github.event_name != 'pull_request' && steps.diff.outputs.has_changes == 'true'
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ steps.generate-token.outputs.token }}
