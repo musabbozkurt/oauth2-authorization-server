@@ -7,11 +7,12 @@
 # (docs/scripts/check-compose-image-updates.sh --apply).
 #
 # Behavior per trigger:
-#   pull_request       → Read-only check: displays available Maven + Compose updates in the log
-#   workflow_dispatch  → Same read-only check as pull_request (manual report)
-#   push (this file)   → Applies updates, verifies compile, creates a PR (for testing)
-#   schedule/dispatch  → Applies updates, verifies compile, creates or updates PR; if
+#   workflow_dispatch  → Read-only check: displays available Maven + Compose updates in the log
+#   pull_request       → Applies updates, verifies compile, creates or updates PR; if
 #                        automated/dependency-updates is already open, pushes commits there
+#                        (skipped for fork PRs and for the update branch itself)
+#   push (this file)   → Applies updates, verifies compile, creates a PR (for testing)
+#   schedule/dispatch  → Same apply behavior as pull_request
 # =============================================================================
 
 name: MB Dependency Version Update
@@ -39,7 +40,7 @@ env:
 # ---------------------------------------------------------------------------
 jobs:
   check-versions:
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     steps:
@@ -47,7 +48,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up JDK 26
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           java-version: '26'
           distribution: 'temurin'
@@ -76,8 +77,15 @@ jobs:
   # Job 2: Apply updates + create or update PR (runs on schedule / workflow_dispatch / push)
   # ---------------------------------------------------------------------------
   update-and-pr:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    if: >-
+      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' ||
+      (github.event_name == 'pull_request'
+        && github.event.pull_request.head.repo.full_name == github.repository
+        && github.event.pull_request.head.ref != 'automated/dependency-updates')
     runs-on: ubuntu-latest
+    concurrency:
+      group: dependency-update-pr
+      cancel-in-progress: false
 
     steps:
       # https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/making-authenticated-api-requests-with-a-github-app-in-a-github-actions-workflow
@@ -117,7 +125,7 @@ jobs:
           token: ${{ steps.generate-token.outputs.token }}
 
       - name: Set up JDK 26
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           java-version: '26'
           distribution: 'temurin'
