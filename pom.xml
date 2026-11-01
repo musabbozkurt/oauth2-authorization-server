@@ -27,7 +27,6 @@
         <taikai.version>2.7.0</taikai.version>
         <instancio-junit.version>6.2.0</instancio-junit.version>
         <springdoc-openapi-starter-webmvc-ui.version>3.2.0</springdoc-openapi-starter-webmvc-ui.version>
-        <swagger-openapiv3.version>3.0.0</swagger-openapiv3.version>
         <spring-boot-thin-layout.version>1.0.31.RELEASE</spring-boot-thin-layout.version>
         <org.mapstruct.version>1.7.0.Beta1</org.mapstruct.version>
         <opentelemetry-logback-appender-1.0.version>2.25.0-alpha</opentelemetry-logback-appender-1.0.version>
@@ -44,6 +43,8 @@
         <fastexcel.version>0.20.2</fastexcel.version>
         <testcontainers-bom.version>2.0.5</testcontainers-bom.version>
         <jackson-bom.version>3.2.4</jackson-bom.version>
+        <swagger-annotations-jakarta.version>2.2.55</swagger-annotations-jakarta.version>
+        <swagger-annotations.version>3.0.0</swagger-annotations.version>
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
         <!-- NullAway for compile-time null checking -->
         <error-prone.version>2.50.0</error-prone.version>
@@ -102,6 +103,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc</artifactId>
+        </dependency>
+
+        <!-- Previously pulled in transitively by springdoc -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
         <!-- This starter bundles the RestTemplate and the RestClient -->
@@ -408,22 +415,6 @@
             <version>${springdoc-openapi-starter-webmvc-ui.version}</version>
         </dependency>
 
-        <!-- Align all Swagger artifacts to the same version (springdoc 3.0.2 pulls mismatched versions) -->
-        <dependency>
-            <groupId>io.swagger.core.v3</groupId>
-            <artifactId>swagger-core</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.swagger.core.v3</groupId>
-            <artifactId>swagger-models</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.swagger.core.v3</groupId>
-            <artifactId>swagger-annotations</artifactId>
-        </dependency>
-
         <dependency>
             <groupId>org.mapstruct</groupId>
             <artifactId>mapstruct</artifactId>
@@ -566,12 +557,17 @@
                 <scope>import</scope>
             </dependency>
 
+            <!-- spring-ai/openai-java pull older swagger-annotations (no Schema.$dynamicRef) than springdoc's swagger-core-jakarta -->
             <dependency>
                 <groupId>io.swagger.core.v3</groupId>
-                <artifactId>swagger-bom</artifactId>
-                <version>${swagger-openapiv3.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
+                <artifactId>swagger-annotations-jakarta</artifactId>
+                <version>${swagger-annotations-jakarta.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.swagger.core.v3</groupId>
+                <artifactId>swagger-annotations</artifactId>
+                <version>${swagger-annotations.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
