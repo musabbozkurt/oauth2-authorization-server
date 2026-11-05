@@ -3,7 +3,7 @@
 # Compose image version checker (Linux, macOS, Windows Git Bash / WSL)
 # =============================================================================
 # Reads image: lines from docker-compose.yml, asks each registry for tags, and
-# prints whether the pin is OK, OUTDATED, FLOATING (latest/master), SKIPPED, or
+# prints whether the pin is OK, OUTDATED, FLOATING (latest/main), SKIPPED, or
 # ERROR.
 #
 # How it works:
@@ -461,7 +461,7 @@ while IFS= read -r image; do
     continue
   fi
 
-  if [[ "$IMAGE_TAG" == "latest" || "$IMAGE_TAG" == "master" || "$IMAGE_TAG" == "main" ]]; then
+  if [[ "$IMAGE_TAG" == "latest" || "$IMAGE_TAG" == "main" ]]; then
     log_progress "$IMAGE_NAME" "$IMAGE_TAG"
     append_row "FLOATING" "$IMAGE_NAME" "$IMAGE_TAG" "-" "pin a release tag"
     continue

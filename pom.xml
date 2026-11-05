@@ -24,8 +24,8 @@
         <mariadb-java-client.version>4.0.0</mariadb-java-client.version>
         <ojdbc17.version>23.26.4.0.0</ojdbc17.version>
         <archunit-junit5.version>1.5.1</archunit-junit5.version>
-        <taikai.version>2.7.0</taikai.version>
-        <instancio-junit.version>6.2.0</instancio-junit.version>
+        <taikai.version>2.8.0</taikai.version>
+        <instancio-junit.version>6.2.1</instancio-junit.version>
         <springdoc-openapi-starter-webmvc-ui.version>3.2.0</springdoc-openapi-starter-webmvc-ui.version>
         <spring-boot-thin-layout.version>1.0.31.RELEASE</spring-boot-thin-layout.version>
         <org.mapstruct.version>1.7.0.Beta1</org.mapstruct.version>
@@ -33,7 +33,7 @@
         <protobuf.version>4.36.2</protobuf.version>
         <logstash-logback-encoder.version>9.0</logstash-logback-encoder.version>
         <webmagic-core.version>1.0.3</webmagic-core.version>
-        <software.amazon.awssdk.s3.version>2.57.8</software.amazon.awssdk.s3.version>
+        <software.amazon.awssdk.s3.version>2.57.9</software.amazon.awssdk.s3.version>
         <minio.version>9.0.4</minio.version>
         <okhttp-urlconnection.version>5.5.1</okhttp-urlconnection.version>
         <uap-java.version>1.6.1</uap-java.version>

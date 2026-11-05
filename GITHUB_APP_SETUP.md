@@ -89,7 +89,7 @@ jobs:
 The repository workflow (`.github/workflows/dependency-update.yml`) will:
 
 - run a read-only Maven + Docker Compose image check on pull requests and manual dispatch,
-- run scheduled/manual update jobs on `master`,
+- run scheduled/manual update jobs on `main` branch,
 - generate a GitHub App token via `actions/create-github-app-token@v2`,
 - apply Maven dependency updates in `pom.xml`,
 - apply Docker Compose image bumps via `docs/scripts/check-compose-image-updates.sh --apply`,
