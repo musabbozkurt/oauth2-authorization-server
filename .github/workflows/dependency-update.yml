@@ -21,10 +21,10 @@ name: MB Dependency Version Update
 on:
   workflow_dispatch:
   push:
-    branches: [ "master" ]
+    branches: [ "main" ]
     paths: [ ".github/workflows/dependency-update.yml" ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "main" ]
   schedule:
     - cron: '0 0 * * 0' # Every Sunday at midnight
 
@@ -34,7 +34,7 @@ permissions:
 
 env:
   UPDATE_BRANCH: automated/dependency-updates
-  DEFAULT_BRANCH: master
+  DEFAULT_BRANCH: main
 
 # ---------------------------------------------------------------------------
 # Job 1: Read-only version check (runs on pull_request and workflow_dispatch)

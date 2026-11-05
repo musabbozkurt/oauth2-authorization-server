@@ -323,7 +323,7 @@ foreach ($image in (Get-ComposeImages $ComposeFile)) {
         Add-Row "SKIPPED" $parts.Name $parts.Tag "-" "private Oracle registry (login required)"
         continue
     }
-    if ($parts.Tag -in @("latest", "master", "main")) {
+    if ($parts.Tag -in @("latest", "main")) {
         Write-ProgressCheck $parts.Name $parts.Tag
         Add-Row "FLOATING" $parts.Name $parts.Tag "-" "pin a release tag"
         continue
