@@ -110,7 +110,7 @@ services:
       - oauth2-network
 
   ollama:
-    image: ollama/ollama:0.40.13
+    image: ollama/ollama:0.40.14
     container_name: ollama
     ports:
       - "11434:11434"
