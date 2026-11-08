@@ -2,12 +2,12 @@
 
 ## Project Overview
 
-**OAuth2 Authorization Server** built with **Spring Boot 4.1.2** and **Java 27**. A feature-rich, production-oriented
+**OAuth2 Authorization Server** built with **Spring Boot 4** and **Java 27**. A feature-rich, production-oriented
 OAuth2 authorization server with extensive AI/LLM integration, enterprise security, and full observability.
 
 - **Build tool**: Maven
 - **Framework**: Spring Boot 4, Spring Security OAuth2 Authorization Server
-- **AI Framework**: Spring AI 2.0.0-M8
+- **AI Framework**: Spring AI 2
 - **Runtime port**: 9000
 - **Package**: `mb.oauth2authorizationserver`
 
@@ -225,8 +225,8 @@ src/main/java/mb/oauth2authorizationserver/
 **LLM Providers**:
 
 - OpenAI / DeepSeek
-- Anthropic (Claude Haiku 4.5)
-- Google GenAI (Gemini 2.5 Flash)
+- Anthropic (Claude)
+- Google GenAI (Gemini)
 - Ollama (local, `deepseek-r1:7b`)
 - Typesafe (multi-provider: Azure OpenAI, GitHub Models)
 
@@ -244,18 +244,18 @@ src/main/java/mb/oauth2authorizationserver/
 
 ### 3. Infrastructure & Data
 
-| Component        | Technology           | Configuration                                               |
-|------------------|----------------------|-------------------------------------------------------------|
-| Primary Database | MariaDB 12.3.3       | `jdbc:mariadb://localhost:3306/oauth2_authorization_server` |
-| Oracle Database  | ojdbc17              | Available via Testcontainers                                |
-| Cache / Sessions | Redis 8.10.3         | `localhost:6379`, Jedis client                              |
-| Redis Stack      | redis-stack 7.4.0-v8 | `localhost:6380` + RedisInsight on 8001                     |
-| Object Storage   | MinIO / AWS S3       | `localhost:9091`, bucket `mb-bucket`                        |
-| LDAP             | lldap                | `ldap://localhost:10389`                                    |
-| LLM (local)      | Ollama               | `localhost:11434`                                           |
-| Tracing          | Zipkin               | `localhost:9411`                                            |
-| Observability    | Grafana LGTM         | `localhost:3001` (admin/admin)                              |
-| Open WebUI       | Open WebUI           | `localhost:3000`                                            |
+| Component        | Technology     | Configuration                                               |
+|------------------|----------------|-------------------------------------------------------------|
+| Primary Database | MariaDB        | `jdbc:mariadb://localhost:3306/oauth2_authorization_server` |
+| Oracle Database  | ojdbc17        | Available via Testcontainers                                |
+| Cache / Sessions | Redis          | `localhost:6379`, Jedis client                              |
+| Redis Stack      | Redis Stack    | `localhost:6380` + RedisInsight on 8001                     |
+| Object Storage   | MinIO / AWS S3 | `localhost:9091`, bucket `mb-bucket`                        |
+| LDAP             | lldap          | `ldap://localhost:10389`                                    |
+| LLM (local)      | Ollama         | `localhost:11434`                                           |
+| Tracing          | Zipkin         | `localhost:9411`                                            |
+| Observability    | Grafana LGTM   | `localhost:3001` (admin/admin)                              |
+| Open WebUI       | Open WebUI     | `localhost:3000`                                            |
 
 ### 4. Configuration (`src/main/resources/application.yml`)
 
@@ -291,18 +291,18 @@ src/main/java/mb/oauth2authorizationserver/
 
 ### Infrastructure Services (always started)
 
-| Service       | Image                              | Port         | Purpose                     |
-|---------------|------------------------------------|--------------|-----------------------------|
-| mariadb       | mariadb:12.3.3                     | 3306         | Primary database            |
-| redis         | redis:8.10.3                       | 6379         | Cache & sessions            |
-| redis-insight | redis/redisinsight:latest          | 5540         | Redis GUI                   |
-| redis-stack   | redis/redis-stack:7.4.0-v8         | 6380, 8001   | Vector store + RedisInsight |
-| ollama        | ollama/ollama:0.40.14              | 11434        | Local LLM server            |
-| open-webui    | ghcr.io/open-webui/open-webui:main | 3000         | LLM chat UI                 |
-| lldap         | lldap/lldap:2025-12-12             | 10389, 17170 | LDAP authentication         |
-| minio         | cgr.dev/chainguard/minio:latest    | 9091, 9001   | Object storage              |
-| zipkin        | openzipkin/zipkin:3.6.1            | 9411         | Distributed tracing         |
-| grafana-lgtm  | grafana/otel-lgtm:0.39.0           | 3001, 4318   | Metrics, traces, logs       |
+| Service       | Image                         | Port         | Purpose                     |
+|---------------|-------------------------------|--------------|-----------------------------|
+| mariadb       | mariadb                       | 3306         | Primary database            |
+| redis         | redis                         | 6379         | Cache & sessions            |
+| redis-insight | redis/redisinsight            | 5540         | Redis GUI                   |
+| redis-stack   | redis/redis-stack             | 6380, 8001   | Vector store + RedisInsight |
+| ollama        | ollama/ollama                 | 11434        | Local LLM server            |
+| open-webui    | ghcr.io/open-webui/open-webui | 3000         | LLM chat UI                 |
+| lldap         | lldap/lldap                   | 10389, 17170 | LDAP authentication         |
+| minio         | cgr.dev/chainguard/minio      | 9091, 9001   | Object storage              |
+| zipkin        | openzipkin/zipkin             | 9411         | Distributed tracing         |
+| grafana-lgtm  | grafana/otel-lgtm             | 3001, 4318   | Metrics, traces, logs       |
 
 ### Network
 
