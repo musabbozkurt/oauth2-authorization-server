@@ -15,7 +15,8 @@
 #   update-parent Auto-update only the parent POM version
 #   update-props  Auto-update only properties (safest, recommended)
 #   update-deps   Auto-update dependencies to latest releases
-#   revert        Revert pom.xml changes (restore from backup)
+#   java          Update java.version (pom.xml) and CI JDK pins to the latest Java GA release
+#   revert        Revert pom.xml and CI workflow changes (restore from backup)
 #   help          Show this help
 # ============================================================================
 
@@ -33,6 +34,31 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 banner() { echo -e "\n${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"; echo -e "${GREEN}  $1${NC}"; echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"; }
+
+# Sets <java.version> in pom.xml and the java-version pins in CI workflows to the latest Java GA
+# feature release reported by the Adoptium API. Backs up each workflow as <file>.versionsBackup
+# so `revert` can restore it.
+update_java() {
+  local latest current f
+  latest=$(curl -fsSL https://api.adoptium.net/v3/info/available_releases \
+    | grep -o '"most_recent_feature_release": *[0-9]*' | grep -o '[0-9]*$')
+  current=$(sed -n 's:.*<java.version>\(.*\)</java.version>.*:\1:p' pom.xml | head -1)
+  echo "Current java.version: ${current:-unknown}, latest Java GA: ${latest}"
+
+  for f in .github/workflows/*.yml; do cp "$f" "$f.versionsBackup"; done
+
+  if [ "$current" = "$latest" ]; then
+    echo -e "${GREEN}✓ java.version is already up to date.${NC}"
+  else
+    $MVN versions:set-property -Dproperty=java.version -DnewVersion="$latest" -DgenerateBackupPoms=false | cat
+  fi
+
+  sed -i.bak -E "s/java-version: '[0-9]+'/java-version: '${latest}'/; s/Set up JDK [0-9]+/Set up JDK ${latest}/" .github/workflows/*.yml
+  rm -f .github/workflows/*.yml.bak
+
+  echo -e "\n${YELLOW}⚠  Docker images still pin the old JDK; update them manually (tags must exist on the registry):${NC}"
+  echo -e "   grep -nE 'temurin|liberica|/opt/java/jdk' Dockerfile DockerfileForAOTCache"
+}
 
 cmd="${1:-help}"
 
@@ -99,8 +125,22 @@ case "$cmd" in
     banner "Updating dependencies to latest releases..."
     $MVN versions:use-latest-releases -DgenerateBackupPoms=false | cat
 
+    banner "Updating Java to latest GA release..."
+    update_java
+
     echo -e "\n${YELLOW}⚠  pom.xml has been modified. Review changes with:${NC}"
     echo -e "   git diff pom.xml"
+    ;;
+
+  java)
+    banner "Creating backup of pom.xml..."
+    cp pom.xml pom.xml.versionsBackup
+
+    banner "Updating Java to latest GA release..."
+    update_java
+
+    echo -e "\n${YELLOW}⚠  pom.xml and CI workflows have been modified. Review changes with:${NC}"
+    echo -e "   git diff"
     ;;
 
   update-parent)
@@ -115,11 +155,16 @@ case "$cmd" in
     ;;
 
   revert)
-    if [ -f pom.xml.versionsBackup ]; then
-      mv pom.xml.versionsBackup pom.xml
-      echo -e "${GREEN}✓ pom.xml restored from backup.${NC}"
-    else
-      echo -e "${YELLOW}No backup file found (pom.xml.versionsBackup).${NC}"
+    restored=0
+    for f in pom.xml .github/workflows/*.yml; do
+      if [ -f "$f.versionsBackup" ]; then
+        mv "$f.versionsBackup" "$f"
+        echo -e "${GREEN}✓ $f restored from backup.${NC}"
+        restored=1
+      fi
+    done
+    if [ "$restored" = 0 ]; then
+      echo -e "${YELLOW}No backup files found (*.versionsBackup).${NC}"
       exit 1
     fi
     ;;
@@ -137,7 +182,8 @@ case "$cmd" in
     echo "  update-parent  Auto-update only the parent POM version"
     echo "  update-props   Auto-update only <properties> versions (safest, recommended)"
     echo "  update-deps    Auto-update dependencies to latest releases"
-    echo "  revert         Revert pom.xml from backup"
+    echo "  java           Update java.version and CI JDK pins to latest Java GA release"
+    echo "  revert         Revert pom.xml and CI workflows from backup"
     echo "  help           Show this help"
     echo ""
     echo "Examples:"
