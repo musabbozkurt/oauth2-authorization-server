@@ -33,6 +33,7 @@ import org.testcontainers.ollama.OllamaContainer;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -86,7 +87,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SpringAILiveTest {
 
     @ServiceConnection
-    private static final OllamaContainer ollamaContainer = new OllamaContainer("ollama/ollama:0.13.3")
+    @SuppressWarnings("unused")
+    private static final OllamaContainer ollamaContainer = new OllamaContainer("ollama/ollama:0.40.15")
             .withReuse(true);
 
     private static final ChatMemory chatMemory = MessageWindowChatMemory.builder().chatMemoryRepository(new InMemoryChatMemoryRepository()).build();
@@ -282,6 +284,6 @@ class CustomLoggingAdvisor implements CallAdvisor {
     }
 
     private void observeAfter(ChatClientResponse advisedResponse) {
-        log.info(advisedResponse.chatResponse() != null ? advisedResponse.chatResponse().getResult().getOutput().getText() : null);
+        log.info(advisedResponse.chatResponse() != null ? Objects.requireNonNull(advisedResponse.chatResponse().getResult()).getOutput().getText() : null);
     }
 }

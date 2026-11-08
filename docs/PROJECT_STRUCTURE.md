@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**OAuth2 Authorization Server** built with **Spring Boot 4.1.2** and **Java 26**. A feature-rich, production-oriented
+**OAuth2 Authorization Server** built with **Spring Boot 4.1.2** and **Java 27**. A feature-rich, production-oriented
 OAuth2 authorization server with extensive AI/LLM integration, enterprise security, and full observability.
 
 - **Build tool**: Maven
@@ -314,7 +314,7 @@ src/main/java/mb/oauth2authorizationserver/
 
 ### Prerequisites
 
-- Java 26
+- Java 27
 - Maven
 - Docker
 

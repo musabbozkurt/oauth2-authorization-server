@@ -1,8 +1,8 @@
-## OAuth2 Authorization Server with Spring Boot 4 and Java 26
+## OAuth2 Authorization Server with Spring Boot 4 and Java 27
 
 #### Prerequisites
 
-- Java 26 should be installed --> `export JAVA_HOME=$(/usr/libexec/java_home -v 26)`
+- Java 27 should be installed --> `export JAVA_HOME=$(/usr/libexec/java_home -v 27)`
 - Maven should be installed
 - Docker should be installed
 - Postman can be installed
@@ -82,7 +82,7 @@
 
 #### How to Run and Test with CDC (Class Data Sharing)
 
-- Java 26+ should be installed
+- Java 27+ should be installed
 - Run `./mvnw clean install` or`./mvnw clean install -Paot` or `./mvnw -Paot package` command to build the application
   with AOT
 - Run `docker-compose up -d` command to run necessary services
@@ -91,7 +91,7 @@
 
 #### How to Run and Test Native Image with GraalVM
 
-- Java 26 GraalVM edition should be installed
+- Java 27 GraalVM edition should be installed
 - Run `docker-compose up -d` command to run necessary services
 - Run `./mvnw -Pnative native:compile` or `./mvnw -Pnative native:compile -DskipTests` command to build the native image
 - Run `./target/oauth2-authorization-server` command to run the native image

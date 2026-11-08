@@ -1,7 +1,7 @@
-package mb.oauth2authorizationserver;
+package mb.oauth2authorizationserver.java;
 
 import jdk.incubator.vector.FloatVector;
-import org.junit.jupiter.api.Disabled;
+import jdk.jfr.Recording;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -9,10 +9,11 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import javax.net.ssl.SSLContext;
 import java.io.IOException;
+import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryManagerMXBean;
 import java.lang.module.ModuleFinder;
-import java.lang.management.ManagementFactory;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.security.KeyPairGenerator;
@@ -25,11 +26,11 @@ import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
-import jdk.jfr.Recording;
-
-import javax.net.ssl.SSLContext;
-
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Java 27 Features Overview
@@ -61,7 +62,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * <p>
  * Additional compatibility checks
  * --------------------------------
- * JEP 500: Prepare to Make Final Mean Final
+ * JEP 500: Prepare to Make Final Mean Final (delivered in JDK 26, not in the JDK 27 feature list)
  * - Deep-reflection warnings are runtime-configuration dependent.
  * <p>
  * Notes:
@@ -103,13 +104,12 @@ class Java27FeaturesTest {
         }
     }
 
-    private record ProcessResult(int exitCode, String output) {
-    }
-
     /**
      * JEP 523:
-     * G1 should be the default garbage collector
-     * in all supported runtime environments.
+     * G1 should be available as a garbage collector.
+     * <p>
+     * Verifying that G1 is the default in every environment
+     * requires a deployment-level check, not a unit test.
      */
     @Test
     void g1GarbageCollector_ShouldBeAvailable_WhenUsingJava27() {
@@ -193,8 +193,8 @@ class Java27FeaturesTest {
 
     /**
      * JEP 533: Structured Concurrency (7th Preview)
-     * In Java 27, the join() signature is tightly integrated into the explicit
-     * task scoping API to handle exception checking correctly.
+     * StructuredTaskScope.open() creates the scope and join() waits for
+     * all forked subtasks. join() declares InterruptedException.
      */
     @Test
     void structuredConcurrency_ShouldJoinWithExplicitExceptionContract_InJava27() throws Exception {
@@ -205,8 +205,7 @@ class Java27FeaturesTest {
             var userTask = scope.fork(() -> user);
             var orderTask = scope.fork(() -> order);
 
-            // In Java 27, join() verifies the checked exception contracts
-            // thrown by any nested subtasks during runtime synchronization
+            // join() waits for all subtasks to complete
             scope.join();
 
             assertEquals("alice", userTask.get());
@@ -243,7 +242,7 @@ class Java27FeaturesTest {
 
     /**
      * NEW - JEP 531: Lazy Constants / Lazy Collections (Third Preview)
-     * Java 27 adds Set.ofLazy(...) alongside List and Map factories to compute
+     * Java 27 adds Set.ofLazy(...) (and List.ofLazy(...)) to compute
      * distinct item visibility on demand.
      */
     @Test
@@ -269,7 +268,6 @@ class Java27FeaturesTest {
         assertTrue(activeFlags.contains("ai-recommendations"));
         assertEquals(1, counter.get(), "Subsequent lookups should not trigger recalculations");
     }
-
 
     /**
      * JEP 537:
@@ -326,15 +324,15 @@ class Java27FeaturesTest {
      * is exposed rather than asserting a particular warning.
      */
     @Test
-    @Disabled("")
     void finalFieldMutation_ShouldExposeRuntimeConfiguration_WhenUsingJava27() throws Exception {
         // Arrange
-        ProcessResult result = run(List.of(javaBin().toString(), "-XX:+PrintFlagsFinal", "-version"), tempDir);
+        // JEP 500 options are documented CLI switches, not -XX flags, so they do not appear in PrintFlagsFinal
+        ProcessResult result = run(List.of(javaBin().toString(), "--help"), tempDir);
 
         // Assertions
         assertEquals(0, result.exitCode(), result.output());
 
-        assertTrue(result.output().contains("EnableFinalFieldMutation") || result.output().contains("IllegalFinalFieldMutation"), "Final field mutation configuration should be exposed");
+        assertTrue(result.output().contains("--illegal-final-field-mutation"), "Final field mutation configuration should be exposed");
     }
 
     /**
@@ -369,6 +367,9 @@ class Java27FeaturesTest {
         assertTrue(available, "jdk.incubator.vector should be available");
     }
 
+    private record ProcessResult(int exitCode, String output) {
+    }
+
     /**
      * JEP 532:
      * Primitive patterns should match all eight
@@ -388,6 +389,18 @@ class Java27FeaturesTest {
                     Arguments.of('A', 'A'),
                     Arguments.of(true, true)
             );
+        }
+
+        private static boolean matchesInt(Object value) {
+            return value instanceof int i && i == 42;
+        }
+
+        private static boolean matchesBoolean(Object value) {
+            return value instanceof boolean b && b;
+        }
+
+        private static boolean matchesDouble(Object value) {
+            return value instanceof double d && d == 3.14;
         }
 
         @ParameterizedTest(name = "Java 27 primitive pattern: {0}")
@@ -413,29 +426,28 @@ class Java27FeaturesTest {
 
         @Test
         void primitivePatterns_ShouldMatchInt_WhenUsingInstanceof() {
-            // Arrange
-            Object value = 42;
-
-            // Act & Assert
-            assertTrue(value instanceof int i && i == 42);
+            // Act
+            // Assertions
+            assertTrue(matchesInt(42));
+            assertFalse(matchesInt(42L), "Long should not match int pattern");
+            assertFalse(matchesInt("42"), "String should not match int pattern");
         }
 
         @Test
         void primitivePatterns_ShouldMatchBoolean_WhenUsingInstanceof() {
-            // Arrange
-            Object value = true;
-
-            // Act & Assert
-            assertTrue(value instanceof boolean b && b);
+            // Act
+            // Assertions
+            assertTrue(matchesBoolean(true));
+            assertFalse(matchesBoolean(false));
+            assertFalse(matchesBoolean(1), "Integer should not match boolean pattern");
         }
 
         @Test
         void primitivePatterns_ShouldMatchDouble_WhenUsingInstanceof() {
-            // Arrange
-            Object value = 3.14;
-
-            // Act & Assert
-            assertTrue(value instanceof double d && d == 3.14);
+            // Act
+            // Assertions
+            assertTrue(matchesDouble(3.14));
+            assertFalse(matchesDouble(3.14f), "Float should not match double pattern");
         }
     }
 }

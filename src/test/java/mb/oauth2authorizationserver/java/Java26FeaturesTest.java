@@ -1,4 +1,4 @@
-package mb.oauth2authorizationserver;
+package mb.oauth2authorizationserver.java;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Nested;

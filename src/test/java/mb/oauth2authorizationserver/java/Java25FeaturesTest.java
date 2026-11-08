@@ -1,4 +1,4 @@
-package mb.oauth2authorizationserver;
+package mb.oauth2authorizationserver.java;
 
 import module java.base;
 import org.junit.jupiter.api.Assumptions;

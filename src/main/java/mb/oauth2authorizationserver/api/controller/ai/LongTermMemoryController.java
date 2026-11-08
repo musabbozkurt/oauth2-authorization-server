@@ -10,16 +10,17 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.nio.file.Path;
 
+/// Reference: [Short Term vs Long Term Memory in Spring AI](https://www.youtube.com/watch?v=cai0knehSXM)
 @RestController
 public class LongTermMemoryController {
 
     private static final String SYSTEM = """
             You have long-term memory about this user: Markdown files you manage with the Memory tools.
             MEMORY.md is the index.
-
+            
             Before you answer, call MemoryView on MEMORY.md, then view any file it lists that could help.
             If MEMORY.md does not exist, you have no memories of this user yet.
-
+            
             When the user tells you something that will matter later:
             - Save it in a file, one topic per file, like travel.md. Update the file if it exists.
             - Add one line for the file to MEMORY.md: "- [Title](file.md) - one-line summary".
