@@ -83,7 +83,7 @@ class AiMemoryControllersIntegrationTest extends BaseUnitTest {
     }
 
     @Autowired
-    private TestRestTemplate testRestTemplate;
+    TestRestTemplate testRestTemplate = new TestRestTemplate();
 
     @DynamicPropertySource
     static void ollamaProperties(DynamicPropertyRegistry registry) {
