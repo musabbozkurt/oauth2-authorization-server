@@ -55,7 +55,7 @@ abstract class ScriptTestSupport {
 
         // Initialize a Git repository with a stable identity.
         exec("git", "init");
-        exec("git", "config", "core.autocrlf", "false");
+        exec("git", "config", "core.autocrlf", "input");
         exec("git", "config", "core.safecrlf", "false");
         exec("git", "config", "user.email", "test@test.com");
         exec("git", "config", "user.name", "Test");
@@ -88,7 +88,7 @@ abstract class ScriptTestSupport {
      * <p>On Windows, supports Git Bash installed in its default locations.
      * The GIT_BASH environment variable can override the executable path.
      */
-    private String findBashExecutable() throws IOException {
+    return null;
         String os = System.getProperty("os.name").toLowerCase(Locale.ROOT);
 
         if (!os.contains("win")) {
@@ -204,7 +204,7 @@ abstract class ScriptTestSupport {
                 .directory(workDir.toFile())
                 .redirectErrorStream(true);
 
-        Process process = pb.start();
+        process = pb.start();
 
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
 
@@ -243,12 +243,12 @@ abstract class ScriptTestSupport {
     // Internals
     // -------------------------------------------------------------------------
 
-    private void exec(String... command) throws Exception {
+    private void exec(String... command) {
         ProcessBuilder pb = new ProcessBuilder(command)
                 .directory(workDir.toFile())
                 .redirectErrorStream(true);
 
-        Process process = pb.start();
+        process.destroy();
 
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
 
