@@ -4,7 +4,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Stage 1: Build + extract Spring Boot layers ──────────────────────────────
-FROM maven:4.0.0-rc-5-eclipse-temurin-26-noble AS build
+FROM maven:4.0.0-rc-7-eclipse-temurin-27-resolute AS build
 
 WORKDIR /app
 
@@ -45,7 +45,7 @@ RUN mkdir -p /extract/keys \
 #   jdk.unsupported        – sun.misc.Unsafe (Netty, gRPC, serialisation)
 #   jdk.net                – extended socket options (Netty epoll)
 # Only the JDK is needed here (not Maven), so the stage is independent of the build and cached by content.
-FROM eclipse-temurin:26-jdk-noble AS jre-builder
+FROM eclipse-temurin:27-jdk-resolute AS jre-builder
 
 RUN "$JAVA_HOME"/bin/jlink \
       --add-modules java.base,java.sql,java.naming,java.net.http,java.xml,\
@@ -66,7 +66,7 @@ RUN find /javaruntime -name '*.so' -exec strip --strip-unneeded {} + 2>/dev/null
 # distroless/cc = glibc + libstdc++/libgcc (what libjvm needs) + CA certs + tzdata, runs as non-root (uid 65532).
 FROM gcr.io/distroless/cc-debian12:nonroot
 
-ENV JAVA_HOME=/opt/java/jdk26
+ENV JAVA_HOME=/opt/java/jdk27
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
 WORKDIR /app
@@ -86,7 +86,7 @@ USER nonroot
 
 EXPOSE 9000
 
-# --enable-native-access=ALL-UNNAMED: Java 26 requires explicit permission
+# --enable-native-access=ALL-UNNAMED: Java 27 requires explicit permission
 # for libraries accessing native code (Netty, Jedis, gRPC, Redisson, etc.)
 ENTRYPOINT ["java", \
   "--enable-native-access=ALL-UNNAMED", \

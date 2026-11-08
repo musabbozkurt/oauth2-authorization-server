@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -18,19 +19,13 @@ import java.util.stream.Stream;
 /**
  * Base class for shell-script integration tests.
  *
- * <p>Before each test it:
- * <ol>
- *   <li>Creates an isolated temporary directory ({@code workDir}).
- *   <li>Copies both scripts into {@code workDir/scripts/} so that the scripts' own
- *       {@code SCRIPT_DIR} variable resolves to {@code workDir/} and they read/write
- *       {@code workDir/pom.xml} and scan {@code workDir/common-*pom.xml}.
- *   <li>Initializes a bare git repository in {@code workDir}.</li>
- * </ol>
- * After each test it deletes the temporary directory.
+ * <p>Supports Windows (Git Bash), macOS and Linux.
  */
 abstract class ScriptTestSupport {
 
     protected Path workDir;
+
+    private String bashExecutable;
 
     // -------------------------------------------------------------------------
     // Lifecycle
@@ -39,11 +34,16 @@ abstract class ScriptTestSupport {
     @BeforeEach
     void setUpWorkspace() throws Exception {
         workDir = Files.createTempDirectory("script-test-");
+
         Files.createDirectories(workDir.resolve("scripts"));
 
-        // Prefer scripts under the module root; fall back to parent for alternate launch contexts.
+        bashExecutable = findBashExecutable();
+
+        // Prefer scripts under the module root; fall back to parent.
         Path baseDir = Paths.get(System.getProperty("project.basedir"));
+
         Path sourceScripts = baseDir.resolve("docs/scripts");
+
         if (!Files.exists(sourceScripts)) {
             sourceScripts = baseDir.getParent().resolve("scripts");
         }
@@ -51,13 +51,12 @@ abstract class ScriptTestSupport {
         for (String script : List.of("bump-dependents.sh", "validate-version-cascade.sh")) {
             Path dst = workDir.resolve("scripts").resolve(script);
             Files.copy(sourceScripts.resolve(script), dst);
-            if (!dst.toFile().setExecutable(true)) {
-                throw new IOException("Could not mark script executable: " + dst);
-            }
         }
 
-        // Initialize a git repo with a stable identity
+        // Initialize a Git repository with a stable identity.
         exec("git", "init");
+        exec("git", "config", "core.autocrlf", "false");
+        exec("git", "config", "core.safecrlf", "false");
         exec("git", "config", "user.email", "test@test.com");
         exec("git", "config", "user.name", "Test");
         exec("git", "config", "commit.gpgsign", "false");
@@ -68,11 +67,11 @@ abstract class ScriptTestSupport {
         if (workDir != null && Files.exists(workDir)) {
             try (Stream<Path> walk = Files.walk(workDir)) {
                 walk.sorted(Comparator.reverseOrder())
-                        .forEach(p -> {
+                        .forEach(path -> {
                             try {
-                                Files.delete(p);
+                                Files.deleteIfExists(path);
                             } catch (IOException _) {
-                                // ignore
+                                // Best-effort cleanup.
                             }
                         });
             }
@@ -80,7 +79,78 @@ abstract class ScriptTestSupport {
     }
 
     // -------------------------------------------------------------------------
-    // Helpers – pom setup
+    // Helpers - platform
+    // -------------------------------------------------------------------------
+
+    /**
+     * Finds Bash executable.
+     *
+     * <p>On Windows, supports Git Bash installed in its default locations.
+     * The GIT_BASH environment variable can override the executable path.
+     */
+    private String findBashExecutable() throws IOException {
+        String os = System.getProperty("os.name").toLowerCase(Locale.ROOT);
+
+        if (!os.contains("win")) {
+            return "bash";
+        }
+
+        String configuredBash = System.getenv("GIT_BASH");
+
+        if (configuredBash != null && !configuredBash.isBlank()) {
+            if (Files.isExecutable(Path.of(configuredBash))) {
+                return configuredBash;
+            }
+
+            throw new IOException("GIT_BASH points to an invalid executable: " + configuredBash);
+        }
+
+        List<Path> candidates = new ArrayList<>();
+
+        String programFiles = System.getenv("ProgramFiles");
+        String programFilesX86 = System.getenv("ProgramFiles(x86)");
+
+        if (programFiles != null) {
+            candidates.add(Path.of(programFiles, "Git", "bin", "bash.exe"));
+        }
+
+        if (programFilesX86 != null) {
+            candidates.add(Path.of(programFilesX86, "Git", "bin", "bash.exe"));
+        }
+
+        String localAppData = System.getenv("LOCALAPPDATA");
+
+        if (localAppData != null) {
+            candidates.add(Path.of(localAppData, "Programs", "Git", "bin", "bash.exe"));
+        }
+
+        for (Path candidate : candidates) {
+            if (Files.isExecutable(candidate)) {
+                return candidate.toString();
+            }
+        }
+
+        // Last resort: Git Bash available through PATH.
+        return "bash";
+    }
+
+    /**
+     * Converts Windows paths to Git Bash-compatible paths.
+     */
+    private String toBashPath(Path path) {
+        String absolutePath = path.toAbsolutePath()
+                .toString()
+                .replace('\\', '/');
+
+        if (absolutePath.length() >= 2 && absolutePath.charAt(1) == ':') {
+            char drive = Character.toLowerCase(absolutePath.charAt(0));
+            return "/" + drive + absolutePath.substring(2);
+        }
+        return absolutePath;
+    }
+
+    // -------------------------------------------------------------------------
+    // Helpers - pom setup
     // -------------------------------------------------------------------------
 
     /**
@@ -90,12 +160,11 @@ abstract class ScriptTestSupport {
     protected void writeParentPom(Map<String, String> versions) throws IOException {
         String pom = readResource("dummy-poms/parent-pom.xml");
         for (Map.Entry<String, String> version : versions.entrySet()) {
-            String token = "__"
-                    + version.getKey().replace('-', '_').toUpperCase(Locale.ROOT)
-                    + "_VERSION__";
+            String token = "__" + version.getKey().replace('-', '_').toUpperCase(Locale.ROOT) + "_VERSION__";
             pom = pom.replace(token, version.getValue());
         }
-        Files.writeString(workDir.resolve("pom.xml"), pom);
+
+        Files.writeString(workDir.resolve("pom.xml"), pom, StandardCharsets.UTF_8);
     }
 
     /**
@@ -106,7 +175,7 @@ abstract class ScriptTestSupport {
         Path dir = workDir.resolve(moduleName);
         Files.createDirectories(dir);
         String modulePom = readResource("dummy-poms/modules/" + moduleName + "-pom.xml");
-        Files.writeString(dir.resolve("pom.xml"), modulePom);
+        Files.writeString(dir.resolve("pom.xml"), modulePom, StandardCharsets.UTF_8);
     }
 
     // -------------------------------------------------------------------------
@@ -130,12 +199,18 @@ abstract class ScriptTestSupport {
     // -------------------------------------------------------------------------
 
     protected ScriptResult runScript(String script) throws Exception {
-        var pb = new ProcessBuilder("bash", workDir.resolve("scripts/" + script).toString(), "HEAD~1")
+        Path scriptPath = workDir.resolve("scripts").resolve(script);
+        ProcessBuilder pb = new ProcessBuilder(bashExecutable, toBashPath(scriptPath), "HEAD~1")
                 .directory(workDir.toFile())
                 .redirectErrorStream(true);
-        Process p = pb.start();
-        String output = new String(p.getInputStream().readAllBytes());
-        return new ScriptResult(p.waitFor(), output);
+
+        Process process = pb.start();
+
+        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+
+        int exitCode = process.waitFor();
+
+        return new ScriptResult(exitCode, output);
     }
 
     // -------------------------------------------------------------------------
@@ -146,27 +221,42 @@ abstract class ScriptTestSupport {
      * Reads the value of {@code <module.version>} from {@code workDir/pom.xml}.
      */
     protected String readPomVersion(String module) throws IOException {
-        String pom = Files.readString(workDir.resolve("pom.xml"));
+        String pom = Files.readString(workDir.resolve("pom.xml"), StandardCharsets.UTF_8);
+
         String open = "<" + module + ".version>";
         String close = "</" + module + ".version>";
-        int s = pom.indexOf(open);
-        if (s < 0) return null;
-        int vs = s + open.length();
-        int e = pom.indexOf(close, vs);
-        return e < 0 ? null : pom.substring(vs, e);
+
+        int start = pom.indexOf(open);
+
+        if (start < 0) {
+            return null;
+        }
+
+        int versionStart = start + open.length();
+
+        int end = pom.indexOf(close, versionStart);
+
+        return end < 0 ? null : pom.substring(versionStart, end);
     }
 
     // -------------------------------------------------------------------------
     // Internals
     // -------------------------------------------------------------------------
 
-    private void exec(String... cmd) throws Exception {
-        var p = new ProcessBuilder(cmd)
+    private void exec(String... command) throws Exception {
+        ProcessBuilder pb = new ProcessBuilder(command)
                 .directory(workDir.toFile())
-                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-                .redirectError(ProcessBuilder.Redirect.DISCARD)
-                .start();
-        p.waitFor();
+                .redirectErrorStream(true);
+
+        Process process = pb.start();
+
+        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+
+        int exitCode = process.waitFor();
+
+        if (exitCode != 0) {
+            throw new IllegalStateException("Command failed (" + exitCode + "): " + String.join(" ", command) + System.lineSeparator() + output);
+        }
     }
 
     private String readResource(String resourcePath) throws IOException {

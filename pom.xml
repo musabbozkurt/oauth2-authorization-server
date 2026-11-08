@@ -16,7 +16,7 @@
     <description>OAuth2 Authorization Server</description>
 
     <properties>
-        <java.version>26</java.version>
+        <java.version>27</java.version>
         <spring-ai.version>2.0.0-M8</spring-ai.version>
         <spring-ai-starter-typesafe.version>0.4.0</spring-ai-starter-typesafe.version>
         <redisson-spring-boot-starter.version>4.8.0</redisson-spring-boot-starter.version>
@@ -33,7 +33,7 @@
         <protobuf.version>4.36.2</protobuf.version>
         <logstash-logback-encoder.version>9.0</logstash-logback-encoder.version>
         <webmagic-core.version>1.0.3</webmagic-core.version>
-        <software.amazon.awssdk.s3.version>2.57.9</software.amazon.awssdk.s3.version>
+        <software.amazon.awssdk.s3.version>2.57.11</software.amazon.awssdk.s3.version>
         <minio.version>9.0.4</minio.version>
         <okhttp-urlconnection.version>5.5.1</okhttp-urlconnection.version>
         <uap-java.version>1.6.1</uap-java.version>
@@ -42,7 +42,7 @@
         <org.owasp.encoder.version>1.6.0</org.owasp.encoder.version>
         <fastexcel.version>0.20.2</fastexcel.version>
         <testcontainers-bom.version>2.0.5</testcontainers-bom.version>
-        <jackson-bom.version>3.2.4</jackson-bom.version>
+        <jackson-bom.version>3.3.0</jackson-bom.version>
         <swagger-annotations-jakarta.version>2.2.55</swagger-annotations-jakarta.version>
         <swagger-annotations.version>3.0.0</swagger-annotations.version>
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
@@ -144,12 +144,6 @@
 
         <dependency>
             <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-advisors-vector-store</artifactId>
-            <version>${spring-ai.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-starter-mcp-server-webmvc</artifactId>
         </dependency>
 
@@ -157,6 +151,18 @@
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-starter-model-openai</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springaicommunity</groupId>
+            <artifactId>spring-ai-agent-utils</artifactId>
+            <version>0.13.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-advisors-vector-store</artifactId>
+            <version>${spring-ai.version}</version>
         </dependency>
 
         <dependency>
@@ -597,12 +603,14 @@
                     <fork>true</fork>
                     <compilerArgs>
                         <arg>--enable-preview</arg>
+                        <arg>--add-modules</arg>
+                        <arg>jdk.incubator.vector</arg>
                         <arg>-parameters</arg>
                         <arg>-proc:full</arg>
                         <arg>-XDcompilePolicy=simple</arg>
                         <arg>-XDshould-stop.ifError=FLOW</arg>
                         <!-- NullAway Configuration -->
-                        <arg>${errorprone.arg}</arg>
+                        <arg>-Xplugin:ErrorProne @${project.basedir}/errorprone.cfg</arg>
                         <!-- JVM module exports/opens required for ErrorProne to access compiler internals -->
                         <!-- Compiler API access -->
                         <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
@@ -705,6 +713,8 @@
                 <configuration>
                     <argLine>
                         --enable-preview
+                        <!-- Java 27 -->
+                        --add-modules=jdk.incubator.vector
                         --enable-native-access=ALL-UNNAMED
                         --add-opens java.base/java.lang=ALL-UNNAMED
                         --add-opens java.base/java.util=ALL-UNNAMED
@@ -730,7 +740,7 @@
                     <allowMinorUpdates>true</allowMinorUpdates>
                     <generateBackupPoms>false</generateBackupPoms>
                 </configuration>
-                <!-- Apply newest versions to pom.xml during 'mvn clean install' (validate phase) -->
+                <!-- Apply the newest versions to pom.xml during 'mvn clean install' (validate phase) -->
                 <executions>
                     <execution>
                         <id>update-parent</id>

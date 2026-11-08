@@ -1,4 +1,4 @@
-package mb.oauth2authorizationserver;
+package mb.oauth2authorizationserver.java;
 
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Nested;
@@ -249,14 +249,12 @@ class Java26FeaturesTest {
         // Act
         ProcessResult compile = run(List.of(
                 javacBin().toString(),
-                "--enable-preview",
                 "--release", "26",
                 "--add-modules", "jdk.incubator.vector",
                 source.toString()
         ), tempDir);
         ProcessResult run = run(List.of(
                 javaBin().toString(),
-                "--enable-preview",
                 "--add-modules", "jdk.incubator.vector",
                 "-cp", tempDir.toString(),
                 "VectorApi26Sample"

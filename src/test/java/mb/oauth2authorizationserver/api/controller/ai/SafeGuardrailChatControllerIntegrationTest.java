@@ -59,7 +59,7 @@ class SafeGuardrailChatControllerIntegrationTest extends BaseUnitTest {
     private static final String PROMO_CODE = "AURORA25";
 
     @ServiceConnection
-    private static final OllamaContainer ollamaContainer = new OllamaContainer("ollama/ollama:0.13.3")
+    private static final OllamaContainer ollamaContainer = new OllamaContainer("ollama/ollama:0.40.15")
             .withReuse(true);
 
     @Autowired

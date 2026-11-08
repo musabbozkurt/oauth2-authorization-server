@@ -1,4 +1,4 @@
-package mb.oauth2authorizationserver;
+package mb.oauth2authorizationserver.java;
 
 import lombok.Getter;
 import org.junit.jupiter.api.Test;

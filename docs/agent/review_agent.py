@@ -40,6 +40,8 @@ commented-out code, mutable static fields, resources not closed (try-with-resour
 
 Rules:
 - Report only real, specific, actionable problems or concrete improvements. No praise, no generic advice, no nitpicks on formatting.
+- When suggesting a newer dependency, Docker image, or tool version/tag, name only a release you are confident is published \
+(e.g. on Docker Hub or Maven Central). If you are not sure it exists, do not suggest a version.
 - Each comment must explain the problem, which principle/pattern it violates, and give a concrete fix; \
 include a short corrected code snippet when helpful.
 - If the change is fine, return an empty comments list.
@@ -62,7 +64,8 @@ Look for real problems in these areas:
 - Bugs and performance (resource leaks, swallowed exceptions, N+1 calls, shared mutable state, unbounded caches)
 
 Each comment needs: the problem, why it matters, and a concrete fix. If you see problems you MUST report them; \
-return an empty comments list only when the code is truly clean.
+return an empty comments list only when the code is truly clean. When suggesting a newer dependency, Docker image, or tool \
+version or tag, name only a release you are confident is published (e.g. on Docker Hub or Maven Central); if unsure, do not suggest a version.
 Reply as JSON: summary (string) and comments (list of path, line, code, severity high|medium|low, body). `code` is the exact added line you are commenting on, copied without the L<n>: +  prefix."""
 
 # JSON schema enforced on Ollama so small models always return a parseable structure
