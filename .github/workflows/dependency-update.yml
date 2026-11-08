@@ -8,9 +8,9 @@
 #
 # Behavior per trigger:
 #   workflow_dispatch  → Read-only check: displays available Maven + Compose updates in the log
-#   pull_request       → Applies updates on the PR source branch, verifies compile and pushes
-#                        a commit to that same branch (skipped for fork PRs and for the
-#                        update branch itself)
+#   pull_request       → Applies updates on the update branch automated/dependency-updates, verifies
+#                        compile and pushes a commit to that same branch (skipped for fork PRs
+#                        and for all other PR branches)
 #   push (this file)   → Applies updates, verifies compile, creates a PR (for testing)
 #   schedule/dispatch  → Applies updates, verifies compile, creates or updates PR; if
 #                        automated/dependency-updates is already open, pushes commits there
@@ -48,12 +48,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Set up JDK 27
+      - name: Set up JDK
         uses: actions/setup-java@v6
         with:
           java-version: '27'
           distribution: 'temurin'
           cache: maven
+
+      - name: Check for latest Java GA release
+        run: |
+          LATEST=$(curl -fsSL https://api.adoptium.net/v3/info/available_releases | grep -o '"most_recent_feature_release": *[0-9]*' | grep -o '[0-9]*$')
+          CURRENT=$(sed -n 's:.*<java.version>\(.*\)</java.version>.*:\1:p' pom.xml | head -1)
+          echo "Current java.version: $CURRENT, latest Java GA: $LATEST"
 
       - name: Check for available version updates
         run: |
@@ -82,7 +88,7 @@ jobs:
       github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' ||
       (github.event_name == 'pull_request'
         && github.event.pull_request.head.repo.full_name == github.repository
-        && github.event.pull_request.head.ref != 'automated/dependency-updates')
+        && github.event.pull_request.head.ref == 'automated/dependency-updates')
     runs-on: ubuntu-latest
     concurrency:
       group: dependency-update-pr
@@ -126,10 +132,17 @@ jobs:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || steps.update-base.outputs.checkout_ref }}
           token: ${{ steps.generate-token.outputs.token }}
 
-      - name: Set up JDK 27
+      - name: Resolve latest Java GA release
+        id: java-latest
+        run: |
+          LATEST=$(curl -fsSL https://api.adoptium.net/v3/info/available_releases | grep -o '"most_recent_feature_release": *[0-9]*' | grep -o '[0-9]*$')
+          echo "version=$LATEST" >> "$GITHUB_OUTPUT"
+
+      # Uses the latest GA JDK so the build verifies against the java.version set by the update step.
+      - name: Set up JDK
         uses: actions/setup-java@v6
         with:
-          java-version: '27'
+          java-version: ${{ steps.java-latest.outputs.version }}
           distribution: 'temurin'
           cache: maven
 
@@ -138,6 +151,13 @@ jobs:
           mvn -B versions:update-parent -DallowMinorUpdates=true -DallowMajorUpdates=true -DgenerateBackupPoms=false --file pom.xml
           mvn -B versions:update-properties -DgenerateBackupPoms=false --file pom.xml
           mvn -B versions:use-latest-releases -DgenerateBackupPoms=false --file pom.xml
+
+      - name: Apply Java version updates
+        run: |
+          chmod +x docs/scripts/update-versions.sh
+          ./docs/scripts/update-versions.sh java
+          # Backups created by the script are only needed for local revert; keep them out of the commit
+          rm -f ./*.versionsBackup .github/workflows/*.versionsBackup docs/*.versionsBackup
 
       - name: Apply Docker Compose image updates
         run: |
@@ -158,9 +178,13 @@ jobs:
           if git diff --name-only | grep -qx 'docker-compose.yml'; then
             COMPOSE_CHANGED=true
           fi
+          JAVA_CHANGED=false
+          if ! git diff --quiet -- .github/workflows Dockerfile DockerfileForAOTCache README.md docs/PROJECT_STRUCTURE.md; then
+            JAVA_CHANGED=true
+          fi
 
-          if [ "$POM_CHANGED" != "true" ] && [ "$COMPOSE_CHANGED" != "true" ]; then
-            echo "All Maven and Docker Compose dependencies are up to date."
+          if [ "$POM_CHANGED" != "true" ] && [ "$COMPOSE_CHANGED" != "true" ] && [ "$JAVA_CHANGED" != "true" ]; then
+            echo "All Maven, Java and Docker Compose dependencies are up to date."
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
             echo "has_pom_changes=false" >> "$GITHUB_OUTPUT"
           else
@@ -197,12 +221,22 @@ jobs:
                 echo '```'
                 echo ''
               fi
+              if [ "$JAVA_CHANGED" = "true" ]; then
+                echo '### Updated Java version references'
+                echo '```diff'
+                git diff -- .github/workflows Dockerfile DockerfileForAOTCache README.md docs/PROJECT_STRUCTURE.md
+                echo '```'
+                echo ''
+              fi
               echo '### Checklist'
               echo '- [ ] Review the version changes above'
               echo '- [ ] Verify CI build passes'
               echo '- [ ] Check for breaking changes in release notes'
               if [ "$COMPOSE_CHANGED" = "true" ]; then
                 echo '- [ ] Smoke-test updated container images locally'
+              fi
+              if [ "$JAVA_CHANGED" = "true" ]; then
+                echo '- [ ] Confirm the new JDK image tags exist and the Docker build succeeds'
               fi
               echo 'EOF'
             } >> "$GITHUB_OUTPUT"
@@ -219,8 +253,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add pom.xml docker-compose.yml
-          git commit -m "build(deps): update Maven and Docker Compose dependency versions"
+          git add -u
+          git commit -m "build(deps): update Maven, Java and Docker Compose dependency versions"
           git push origin "HEAD:$PR_BRANCH"
 
       - name: Create or update Pull Request
@@ -228,10 +262,10 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ steps.generate-token.outputs.token }}
-          commit-message: "build(deps): update Maven and Docker Compose dependency versions"
+          commit-message: "build(deps): update Maven, Java and Docker Compose dependency versions"
           branch: ${{ env.UPDATE_BRANCH }}
           delete-branch: true
-          title: "build(deps): update Maven and Docker Compose dependency versions"
+          title: "build(deps): update Maven, Java and Docker Compose dependency versions"
           body: ${{ steps.diff.outputs.body }}
           labels: |
             dependencies
