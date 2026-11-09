@@ -16,7 +16,7 @@
     <description>OAuth2 Authorization Server</description>
 
     <properties>
-        <java.version>27</java.version>
+        <java.version>28</java.version>
         <spring-ai.version>2.0.0-M8</spring-ai.version>
         <spring-ai-starter-typesafe.version>0.4.0</spring-ai-starter-typesafe.version>
         <redisson-spring-boot-starter.version>4.8.0</redisson-spring-boot-starter.version>
@@ -604,7 +604,7 @@
                     <compilerArgs>
                         <arg>--enable-preview</arg>
                         <arg>--add-modules</arg>
-                        <arg>jdk.incubator.vector</arg>
+                        <arg>jdk.incubator.vector,jdk.incubator.json</arg>
                         <arg>-parameters</arg>
                         <arg>-proc:full</arg>
                         <arg>-XDcompilePolicy=simple</arg>
@@ -713,8 +713,8 @@
                 <configuration>
                     <argLine>
                         --enable-preview
-                        <!-- Java 27 -->
-                        --add-modules=jdk.incubator.vector
+                        <!-- Java 28 incubator modules used by project code and tests (Vector API, JSON API) -->
+                        --add-modules=jdk.incubator.vector,jdk.incubator.json
                         --enable-native-access=ALL-UNNAMED
                         --add-opens java.base/java.lang=ALL-UNNAMED
                         --add-opens java.base/java.util=ALL-UNNAMED

@@ -55,10 +55,10 @@ jobs:
           [ -n "$ANTHROPIC_API_KEY" ] && pip install langchain-anthropic
           true
 
-      - name: Set up JDK 27
+      - name: Set up JDK 28
         uses: actions/setup-java@v6
         with:
-          java-version: '27'
+          java-version: '28-ea'
           distribution: 'temurin'
           cache: maven
 

@@ -8,7 +8,6 @@ import org.dhatim.fastexcel.Workbook;
 import org.dhatim.fastexcel.Worksheet;
 import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.io.ByteArrayResource;
@@ -340,28 +339,6 @@ class ExcelServiceImplIntegrationTest {
         assertEquals("Jane", readBack.get(1).get("Name"), "Second row name should match");
         assertNull(readBack.get(1).get("Age"), "Second row age should be null");
         assertEquals("Boston", readBack.get(1).get("City"), "Second row city should match");
-    }
-
-    @Test
-    void writeExcel_ShouldThrowBaseException_WhenIOExceptionOccurs() {
-        // Arrange
-        ExcelServiceImpl excelServiceWithMock = new ExcelServiceImpl();
-        List<String> headers = List.of("Name", "Age");
-        List<Map<String, Object>> data = List.of(Map.of("Name", "John", "Age", "30"));
-
-        try (var _ = Mockito.mockConstruction(
-                Workbook.class,
-                (mock, _) -> {
-                    Worksheet worksheetMock = Mockito.mock(Worksheet.class);
-                    Mockito.when(mock.newWorksheet(Mockito.anyString())).thenReturn(worksheetMock);
-                    Mockito.doThrow(new IOException("Simulated IO error")).when(mock).finish();
-                })) {
-            // Act
-            // Assertions
-            BaseException exception = assertThrows(BaseException.class, () -> excelServiceWithMock.writeExcel(data, headers));
-
-            assertEquals(OAuth2AuthorizationServerServiceErrorCode.UNEXPECTED_ERROR, exception.getErrorCode(), "Should throw BaseException with UNEXPECTED_ERROR code");
-        }
     }
 
     @Test

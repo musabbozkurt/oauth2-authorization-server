@@ -11,7 +11,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.redisson.api.RKeys;
 import org.redisson.api.RSet;
@@ -42,7 +41,15 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class SecurityServiceImplTest {
@@ -87,6 +94,11 @@ class SecurityServiceImplTest {
 
     private SecurityServiceImpl securityService;
 
+    private static ContextScope withSecurityContext(SecurityContext context) {
+        SecurityContextHolder.setContext(context);
+        return SecurityContextHolder::clearContext;
+    }
+
     @BeforeEach
     void setUp() {
         securityService = new SecurityServiceImpl(
@@ -108,11 +120,10 @@ class SecurityServiceImplTest {
     @Test
     void findLoggedInUsername_ShouldReturnUsername_WhenUserIsSecurityUser() {
         // Arrange
-        try (MockedStatic<SecurityContextHolder> securityContextHolderMock = mockStatic(SecurityContextHolder.class)) {
+        try (var _ = withSecurityContext(securityContext)) {
             when(securityUser.getUsername()).thenReturn("testuser");
             when(authentication.getPrincipal()).thenReturn(securityUser);
             when(securityContext.getAuthentication()).thenReturn(authentication);
-            securityContextHolderMock.when(SecurityContextHolder::getContext).thenReturn(securityContext);
 
             // Act
             String result = securityService.findLoggedInUsername();
@@ -125,10 +136,9 @@ class SecurityServiceImplTest {
     @Test
     void findLoggedInUsername_ShouldReturnNull_WhenPrincipalIsNotSecurityUser() {
         // Arrange
-        try (MockedStatic<SecurityContextHolder> securityContextHolderMock = mockStatic(SecurityContextHolder.class)) {
+        try (var _ = withSecurityContext(securityContext)) {
             when(authentication.getPrincipal()).thenReturn("notSecurityUser");
             when(securityContext.getAuthentication()).thenReturn(authentication);
-            securityContextHolderMock.when(SecurityContextHolder::getContext).thenReturn(securityContext);
 
             // Act
             String result = securityService.findLoggedInUsername();
@@ -146,9 +156,8 @@ class SecurityServiceImplTest {
                 .thenReturn(ServiceConstants.TOKEN_PREFIX + token);
         when(servletRequest.getCookies()).thenReturn(null);
 
-        try (MockedStatic<SecurityContextHolder> securityContextHolderMock = mockStatic(SecurityContextHolder.class)) {
+        try (var _ = withSecurityContext(securityContext)) {
             when(securityContext.getAuthentication()).thenReturn(null);
-            securityContextHolderMock.when(SecurityContextHolder::getContext).thenReturn(securityContext);
 
             // Act
             securityService.logout();
@@ -168,9 +177,8 @@ class SecurityServiceImplTest {
         when(servletRequest.getHeader(ServiceConstants.AUTHORIZATION_HEADER_STRING)).thenReturn(null);
         when(servletRequest.getCookies()).thenReturn(cookies);
 
-        try (MockedStatic<SecurityContextHolder> securityContextHolderMock = mockStatic(SecurityContextHolder.class)) {
+        try (var _ = withSecurityContext(securityContext)) {
             when(securityContext.getAuthentication()).thenReturn(null);
-            securityContextHolderMock.when(SecurityContextHolder::getContext).thenReturn(securityContext);
 
             // Act
             securityService.logout();
@@ -188,10 +196,9 @@ class SecurityServiceImplTest {
         when(servletRequest.getHeader(ServiceConstants.AUTHORIZATION_HEADER_STRING)).thenReturn(null);
         when(servletRequest.getCookies()).thenReturn(null);
 
-        try (MockedStatic<SecurityContextHolder> securityContextHolderMock = mockStatic(SecurityContextHolder.class)) {
+        try (var _ = withSecurityContext(securityContext)) {
             when(authentication.getPrincipal()).thenReturn(principal);
             when(securityContext.getAuthentication()).thenReturn(authentication);
-            securityContextHolderMock.when(SecurityContextHolder::getContext).thenReturn(securityContext);
 
             // Act
             securityService.logout();
@@ -210,9 +217,8 @@ class SecurityServiceImplTest {
         when(servletRequest.getCookies()).thenReturn(null);
         doThrow(new RuntimeException("Database error")).when(authorizationRepository).deleteByAccessTokenValue(token);
 
-        try (MockedStatic<SecurityContextHolder> securityContextHolderMock = mockStatic(SecurityContextHolder.class)) {
+        try (var _ = withSecurityContext(securityContext)) {
             when(securityContext.getAuthentication()).thenReturn(null);
-            securityContextHolderMock.when(SecurityContextHolder::getContext).thenReturn(securityContext);
 
             // Act & Assert - Should not throw exception
             assertDoesNotThrow(() -> securityService.logout(), "Should handle exception gracefully.");
@@ -229,9 +235,8 @@ class SecurityServiceImplTest {
         when(servletRequest.getHeader(ServiceConstants.AUTHORIZATION_HEADER_STRING)).thenReturn(null);
         when(servletRequest.getCookies()).thenReturn(cookies);
 
-        try (MockedStatic<SecurityContextHolder> securityContextHolderMock = mockStatic(SecurityContextHolder.class)) {
+        try (var _ = withSecurityContext(securityContext)) {
             when(securityContext.getAuthentication()).thenReturn(null);
-            securityContextHolderMock.when(SecurityContextHolder::getContext).thenReturn(securityContext);
 
             // Act
             securityService.logout();
@@ -250,9 +255,8 @@ class SecurityServiceImplTest {
                 .thenReturn(authorizationWithoutPrefix);
         when(servletRequest.getCookies()).thenReturn(null);
 
-        try (MockedStatic<SecurityContextHolder> securityContextHolderMock = mockStatic(SecurityContextHolder.class)) {
+        try (var _ = withSecurityContext(securityContext)) {
             when(securityContext.getAuthentication()).thenReturn(null);
-            securityContextHolderMock.when(SecurityContextHolder::getContext).thenReturn(securityContext);
 
             // Act
             securityService.logout();
@@ -262,15 +266,13 @@ class SecurityServiceImplTest {
         }
     }
 
-
     @Test
     void getLoggedInUserInfo_ShouldReturnSecurityUser_WhenUserIsLoggedIn() {
         // Arrange
-        try (MockedStatic<SecurityContextHolder> securityContextHolderMock = mockStatic(SecurityContextHolder.class)) {
+        try (var _ = withSecurityContext(securityContext)) {
             when(securityUser.getUsername()).thenReturn("testuser");
             when(authentication.getPrincipal()).thenReturn(securityUser);
             when(securityContext.getAuthentication()).thenReturn(authentication);
-            securityContextHolderMock.when(SecurityContextHolder::getContext).thenReturn(securityContext);
 
             // Act
             SecurityUser result = securityService.getLoggedInUserInfo();
@@ -284,10 +286,9 @@ class SecurityServiceImplTest {
     @Test
     void getLoggedInUserInfo_ShouldReturnNull_WhenUserIsNotLoggedIn() {
         // Arrange
-        try (MockedStatic<SecurityContextHolder> securityContextHolderMock = mockStatic(SecurityContextHolder.class)) {
+        try (var _ = withSecurityContext(securityContext)) {
             when(authentication.getPrincipal()).thenReturn("notSecurityUser");
             when(securityContext.getAuthentication()).thenReturn(authentication);
-            securityContextHolderMock.when(SecurityContextHolder::getContext).thenReturn(securityContext);
 
             // Act
             SecurityUser result = securityService.getLoggedInUserInfo();
@@ -354,9 +355,7 @@ class SecurityServiceImplTest {
         when(securityUser.getAuthorities()).thenReturn(Collections.emptyList());
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(token);
 
-        try (MockedStatic<SecurityContextHolder> securityContextHolderMock = mockStatic(SecurityContextHolder.class)) {
-            securityContextHolderMock.when(SecurityContextHolder::getContext).thenReturn(securityContext);
-
+        try (var _ = withSecurityContext(securityContext)) {
             // Act
             securityService.autoLogin(username, password);
 
@@ -463,5 +462,10 @@ class SecurityServiceImplTest {
         verify(tokenService, never()).revokeTokensOfUser(any());
         verify(sessionRepository, never()).deleteById(anyString());
         verify(sessionRegistry, never()).removeSessionInformation(anyString());
+    }
+
+    private interface ContextScope extends AutoCloseable {
+        @Override
+        void close();
     }
 }

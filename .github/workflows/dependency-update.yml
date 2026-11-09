@@ -51,7 +51,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v6
         with:
-          java-version: '27'
+          java-version: '28-ea'
           distribution: 'temurin'
           cache: maven
 
