@@ -20,7 +20,7 @@
         <spring-ai.version>2.0.0-M8</spring-ai.version>
         <spring-ai-starter-typesafe.version>0.4.0</spring-ai-starter-typesafe.version>
         <redisson-spring-boot-starter.version>4.8.0</redisson-spring-boot-starter.version>
-        <thymeleaf-extras-springsecurity6.version>3.1.6.RELEASE</thymeleaf-extras-springsecurity6.version>
+        <thymeleaf-extras-springsecurity6.version>3.1.7.RELEASE</thymeleaf-extras-springsecurity6.version>
         <mariadb-java-client.version>4.0.0</mariadb-java-client.version>
         <ojdbc17.version>23.26.4.0.0</ojdbc17.version>
         <archunit-junit5.version>1.5.1</archunit-junit5.version>
@@ -33,7 +33,7 @@
         <protobuf.version>4.36.2</protobuf.version>
         <logstash-logback-encoder.version>9.0</logstash-logback-encoder.version>
         <webmagic-core.version>1.0.3</webmagic-core.version>
-        <software.amazon.awssdk.s3.version>2.57.11</software.amazon.awssdk.s3.version>
+        <software.amazon.awssdk.s3.version>2.59.1</software.amazon.awssdk.s3.version>
         <minio.version>9.0.4</minio.version>
         <okhttp-urlconnection.version>5.5.1</okhttp-urlconnection.version>
         <uap-java.version>1.6.1</uap-java.version>
