@@ -10,11 +10,13 @@ import mb.oauth2authorizationserver.api.response.ScriptGenerationResponse;
 import mb.oauth2authorizationserver.exception.BaseException;
 import mb.oauth2authorizationserver.exception.OAuth2AuthorizationServerServiceErrorCode;
 import mb.oauth2authorizationserver.service.OracleToolsService;
+import mb.oauth2authorizationserver.service.impl.ExternalTableLoader.ChunkRange;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -41,6 +43,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -84,9 +87,11 @@ public class OracleToolsServiceImpl implements OracleToolsService {
     // Migration state
     private final AtomicBoolean migrationRunning = new AtomicBoolean(false);
     private final AtomicLong totalProcessed = new AtomicLong(0);
+    private final AtomicReference<ExternalTableLoader> currentExternalTableLoader = new AtomicReference<>();
     private volatile long estimatedTotal = 0;
     private volatile int currentChunkWorkers = DEFAULT_CHUNK_WORKERS;
     private volatile boolean currentRebuildPrimaryKeys = false;
+
     private HikariDataSource currentOracleDataSource;
     private HikariDataSource currentPostgresDataSource;
     private String currentSourceSchema;
@@ -425,11 +430,35 @@ public class OracleToolsServiceImpl implements OracleToolsService {
 
             log.info("Created datasources - Source: {} (schema: {}), Destination: {} (schema: {})", source.getJdbcUrl(), currentSourceSchema, destination.getJdbcUrl(), currentTargetSchema);
 
+            currentExternalTableLoader.set(createExternalTableLoader(request));
+
             executeMigration();
         } finally {
+            currentExternalTableLoader.set(null);
             closeDataSource(currentPostgresDataSource);
             closeDataSource(currentOracleDataSource);
             migrationRunning.set(false);
+        }
+    }
+
+    /**
+     * Returns the external-table loader when the Oracle directory and export path are configured and Oracle can read files
+     * written to that path; otherwise null and large tables use the JDBC chunk copy.
+     */
+    private ExternalTableLoader createExternalTableLoader(MigrationRequest request) {
+        String directory = request.getOracleDirectory();
+        String exportPath = request.getExportPath();
+        if (!ExternalTableLoader.isEnabled(directory, exportPath)) {
+            return null;
+        }
+        try {
+            ExternalTableLoader loader = new ExternalTableLoader(currentPostgresDataSource, currentOracleDataSource, directory, exportPath, ORACLE_PARALLEL_DEGREE);
+            loader.verifyOracleCanReadExportPath();
+            log.info("External table load enabled (directory: {}, export path: {}).", directory, exportPath);
+            return loader;
+        } catch (SQLException | IOException | IllegalArgumentException e) {
+            log.warn("External table load not available, using JDBC copy for large tables. Reason: {}", e.getMessage());
+            return null;
         }
     }
 
@@ -871,9 +900,14 @@ public class OracleToolsServiceImpl implements OracleToolsService {
         PrimaryKeyIndex droppedPrimaryKey = currentRebuildPrimaryKeys ? dropPrimaryKeyIndex(tableMapping) : null;
         long tableProcessed;
         try {
-            AtomicBoolean failed = new AtomicBoolean(false);
-            List<Future<Long>> futures = submitChunks(tableMapping, plan.pkColumn(), ranges, chunkExecutor, failed);
-            tableProcessed = collectChunkResults(tableMapping, futures, failed);
+            Long loadedViaExternalTable = migrateViaExternalTable(tableMapping, plan, ranges, chunkExecutor);
+            if (loadedViaExternalTable != null) {
+                tableProcessed = loadedViaExternalTable;
+            } else {
+                AtomicBoolean failed = new AtomicBoolean(false);
+                List<Future<Long>> futures = submitChunks(tableMapping, plan.pkColumn(), ranges, chunkExecutor, failed);
+                tableProcessed = collectChunkResults(tableMapping, futures, failed);
+            }
         } finally {
             if (droppedPrimaryKey != null) {
                 rebuildPrimaryKeyIndex(tableMapping, droppedPrimaryKey);
@@ -882,6 +916,30 @@ public class OracleToolsServiceImpl implements OracleToolsService {
 
         Duration duration = Duration.between(tableStart, Instant.now());
         log.info("Completed chunked migration of table {} -> {}. Records: {}, Duration: {}s", tableMapping.sourceTable(), tableMapping.targetTable(), tableProcessed, duration.getSeconds());
+    }
+
+    /**
+     * Fast path: parallel COPY export + one atomic direct-path insert from an external table. Returns the loaded row count,
+     * or null when it cannot be used (not configured, binary columns, or it failed). A failed external load never leaves
+     * data in the target (single transaction, rolled back), so the caller can safely fall back to the JDBC copy.
+     */
+    private Long migrateViaExternalTable(TableMapping tableMapping, ChunkPlan plan, List<ChunkRange> ranges, ExecutorService chunkExecutor) throws SQLException {
+        ExternalTableLoader loader = currentExternalTableLoader.get();
+        if (loader == null) {
+            return null;
+        }
+        try {
+            ExternalTableLoader.TableLayout layout = loader.describe(tableMapping.sourceTable(), tableMapping.targetSchema(), targetTableName(tableMapping), plan.pkColumn());
+            if (layout == null) {
+                log.info("Table {} has binary columns. Using JDBC copy.", tableMapping.sourceTable());
+                return null;
+            }
+            return loader.load(layout, ranges, chunkExecutor, totalProcessed);
+        } catch (SQLException e) {
+            log.warn("External table load of {} failed, falling back to JDBC copy. Reason: {}", tableMapping.sourceTable(), e.getMessage());
+            assertTargetTableEmpty(tableMapping.targetTable());
+            return null;
+        }
     }
 
     /**
@@ -1944,12 +2002,6 @@ public class OracleToolsServiceImpl implements OracleToolsService {
     }
 
     private record ChunkPlan(String pkColumn, long min, long max) {
-    }
-
-    /**
-     * PK range [lower, upper); null means unbounded on that side.
-     */
-    private record ChunkRange(Long lower, Long upper) {
     }
 
     private record PrimaryKeyIndex(String owner, String constraintName, String indexName, String columns) {

@@ -22,6 +22,8 @@ public class MigrationRequest {
 
     public static final int DEFAULT_CHUNK_WORKERS = 6;
     public static final boolean DEFAULT_REBUILD_PRIMARY_KEYS = true;
+    public static final String DEFAULT_ORACLE_DIRECTORY = "MIG_DIR";
+    public static final String DEFAULT_EXPORT_PATH = "/mnt/migration";
 
     @Schema(description = "Source database configuration (PostgreSQL)")
     private DatabaseConfig source;
@@ -55,4 +57,20 @@ public class MigrationRequest {
     )
     @Builder.Default
     private Boolean rebuildPrimaryKeys = DEFAULT_REBUILD_PRIMARY_KEYS;
+
+    @Schema(
+            example = "MIG_DIR",
+            defaultValue = "MIG_DIR",
+            description = "Oracle DIRECTORY object (created once by a DBA, READ/WRITE granted to the app user) used for the external table load of large tables. If Oracle cannot read exportPath through it, the JDBC copy is used. Set to blank to disable."
+    )
+    @Builder.Default
+    private String oracleDirectory = DEFAULT_ORACLE_DIRECTORY;
+
+    @Schema(
+            example = "/mnt/migration",
+            defaultValue = "/mnt/migration",
+            description = "Path where this service writes export files. Must be the same storage the Oracle DIRECTORY points to (shared mount). Set to blank to disable."
+    )
+    @Builder.Default
+    private String exportPath = DEFAULT_EXPORT_PATH;
 }
