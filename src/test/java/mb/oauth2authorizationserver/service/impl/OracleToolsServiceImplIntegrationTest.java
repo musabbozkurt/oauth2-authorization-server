@@ -243,9 +243,94 @@ class OracleToolsServiceImplIntegrationTest {
                 rs = stmt.executeQuery("SELECT COUNT(*) FROM TESTUSER.CATEGORIES");
                 rs.next();
                 assertThat(rs.getInt(1)).isEqualTo(2);
+
+                // Column binders: NULLs stay NULL, booleans become 1/0, numerics keep their values
+                rs = stmt.executeQuery("SELECT COUNT(*) FROM TESTUSER.PRODUCTS WHERE UPDATED_AT IS NULL AND IS_ACTIVE = 1");
+                rs.next();
+                assertThat(rs.getInt(1)).isEqualTo(100);
+
+                rs = stmt.executeQuery("SELECT PRICE, STOCK FROM TESTUSER.PRODUCTS WHERE NAME = 'Product 10'");
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getBigDecimal(1)).isEqualByComparingTo("105.00");
+                assertThat(rs.getInt(2)).isEqualTo(50);
+
+                rs = stmt.executeQuery("SELECT COUNT(*) FROM TESTUSER.CATEGORIES WHERE PARENT_ID IS NULL");
+                rs.next();
+                assertThat(rs.getInt(1)).isEqualTo(1);
             }
         });
         waitForMigrationToFinish();
+    }
+
+    @Test
+    void migrate_ShouldMigrateData_WhenChunkWorkersAndRebuildPrimaryKeysAreProvided() {
+        // Arrange
+        waitForMigrationToFinish();
+        clearOracleTables();
+
+        MigrationRequest request = MigrationRequest.builder()
+                .source(createPostgresConfig("source_schema"))
+                .destination(createOracleConfig())
+                .chunkWorkers(100)
+                .rebuildPrimaryKeys(false)
+                .build();
+
+        // Act
+        oracleToolsService.migrate(request);
+
+        // Assertions
+        await().atMost(60, TimeUnit.SECONDS).untilAsserted(() -> {
+            try (Connection conn = DriverManager.getConnection(
+                    oracle.getJdbcUrl(), oracle.getUsername(), oracle.getPassword());
+                 Statement stmt = conn.createStatement()) {
+
+                ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM TESTUSER.PRODUCTS");
+                rs.next();
+                assertThat(rs.getInt(1)).isEqualTo(100);
+
+                rs = stmt.executeQuery("SELECT COUNT(*) FROM TESTUSER.CATEGORIES");
+                rs.next();
+                assertThat(rs.getInt(1)).isEqualTo(2);
+
+                rs = stmt.executeQuery("SELECT STATUS FROM ALL_CONSTRAINTS WHERE OWNER = 'TESTUSER' AND CONSTRAINT_NAME = 'PK_PRODUCTS'");
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getString(1)).isEqualTo("ENABLED");
+            }
+        });
+        waitForMigrationToFinish();
+    }
+
+    @Test
+    void generateScripts_ShouldUseReferencedSequenceAsDefault_WhenSequenceIsNotOwnedByColumn() throws Exception {
+        // Arrange
+        try (Connection conn = DriverManager.getConnection(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+             Statement stmt = conn.createStatement()) {
+            stmt.execute("CREATE SCHEMA IF NOT EXISTS shared_sequence_schema");
+            stmt.execute("CREATE SEQUENCE IF NOT EXISTS shared_sequence_schema.shared_id_seq START WITH 1 INCREMENT BY 1");
+            stmt.execute("""
+                    CREATE TABLE IF NOT EXISTS shared_sequence_schema.invoices (
+                        id BIGINT DEFAULT nextval('shared_sequence_schema.shared_id_seq'::regclass) PRIMARY KEY,
+                        code VARCHAR(50)
+                    )
+                    """);
+        }
+
+        ScriptGenerationRequest request = ScriptGenerationRequest.builder()
+                .source(createPostgresConfig("shared_sequence_schema"))
+                .targetSchema("TARGET_SCHEMA")
+                .editRoleUsersBySchema(Map.of("TARGET_SCHEMA", Set.of("app_user")))
+                .viewRoleUsersBySchema(Map.of("TARGET_SCHEMA", Set.of("readonly_user")))
+                .build();
+
+        // Act
+        ScriptGenerationResponse response = oracleToolsService.generateScripts(request);
+
+        // Assertions
+        assertThat(response.getFullScript())
+                .contains("CREATE SEQUENCE TARGET_SCHEMA.SHARED_ID_SEQ")
+                .contains("DEFAULT TARGET_SCHEMA.SHARED_ID_SEQ.NEXTVAL")
+                .doesNotContain("SEQ_INVOICES")
+                .doesNotContain("nextval(");
     }
 
     @Test
