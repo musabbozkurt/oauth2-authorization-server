@@ -33,11 +33,15 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -56,6 +60,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
     // =============================================
 
     private static final String LINE_SEPARATOR = System.lineSeparator();
+    private static final String DEFAULT_CLAUSE = " DEFAULT ";
     private static final String SECTION_SEPARATOR = "-- =============================================";
     private static final int ORACLE_MAX_IDENTIFIER_LENGTH = 128;
 
@@ -66,9 +71,22 @@ public class OracleToolsServiceImpl implements OracleToolsService {
     private static final int PROGRESS_INTERVAL_SECONDS = 30;
     private static final int QUERY_TIMEOUT = 600;
 
+    // Chunked (parallel PK-range) migration constants for large tables
+    private static final long CHUNKING_MIN_ROWS = 1_000_000L;
+    private static final int DEFAULT_CHUNK_WORKERS = 6;
+    private static final int MAX_CHUNK_WORKERS = 24;
+    private static final int CHUNKS_PER_WORKER = 8;
+    private static final int CHUNK_BATCH_SIZE = 20000;
+    private static final int ORACLE_PARALLEL_DEGREE = 8;
+    private static final Set<String> NUMERIC_PK_TYPES = Set.of("int2", "int4", "int8");
+    private static final Pattern NEXTVAL_SEQUENCE_PATTERN = Pattern.compile("nextval\\('(?:\"?\\w+\"?\\.)?\"?(\\w+)\"?'");
+
     // Migration state
+    private final AtomicBoolean migrationRunning = new AtomicBoolean(false);
     private final AtomicLong totalProcessed = new AtomicLong(0);
     private volatile long estimatedTotal = 0;
+    private volatile int currentChunkWorkers = DEFAULT_CHUNK_WORKERS;
+    private volatile boolean currentRebuildPrimaryKeys = false;
     private HikariDataSource currentOracleDataSource;
     private HikariDataSource currentPostgresDataSource;
     private String currentSourceSchema;
@@ -382,14 +400,24 @@ public class OracleToolsServiceImpl implements OracleToolsService {
     @Async
     @Override
     public void migrate(MigrationRequest request) {
+        // In-JVM guard: a second call must not overwrite the shared datasources/settings of a running migration
+        // (the advisory lock alone is checked only after those fields are set).
+        if (!migrationRunning.compareAndSet(false, true)) {
+            log.warn("Migration is already running in this instance. Skipping this request.");
+            return;
+        }
         try {
             totalProcessed.set(0);
             estimatedTotal = 0;
 
             DatabaseConfig source = request.getSource();
             DatabaseConfig destination = request.getDestination();
-            currentPostgresDataSource = createDataSource(source, "PostgresPool", 30, 5);
-            currentOracleDataSource = createDataSource(destination, "OraclePool", 30, 5);
+            Integer chunkWorkers = request.getChunkWorkers();
+            currentChunkWorkers = chunkWorkers == null || chunkWorkers < 1 ? DEFAULT_CHUNK_WORKERS : Math.min(chunkWorkers, MAX_CHUNK_WORKERS);
+            currentRebuildPrimaryKeys = request.getRebuildPrimaryKeys() == null ? MigrationRequest.DEFAULT_REBUILD_PRIMARY_KEYS : request.getRebuildPrimaryKeys();
+            int poolSize = Math.max(30, currentChunkWorkers + THREAD_COUNT + 5);
+            currentPostgresDataSource = createDataSource(withBinaryTransfer(source), "PostgresPool", poolSize, 5);
+            currentOracleDataSource = createDataSource(destination, "OraclePool", poolSize, 5);
             currentSourceSchema = source.getSchema();
             currentTableSchemaOverrides = buildTableSchemaOverrides(request.getTableSchemaMap(), "migration");
             currentTargetSchema = resolveDefaultSchema(currentTableSchemaOverrides, destination.getSchema().toUpperCase(Locale.ROOT));
@@ -401,7 +429,12 @@ public class OracleToolsServiceImpl implements OracleToolsService {
         } finally {
             closeDataSource(currentPostgresDataSource);
             closeDataSource(currentOracleDataSource);
+            migrationRunning.set(false);
         }
+    }
+
+    private String targetTableName(TableMapping tableMapping) {
+        return tableMapping.targetTable().substring(tableMapping.targetTable().indexOf('.') + 1);
     }
 
     // =============================================
@@ -466,13 +499,14 @@ public class OracleToolsServiceImpl implements OracleToolsService {
 
         CountDownLatch latch = new CountDownLatch(tableMappings.size());
 
-        try (ExecutorService executor = Executors.newFixedThreadPool(THREAD_COUNT);
+        try (ExecutorService chunkExecutor = Executors.newFixedThreadPool(currentChunkWorkers);
+             ExecutorService executor = Executors.newFixedThreadPool(THREAD_COUNT);
              ScheduledExecutorService monitor = Executors.newSingleThreadScheduledExecutor()) {
 
             for (TableMapping mapping : tableMappings) {
                 executor.submit(() -> {
                     try {
-                        migrateTable(mapping);
+                        migrateTable(mapping, chunkExecutor);
                     } catch (Exception e) {
                         log.error("Failed to migrate table {}: {}", mapping.sourceTable(), e.getMessage(), e);
                     } finally {
@@ -732,19 +766,337 @@ public class OracleToolsServiceImpl implements OracleToolsService {
     private long getEstimatedTotal(List<TableMapping> tableMappings) {
         long total = 0;
         for (TableMapping mapping : tableMappings) {
+            // Planner estimate is instant; exact COUNT(*) on billion-row tables can take very long. Only used for progress/ETA logs.
+            String estimateQuery = "SELECT reltuples::bigint FROM pg_class WHERE oid = '%s'::regclass".formatted(mapping.sourceTable());
             String countQuery = "SELECT COUNT(*) FROM %s".formatted(mapping.sourceTable());
-            try (Connection connection = currentPostgresDataSource.getConnection();
-                 PreparedStatement preparedStatement = connection.prepareStatement(countQuery);
-                 ResultSet resultSet = preparedStatement.executeQuery()) {
-                if (resultSet.next()) {
-                    total += resultSet.getLong(1);
-                }
+            try (Connection connection = currentPostgresDataSource.getConnection()) {
+                long estimate = queryLong(connection, estimateQuery);
+                total += estimate > 0 ? estimate : queryLong(connection, countQuery);
             } catch (SQLException e) {
                 log.warn("Could not get count for table {}: {}", mapping.sourceTable(), e.getMessage());
             }
         }
         log.info("Estimated total records to migrate: {}", total);
         return total;
+    }
+
+    private long queryLong(Connection connection, String sql) throws SQLException {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(sql);
+             ResultSet resultSet = preparedStatement.executeQuery()) {
+            return resultSet.next() ? resultSet.getLong(1) : 0;
+        }
+    }
+
+    private boolean hasAtLeastChunkingMinRows(Connection connection, String table) throws SQLException {
+        return queryLong(connection, "SELECT COUNT(*) FROM (SELECT 1 FROM %s LIMIT %d) limited".formatted(table, CHUNKING_MIN_ROWS)) >= CHUNKING_MIN_ROWS;
+    }
+
+    /**
+     * Large tables with a single numeric primary key are copied in parallel PK-range chunks.
+     * All other tables use the original single-stream copy (unchanged behaviour).
+     */
+    private void migrateTable(TableMapping tableMapping, ExecutorService chunkExecutor) throws SQLException {
+        if (tableMapping.selectQuery() == null) {
+            ChunkPlan plan = planChunks(tableMapping);
+            if (plan != null) {
+                migrateTableInChunks(tableMapping, plan, chunkExecutor);
+                return;
+            }
+        }
+        migrateTable(tableMapping);
+    }
+
+    private ChunkPlan planChunks(TableMapping tableMapping) {
+        try (Connection connection = currentPostgresDataSource.getConnection()) {
+            long estimatedRows = queryLong(connection, "SELECT reltuples::bigint FROM pg_class WHERE oid = '%s'::regclass".formatted(tableMapping.sourceTable()));
+            // reltuples is -1/0 or stale for tables that were never analyzed (e.g. freshly restored); a bounded count
+            // (reads at most CHUNKING_MIN_ROWS rows) avoids copying such a large table single-stream by mistake.
+            if (estimatedRows < CHUNKING_MIN_ROWS && !hasAtLeastChunkingMinRows(connection, tableMapping.sourceTable())) {
+                return null;
+            }
+
+            String pkQuery = """
+                    SELECT a.attname, t.typname
+                    FROM pg_index i
+                             JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY (i.indkey)
+                             JOIN pg_type t ON t.oid = a.atttypid
+                    WHERE i.indrelid = '%s'::regclass AND i.indisprimary
+                    """.formatted(tableMapping.sourceTable());
+            List<String> pkColumns = new ArrayList<>();
+            String pkType = null;
+            try (PreparedStatement ps = connection.prepareStatement(pkQuery);
+                 ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    pkColumns.add(rs.getString(1));
+                    pkType = rs.getString(2);
+                }
+            }
+            if (pkColumns.size() != 1 || !NUMERIC_PK_TYPES.contains(pkType)) {
+                log.info("Table {} is large but has no single numeric primary key. Using single-stream copy.", tableMapping.sourceTable());
+                return null;
+            }
+
+            String pkColumn = pkColumns.getFirst();
+            String minMaxQuery = "SELECT MIN(\"%s\"), MAX(\"%s\") FROM %s".formatted(pkColumn, pkColumn, tableMapping.sourceTable());
+            try (PreparedStatement ps = connection.prepareStatement(minMaxQuery);
+                 ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    return null;
+                }
+                long min = rs.getLong(1);
+                if (rs.wasNull()) {
+                    return null;
+                }
+                long max = rs.getLong(2);
+                long span = max - min;
+                if (span < 0 || span == Long.MAX_VALUE) {
+                    return null;
+                }
+                return new ChunkPlan(pkColumn, min, max);
+            }
+        } catch (SQLException e) {
+            log.warn("Could not plan chunks for {}: {}. Using single-stream copy.", tableMapping.sourceTable(), e.getMessage());
+            return null;
+        }
+    }
+
+    private void migrateTableInChunks(TableMapping tableMapping, ChunkPlan plan, ExecutorService chunkExecutor) throws SQLException {
+        Instant tableStart = Instant.now();
+        assertTargetTableEmpty(tableMapping.targetTable());
+
+        List<ChunkRange> ranges = buildChunkRanges(plan);
+        log.info("Starting chunked migration of table: {} -> {} (pk: {}, range: {}..{}, workers: {}, chunks: {})", tableMapping.sourceTable(), tableMapping.targetTable(), plan.pkColumn(), plan.min(), plan.max(), currentChunkWorkers, ranges.size());
+
+        // Optional: drop the PK index so inserts don't maintain it row by row; it is always rebuilt afterwards (also on failure).
+        PrimaryKeyIndex droppedPrimaryKey = currentRebuildPrimaryKeys ? dropPrimaryKeyIndex(tableMapping) : null;
+        long tableProcessed;
+        try {
+            AtomicBoolean failed = new AtomicBoolean(false);
+            List<Future<Long>> futures = submitChunks(tableMapping, plan.pkColumn(), ranges, chunkExecutor, failed);
+            tableProcessed = collectChunkResults(tableMapping, futures, failed);
+        } finally {
+            if (droppedPrimaryKey != null) {
+                rebuildPrimaryKeyIndex(tableMapping, droppedPrimaryKey);
+            }
+        }
+
+        Duration duration = Duration.between(tableStart, Instant.now());
+        log.info("Completed chunked migration of table {} -> {}. Records: {}, Duration: {}s", tableMapping.sourceTable(), tableMapping.targetTable(), tableProcessed, duration.getSeconds());
+    }
+
+    /**
+     * Splits [min, max] into workers * CHUNKS_PER_WORKER ranges. The first range has no lower bound and the last has no
+     * upper bound, so every row is covered exactly once.
+     */
+    private List<ChunkRange> buildChunkRanges(ChunkPlan plan) {
+        long chunkCount = (long) currentChunkWorkers * CHUNKS_PER_WORKER;
+        long chunkSize = (plan.max() - plan.min()) / chunkCount + 1;
+        List<ChunkRange> ranges = new ArrayList<>();
+        long lower = plan.min();
+        boolean last = false;
+        while (!last) {
+            long next = lower + chunkSize;
+            last = next > plan.max() || next < lower;
+            ranges.add(new ChunkRange(lower == plan.min() ? null : lower, last ? null : next));
+            lower = next;
+        }
+        return ranges;
+    }
+
+    private List<Future<Long>> submitChunks(TableMapping tableMapping, String pkColumn, List<ChunkRange> ranges, ExecutorService chunkExecutor, AtomicBoolean failed) {
+        List<Future<Long>> futures = new ArrayList<>();
+        for (ChunkRange range : ranges) {
+            futures.add(chunkExecutor.submit(() -> migrateChunk(tableMapping, pkColumn, range.lower(), range.upper(), failed)));
+        }
+        return futures;
+    }
+
+    private long collectChunkResults(TableMapping tableMapping, List<Future<Long>> futures, AtomicBoolean failed) throws SQLException {
+        long processed = 0;
+        Throwable firstError = null;
+        for (Future<Long> future : futures) {
+            try {
+                processed += future.get();
+            } catch (ExecutionException e) {
+                failed.set(true);
+                firstError = firstError == null ? e.getCause() : firstError;
+            } catch (InterruptedException e) {
+                failed.set(true);
+                Thread.currentThread().interrupt();
+                throw new SQLException("Interrupted while migrating " + tableMapping.sourceTable(), e);
+            }
+        }
+
+        if (firstError != null) {
+            throw new SQLException("Chunked migration failed for %s. Target table %s may contain partial data and must be truncated before re-running. Cause: %s".formatted(tableMapping.sourceTable(), tableMapping.targetTable(), firstError.getMessage()), firstError);
+        }
+        return processed;
+    }
+
+    private void assertTargetTableEmpty(String targetTable) throws SQLException {
+        try (Connection connection = currentOracleDataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement("SELECT 1 FROM %s WHERE ROWNUM = 1".formatted(targetTable));
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                throw new SQLException("Target table %s is not empty. Truncate it before chunked migration to avoid duplicates.".formatted(targetTable));
+            }
+        }
+    }
+
+    /**
+     * Disables the enabled primary key of the target table and drops its index. Returns null (and leaves the table untouched)
+     * when the table has no enabled primary key or the change is not possible, so the load simply runs with the index.
+     */
+    private PrimaryKeyIndex dropPrimaryKeyIndex(TableMapping tableMapping) {
+        String owner = tableMapping.targetSchema();
+        String tableName = targetTableName(tableMapping);
+        String pkQuery = """
+                SELECT c.constraint_name, c.index_name,
+                       LISTAGG('"' || cc.column_name || '"', ', ') WITHIN GROUP (ORDER BY cc.position)
+                FROM all_constraints c
+                         JOIN all_cons_columns cc
+                              ON cc.owner = c.owner AND cc.table_name = c.table_name AND cc.constraint_name = c.constraint_name
+                WHERE c.owner = ? AND c.table_name = ? AND c.constraint_type = 'P' AND c.status = 'ENABLED'
+                GROUP BY c.constraint_name, c.index_name
+                """;
+        try (Connection connection = currentOracleDataSource.getConnection()) {
+            PrimaryKeyIndex primaryKey = null;
+            try (PreparedStatement ps = connection.prepareStatement(pkQuery)) {
+                ps.setString(1, owner);
+                ps.setString(2, tableName);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        String constraintName = rs.getString(1);
+                        String indexName = rs.getString(2) == null ? constraintName : rs.getString(2);
+                        primaryKey = new PrimaryKeyIndex(owner, constraintName, indexName, rs.getString(3));
+                    }
+                }
+            }
+            if (primaryKey == null) {
+                log.info("Table {} has no enabled primary key, nothing to drop before load.", tableMapping.targetTable());
+                return null;
+            }
+            try (Statement stmt = connection.createStatement()) {
+                stmt.execute("ALTER TABLE %s DISABLE CONSTRAINT \"%s\" DROP INDEX".formatted(tableMapping.targetTable(), primaryKey.constraintName()));
+            }
+            log.info("Disabled primary key {} and dropped its index on {} for faster load. It will be rebuilt after the load.", primaryKey.constraintName(), tableMapping.targetTable());
+            return primaryKey;
+        } catch (SQLException e) {
+            log.warn("Could not drop primary key index on {}: {}. Loading with the index in place.", tableMapping.targetTable(), e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Rebuilds the primary key index in parallel and re-enables the constraint. Never throws: on failure the exact SQL to
+     * run manually is logged so the table is never silently left without its primary key.
+     */
+    private void rebuildPrimaryKeyIndex(TableMapping tableMapping, PrimaryKeyIndex primaryKey) {
+        String indexName = "\"%s\".\"%s\"".formatted(primaryKey.owner(), primaryKey.indexName());
+        String createIndex = "CREATE UNIQUE INDEX %s ON %s (%s) PARALLEL %d NOLOGGING".formatted(indexName, tableMapping.targetTable(), primaryKey.columns(), ORACLE_PARALLEL_DEGREE);
+        String enableConstraint = "ALTER TABLE %s ENABLE CONSTRAINT \"%s\"".formatted(tableMapping.targetTable(), primaryKey.constraintName());
+        Instant rebuildStart = Instant.now();
+        log.info("Rebuilding primary key {} on {} (parallel {}).", primaryKey.constraintName(), tableMapping.targetTable(), ORACLE_PARALLEL_DEGREE);
+
+        try (Connection connection = currentOracleDataSource.getConnection();
+             Statement stmt = connection.createStatement()) {
+            if (!oracleIndexExists(connection, primaryKey)) {
+                stmt.execute(createIndex);
+            }
+            stmt.execute(enableConstraint);
+            stmt.execute("ALTER INDEX %s NOPARALLEL".formatted(indexName));
+            stmt.execute("ALTER INDEX %s LOGGING".formatted(indexName));
+            log.info("Rebuilt primary key {} on {} in {}s.", primaryKey.constraintName(), tableMapping.targetTable(), Duration.between(rebuildStart, Instant.now()).getSeconds());
+        } catch (SQLException e) {
+            log.error("Failed to rebuild primary key {} on {}: {}. Run manually: {}; {}; ALTER INDEX {} NOPARALLEL; ALTER INDEX {} LOGGING;", primaryKey.constraintName(), tableMapping.targetTable(), e.getMessage(), createIndex, enableConstraint, indexName, indexName, e);
+        }
+    }
+
+    private boolean oracleIndexExists(Connection connection, PrimaryKeyIndex primaryKey) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement("SELECT 1 FROM all_indexes WHERE owner = ? AND index_name = ?")) {
+            ps.setString(1, primaryKey.owner());
+            ps.setString(2, primaryKey.indexName());
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
+    private long migrateChunk(TableMapping tableMapping, String pkColumn, Long lower, Long upper, AtomicBoolean failed) throws SQLException {
+        if (failed.get()) {
+            return 0;
+        }
+
+        String quotedPk = "\"" + pkColumn + "\"";
+        StringBuilder where = new StringBuilder();
+        if (lower != null) {
+            where.append(quotedPk).append(" >= ?");
+        }
+        if (upper != null) {
+            if (!where.isEmpty()) {
+                where.append(" AND ");
+            }
+            where.append(quotedPk).append(" < ?");
+        }
+        String selectQuery = "SELECT * FROM %s%s".formatted(tableMapping.sourceTable(), where.isEmpty() ? "" : " WHERE " + where);
+
+        long chunkProcessed = 0;
+        try (Connection postgresConnection = currentPostgresDataSource.getConnection();
+             Connection oracleConnection = currentOracleDataSource.getConnection()) {
+
+            postgresConnection.setAutoCommit(false);
+            oracleConnection.setAutoCommit(false);
+
+            try (PreparedStatement select = postgresConnection.prepareStatement(selectQuery, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
+                int index = 1;
+                if (lower != null) {
+                    select.setLong(index++, lower);
+                }
+                if (upper != null) {
+                    select.setLong(index, upper);
+                }
+                select.setFetchSize(CHUNK_BATCH_SIZE);
+
+                try (ResultSet resultSet = select.executeQuery()) {
+                    ResultSetMetaData metaData = resultSet.getMetaData();
+                    ColumnBinder[] binders = buildBinders(metaData);
+                    // Conventional-path insert: direct-path (APPEND_VALUES) takes an exclusive table lock until commit,
+                    // which would serialize all parallel chunk workers writing to the same table.
+                    String insertSql = buildInsertSql(tableMapping.targetTable(), metaData);
+
+                    try (PreparedStatement insert = oracleConnection.prepareStatement(insertSql)) {
+                        int batchCount = 0;
+                        while (resultSet.next()) {
+                            if (failed.get()) {
+                                // Another chunk failed; the table is already marked as failed, stop early.
+                                oracleConnection.rollback();
+                                return chunkProcessed;
+                            }
+                            setInsertParameters(insert, resultSet, binders);
+                            insert.addBatch();
+                            batchCount++;
+
+                            if (batchCount >= CHUNK_BATCH_SIZE) {
+                                executeBatch(insert, oracleConnection, batchCount);
+                                chunkProcessed += batchCount;
+                                totalProcessed.addAndGet(batchCount);
+                                batchCount = 0;
+                            }
+                        }
+                        if (batchCount > 0) {
+                            executeBatch(insert, oracleConnection, batchCount);
+                            chunkProcessed += batchCount;
+                            totalProcessed.addAndGet(batchCount);
+                        }
+                    }
+                }
+            }
+        } catch (SQLException | RuntimeException e) {
+            failed.set(true);
+            log.error("Chunk [{}, {}) of table {} failed: {}", lower, upper, tableMapping.sourceTable(), e.getMessage(), e);
+            throw e;
+        }
+        return chunkProcessed;
     }
 
     private void migrateTable(TableMapping tableMapping) throws SQLException {
@@ -765,7 +1117,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
 
                 try (ResultSet resultSet = selectPreparedStatement.executeQuery()) {
                     ResultSetMetaData metaData = resultSet.getMetaData();
-                    int columnCount = metaData.getColumnCount();
+                    ColumnBinder[] binders = buildBinders(metaData);
 
                     String insertSql = buildInsertSql(tableMapping.targetTable(), metaData);
                     log.debug("Insert SQL: {}", insertSql);
@@ -775,7 +1127,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
                         long tableProcessed = 0;
 
                         while (resultSet.next()) {
-                            setInsertParameters(insertPreparedStatement, resultSet, metaData, columnCount);
+                            setInsertParameters(insertPreparedStatement, resultSet, binders);
                             insertPreparedStatement.addBatch();
                             batchCount++;
 
@@ -819,60 +1171,127 @@ public class OracleToolsServiceImpl implements OracleToolsService {
         return String.format("INSERT INTO %s (%s) VALUES (%s)", targetTable, columns, placeholders);
     }
 
-    private void setInsertParameters(PreparedStatement insertPreparedStatement, ResultSet resultSet, ResultSetMetaData metaData, int columnCount) throws SQLException {
-        for (int i = 1; i <= columnCount; i++) {
-            int columnType = metaData.getColumnType(i);
-            String columnTypeName = metaData.getColumnTypeName(i);
-            Object value = resultSet.getObject(i);
-
-            if (value == null) {
-                insertPreparedStatement.setNull(i, Types.VARCHAR);
-            } else {
-                if ("jsonb".equalsIgnoreCase(columnTypeName) || "json".equalsIgnoreCase(columnTypeName)) {
-                    insertPreparedStatement.setString(i, value.toString());
-                } else if (columnTypeName != null && columnTypeName.startsWith("_")) {
-                    insertPreparedStatement.setString(i, value.toString());
-                } else if ("uuid".equalsIgnoreCase(columnTypeName)) {
-                    insertPreparedStatement.setString(i, value.toString());
-                } else if ("bytea".equalsIgnoreCase(columnTypeName)) {
-                    insertPreparedStatement.setBytes(i, resultSet.getBytes(i));
-                } else if ("oid".equalsIgnoreCase(columnTypeName)) {
-                    insertPreparedStatement.setLong(i, resultSet.getLong(i));
-                } else {
-                    setStandardTypeParameter(insertPreparedStatement, resultSet, i, columnType, columnTypeName, value, metaData);
-                }
-            }
+    /**
+     * Builds one binder per column once per query, so the per-row work is a single typed read and a single typed bind
+     * (no getObject + second read, no metadata lookups per cell). Conversions are the same as before:
+     * booleans as 1/0, json/jsonb/uuid/arrays/other as text, bytea as bytes.
+     * Nulls are bound with the column's own SQL type so the Oracle driver does not re-bind in the middle of a batch.
+     */
+    private ColumnBinder[] buildBinders(ResultSetMetaData metaData) throws SQLException {
+        ColumnBinder[] binders = new ColumnBinder[metaData.getColumnCount()];
+        for (int i = 1; i <= binders.length; i++) {
+            binders[i - 1] = binderFor(metaData.getColumnType(i), metaData.getColumnTypeName(i));
         }
+        return binders;
     }
 
-    private void setStandardTypeParameter(PreparedStatement insertPreparedStatement, ResultSet resultSet, int i, int columnType, String columnTypeName, Object value, ResultSetMetaData metaData) throws SQLException {
-        switch (columnType) {
-            case Types.VARCHAR, Types.CHAR, Types.LONGVARCHAR, Types.NVARCHAR, Types.NCHAR ->
-                    insertPreparedStatement.setString(i, resultSet.getString(i));
-            case Types.INTEGER, Types.SMALLINT, Types.TINYINT -> insertPreparedStatement.setInt(i, resultSet.getInt(i));
-            case Types.BIGINT -> insertPreparedStatement.setLong(i, resultSet.getLong(i));
-            case Types.DOUBLE, Types.FLOAT -> insertPreparedStatement.setDouble(i, resultSet.getDouble(i));
-            case Types.REAL -> insertPreparedStatement.setFloat(i, resultSet.getFloat(i));
-            case Types.DECIMAL, Types.NUMERIC -> insertPreparedStatement.setBigDecimal(i, resultSet.getBigDecimal(i));
-            case Types.DATE -> insertPreparedStatement.setDate(i, resultSet.getDate(i));
-            case Types.TIME, Types.TIME_WITH_TIMEZONE -> insertPreparedStatement.setTime(i, resultSet.getTime(i));
+    private ColumnBinder binderFor(int columnType, String columnTypeName) {
+        String typeName = columnTypeName == null ? "" : columnTypeName.toLowerCase(Locale.ROOT);
+        if (typeName.equals("json") || typeName.equals("jsonb") || typeName.equals("uuid") || typeName.startsWith("_")) {
+            return (resultSet, insert, i) -> insert.setString(i, resultSet.getString(i));
+        }
+        if (typeName.equals("bytea")) {
+            return (resultSet, insert, i) -> insert.setBytes(i, resultSet.getBytes(i));
+        }
+        if (typeName.equals("oid")) {
+            return this::bindLong;
+        }
+        return switch (columnType) {
+            case Types.INTEGER, Types.SMALLINT, Types.TINYINT -> this::bindInt;
+            case Types.BIGINT -> this::bindLong;
+            case Types.DOUBLE, Types.FLOAT -> this::bindDouble;
+            case Types.REAL -> this::bindFloat;
+            case Types.BOOLEAN, Types.BIT -> this::bindBoolean;
+            case Types.DECIMAL, Types.NUMERIC ->
+                    (resultSet, insert, i) -> insert.setBigDecimal(i, resultSet.getBigDecimal(i));
+            case Types.DATE -> (resultSet, insert, i) -> insert.setDate(i, resultSet.getDate(i));
+            case Types.TIME, Types.TIME_WITH_TIMEZONE ->
+                    (resultSet, insert, i) -> insert.setTime(i, resultSet.getTime(i));
             case Types.TIMESTAMP, Types.TIMESTAMP_WITH_TIMEZONE ->
-                    insertPreparedStatement.setTimestamp(i, resultSet.getTimestamp(i));
-            case Types.BOOLEAN, Types.BIT -> insertPreparedStatement.setInt(i, resultSet.getBoolean(i) ? 1 : 0);
+                    (resultSet, insert, i) -> insert.setTimestamp(i, resultSet.getTimestamp(i));
             case Types.BLOB, Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY ->
-                    insertPreparedStatement.setBytes(i, resultSet.getBytes(i));
-            case Types.CLOB, Types.NCLOB -> insertPreparedStatement.setString(i, resultSet.getString(i));
-            case Types.ARRAY, Types.OTHER -> insertPreparedStatement.setString(i, value.toString());
-            default -> {
-                try {
-                    insertPreparedStatement.setString(i, value.toString());
-                } catch (Exception _) {
-                    log.warn("Could not convert column {} (type: {}, typeName: {}) to string", metaData.getColumnName(i), columnType, columnTypeName);
-                    insertPreparedStatement.setObject(i, value);
-                }
-            }
+                    (resultSet, insert, i) -> insert.setBytes(i, resultSet.getBytes(i));
+            // VARCHAR, CHAR, CLOB, ARRAY, OTHER and anything else: text, as before
+            default -> (resultSet, insert, i) -> insert.setString(i, resultSet.getString(i));
+        };
+    }
+
+    private void bindInt(ResultSet resultSet, PreparedStatement insert, int i) throws SQLException {
+        int value = resultSet.getInt(i);
+        if (resultSet.wasNull()) {
+            insert.setNull(i, Types.INTEGER);
+        } else {
+            insert.setInt(i, value);
         }
     }
+
+    private void bindLong(ResultSet resultSet, PreparedStatement insert, int i) throws SQLException {
+        long value = resultSet.getLong(i);
+        if (resultSet.wasNull()) {
+            insert.setNull(i, Types.BIGINT);
+        } else {
+            insert.setLong(i, value);
+        }
+    }
+
+    private void bindDouble(ResultSet resultSet, PreparedStatement insert, int i) throws SQLException {
+        double value = resultSet.getDouble(i);
+        if (resultSet.wasNull()) {
+            insert.setNull(i, Types.DOUBLE);
+        } else {
+            insert.setDouble(i, value);
+        }
+    }
+
+    private void bindFloat(ResultSet resultSet, PreparedStatement insert, int i) throws SQLException {
+        float value = resultSet.getFloat(i);
+        if (resultSet.wasNull()) {
+            insert.setNull(i, Types.REAL);
+        } else {
+            insert.setFloat(i, value);
+        }
+    }
+
+    private void bindBoolean(ResultSet resultSet, PreparedStatement insert, int i) throws SQLException {
+        boolean value = resultSet.getBoolean(i);
+        if (resultSet.wasNull()) {
+            insert.setNull(i, Types.INTEGER);
+        } else {
+            insert.setInt(i, value ? 1 : 0);
+        }
+    }
+
+    private void setInsertParameters(PreparedStatement insert, ResultSet resultSet, ColumnBinder[] binders) throws SQLException {
+        for (int i = 0; i < binders.length; i++) {
+            binders[i].bind(resultSet, insert, i + 1);
+        }
+    }
+
+    /**
+     * Returns a copy of the source config whose PostgreSQL URL has prepareThreshold=-1 (binary transfer: faster reads of
+     * numbers/timestamps). The request object is not changed; an explicit prepareThreshold in the URL is kept as is.
+     */
+    private DatabaseConfig withBinaryTransfer(DatabaseConfig source) {
+        return DatabaseConfig.builder()
+                .jdbcUrl(withPrepareThreshold(source.getJdbcUrl()))
+                .username(source.getUsername())
+                .password(source.getPassword())
+                .schema(source.getSchema())
+                .driverClassName(source.getDriverClassName())
+                .build();
+    }
+
+    private String withPrepareThreshold(String jdbcUrl) {
+        if (jdbcUrl == null || !jdbcUrl.startsWith("jdbc:postgresql:") || jdbcUrl.toLowerCase(Locale.ROOT).contains("preparethreshold=")) {
+            return jdbcUrl;
+        }
+        String separator = "?";
+        if (jdbcUrl.contains("?")) {
+            separator = jdbcUrl.endsWith("?") || jdbcUrl.endsWith("&") ? "" : "&";
+        }
+        return jdbcUrl + separator + "prepareThreshold=-1";
+    }
+
 
     private void executeBatch(PreparedStatement preparedStatement, Connection connection, int batchCount) throws SQLException {
         try {
@@ -1051,9 +1470,13 @@ public class OracleToolsServiceImpl implements OracleToolsService {
             StringBuilder typeDef = new StringBuilder();
             typeDef.append(columnInfo.oracleType);
             if (columnInfo.isSerial && hasSequence) {
-                typeDef.append(" DEFAULT ").append(targetSchema).append(".").append(sequenceName).append(".NEXTVAL");
+                typeDef.append(DEFAULT_CLAUSE).append(targetSchema).append(".").append(sequenceName).append(".NEXTVAL");
+            } else if (columnInfo.isSerial && columnInfo.sequenceName != null) {
+                // Sequence is not OWNED BY the column in PostgreSQL; use the sequence referenced by the default
+                String referencedSequence = truncateOracleIdentifier(columnInfo.sequenceName.toUpperCase(Locale.ROOT));
+                typeDef.append(DEFAULT_CLAUSE).append(targetSchema).append(".").append(referencedSequence).append(".NEXTVAL");
             } else if (columnInfo.defaultValue != null && !columnInfo.defaultValue.isEmpty()) {
-                typeDef.append(" DEFAULT ").append(convertDefaultValue(columnInfo.defaultValue, columnInfo.oracleType));
+                typeDef.append(DEFAULT_CLAUSE).append(convertDefaultValue(columnInfo.defaultValue, columnInfo.oracleType));
             }
             typeDefs.add(typeDef.toString());
             if (!columnInfo.nullable && typeDef.length() > maxTypeDefLen) {
@@ -1163,6 +1586,10 @@ public class OracleToolsServiceImpl implements OracleToolsService {
                     columnInfo.isSerial = columnInfo.defaultValue != null && columnInfo.defaultValue.contains("nextval");
 
                     if (columnInfo.isSerial) {
+                        Matcher sequenceMatcher = NEXTVAL_SEQUENCE_PATTERN.matcher(columnInfo.defaultValue);
+                        if (sequenceMatcher.find()) {
+                            columnInfo.sequenceName = sequenceMatcher.group(1);
+                        }
                         columnInfo.defaultValue = null;
                     }
 
@@ -1505,10 +1932,27 @@ public class OracleToolsServiceImpl implements OracleToolsService {
         return fallbackSchema;
     }
 
+    @FunctionalInterface
+    private interface ColumnBinder {
+        void bind(ResultSet resultSet, PreparedStatement insert, int index) throws SQLException;
+    }
+
     private record TableMapping(String sourceTable, String targetTable, String targetSchema, String selectQuery) {
         public TableMapping(String sourceTable, String targetTable, String targetSchema) {
             this(sourceTable, targetTable, targetSchema, null);
         }
+    }
+
+    private record ChunkPlan(String pkColumn, long min, long max) {
+    }
+
+    /**
+     * PK range [lower, upper); null means unbounded on that side.
+     */
+    private record ChunkRange(Long lower, Long upper) {
+    }
+
+    private record PrimaryKeyIndex(String owner, String constraintName, String indexName, String columns) {
     }
 
     private record RolePair(String editRole, String viewRole) {
@@ -1532,6 +1976,7 @@ public class OracleToolsServiceImpl implements OracleToolsService {
         boolean nullable;
         String defaultValue;
         boolean isSerial;
+        String sequenceName;
     }
 
     private static class ForeignKeyInfo {
