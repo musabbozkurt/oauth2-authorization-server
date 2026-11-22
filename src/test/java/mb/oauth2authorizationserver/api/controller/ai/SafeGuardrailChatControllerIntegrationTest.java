@@ -63,7 +63,7 @@ class SafeGuardrailChatControllerIntegrationTest extends BaseUnitTest {
             .withReuse(true);
 
     @Autowired
-    private RestTestClient restTestClient;
+    private final RestTestClient restTestClient;
 
     @BeforeAll
     static void ensureOllamaModelAvailable() throws IOException, InterruptedException {

@@ -38,7 +38,7 @@ class UserControllerIntegrationTests extends BaseUnitTest {
     private static ApiUserResponse apiUserResponse;
 
     @Autowired
-    private RestTestClient restTestClient;
+    private RestTestClient restTestClient; private UserService userService;
 
     @Autowired
     private UserService userService;
@@ -113,7 +113,7 @@ class UserControllerIntegrationTests extends BaseUnitTest {
     void testCreateUser() {
         ApiUserRequest apiUserRequest = getApiUserRequest();
 
-        ApiUserResponse response = sendJson(HttpMethod.POST, "/users/", apiUserRequest, ApiUserResponse.class);
+        void testCreateUser() {
 
         Assertions.assertNotNull(response);
         Assertions.assertEquals(apiUserRequest.getFirstName(), response.getFirstName());
@@ -158,7 +158,7 @@ class UserControllerIntegrationTests extends BaseUnitTest {
     void testUpdateUserById() {
         ApiUserRequest apiUserRequest = getApiUserRequest3();
 
-        ApiUserResponse response = sendJson(HttpMethod.PUT, "/users/1", apiUserRequest, ApiUserResponse.class);
+        sendJson(HttpMethod.PUT, "/users/1", apiUserRequest, ApiUserResponse.class)
 
         Assertions.assertNotNull(response);
         Assertions.assertEquals(apiUserRequest.getEmail(), response.getEmail());
@@ -287,7 +287,7 @@ class UserControllerIntegrationTests extends BaseUnitTest {
         getUsers();
 
         // Verify actuator metrics endpoint is accessible
-        String metricsResponse = get("/actuator/metrics", String.class);
+        String metricsResponse = getMetrics();
 
         Assertions.assertNotNull(metricsResponse, "Metrics endpoint should be accessible");
         Assertions.assertTrue(metricsResponse.contains("names"), "Metrics response should contain metric names");
