@@ -1,7 +1,7 @@
 package mb.oauth2authorizationserver.archunit;
 
 import com.enofex.taikai.Taikai;
-import com.enofex.taikai.TaikaiRule;
+import com.enofex.taikai.core.TaikaiRule;
 import com.enofex.taikai.spring.ServicesConfigurer;
 import com.tngtech.archunit.core.domain.JavaAnnotation;
 import com.tngtech.archunit.core.domain.JavaClass;

@@ -1,8 +1,8 @@
 package mb.oauth2authorizationserver.config.security.provider;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import mb.oauth2authorizationserver.utils.SecurityUtils;
+import org.jspecify.annotations.NonNull;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
@@ -34,7 +34,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CustomRefreshTokenAuthenticationProvider implements AuthenticationProvider {
@@ -44,7 +43,7 @@ public class CustomRefreshTokenAuthenticationProvider implements AuthenticationP
 
     @Override
     @Transactional
-    public Authentication authenticate(Authentication authentication) throws AuthenticationException {
+    public Authentication authenticate(@NonNull Authentication authentication) throws AuthenticationException {
         OAuth2RefreshTokenAuthenticationToken refreshTokenAuthentication = (OAuth2RefreshTokenAuthenticationToken) authentication;
 
         // Ensure the client is authenticated
@@ -73,7 +72,7 @@ public class CustomRefreshTokenAuthenticationProvider implements AuthenticationP
         }
 
         // Use requested scopes or fallback to original scopes
-        Set<String> scopesToUse = !requestedScopes.isEmpty() ? requestedScopes : authorizedScopes;
+        Set<String> scopesToUse = requestedScopes.isEmpty() ? authorizedScopes : requestedScopes;
 
         // Build token context
         DefaultOAuth2TokenContext.Builder tokenContextBuilder = DefaultOAuth2TokenContext.builder()
@@ -134,7 +133,7 @@ public class CustomRefreshTokenAuthenticationProvider implements AuthenticationP
     }
 
     @Override
-    public boolean supports(Class<?> authentication) {
+    public boolean supports(@NonNull Class<?> authentication) {
         return OAuth2RefreshTokenAuthenticationToken.class.isAssignableFrom(authentication);
     }
 

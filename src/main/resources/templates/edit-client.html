@@ -102,8 +102,10 @@
     function regenerateSecret() {
         var chars = '0123456789abcdef';
         var secret = '';
-        for (var i = 0; i < 64; i++) {
-            secret += chars.charAt(Math.floor(Math.random() * chars.length));
+        var bytes = new Uint8Array(64);
+        crypto.getRandomValues(bytes);
+        for (const element of bytes) {
+            secret += chars.charAt(element % chars.length);
         }
         document.getElementById('clientSecret').value = secret;
     }

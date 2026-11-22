@@ -102,7 +102,7 @@ class CustomSerializationUtilsTest {
     @Test
     void deserialize_ShouldThrowException_WhenByteArrayIsInvalid() {
         // Arrange
-        byte[] invalidBytes = new byte[]{1, 2, 3, 4, 5};
+        byte[] invalidBytes = {1, 2, 3, 4, 5};
 
         // Act & Assertions
         assertThrows(Exception.class, () -> CustomSerializationUtils.deserialize(invalidBytes));

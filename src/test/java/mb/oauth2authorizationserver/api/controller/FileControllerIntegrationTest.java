@@ -23,7 +23,7 @@ import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
-import java.util.Random;
+import java.security.SecureRandom;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -115,7 +115,7 @@ class FileControllerIntegrationTest {
         // Arrange
         byte[] largeFileContent = new byte[1024 * 1024]; // 1 MB
         // Optionally, fill the byte array with specific data
-        new Random().nextBytes(largeFileContent); // Fill with random data
+        new SecureRandom().nextBytes(largeFileContent); // Fill with random data
         MockMultipartFile file = new MockMultipartFile("file", "test_file.txt", "text/plain", largeFileContent);
 
         // Act
@@ -164,7 +164,7 @@ class FileControllerIntegrationTest {
         int width = 256; // example width
         int height = 256; // example height
         BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-        Random random = new Random();
+        SecureRandom random = new SecureRandom();
         // Fill the image with random colors
         for (int x = 0; x < width; x++) {
             for (int y = 0; y < height; y++) {

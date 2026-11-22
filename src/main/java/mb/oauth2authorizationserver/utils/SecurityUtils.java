@@ -22,11 +22,11 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.SecureRandom;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Random;
 import java.util.UUID;
 
 @Slf4j
@@ -35,7 +35,7 @@ public final class SecurityUtils {
 
     public static final String ERROR_URI = "https://datatracker.ietf.org/doc/html/rfc6749#section-5.2";
 
-    private static final Random RANDOM = new Random();
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     public static RSAKey loadOrGenerateRsa(String jwtKeyPath) {
         File keyFile = new File(jwtKeyPath);
