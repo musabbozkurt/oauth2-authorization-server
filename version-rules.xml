@@ -5,10 +5,12 @@
     <!--
         Global: ignore pre-release versions (case-insensitive).
         This prevents stable dependencies from being upgraded to pre-release versions.
-        Dependencies that intentionally use pre-release qualifiers must be excluded via the per-artifact rules below.
+        Ignore rules here are global and additive (per-artifact rules cannot relax them), so the alpha pattern only
+        matches numbered alphas (alpha1, alpha.1) and lets bare "-alpha" releases through. That is the standard
+        release qualifier of OpenTelemetry instrumentation (e.g., 2.34.0-alpha).
     -->
     <ignoreVersions>
-        <ignoreVersion type="regex">(?i).*[-.]alpha[-.]?\d*</ignoreVersion>
+        <ignoreVersion type="regex">(?i).*[-.]alpha[-.]?\d+</ignoreVersion>
         <ignoreVersion type="regex">(?i).*[-.]beta[-.]?\d*</ignoreVersion>
         <ignoreVersion type="regex">(?i).*[-.]rc[-.]?\d*</ignoreVersion>
         <ignoreVersion type="regex">(?i).*[-.]cr[-.]?\d*</ignoreVersion>

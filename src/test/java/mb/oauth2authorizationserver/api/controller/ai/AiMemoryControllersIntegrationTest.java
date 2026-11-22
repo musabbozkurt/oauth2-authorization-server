@@ -14,17 +14,17 @@ import org.springframework.ai.ollama.OllamaEmbeddingModel;
 import org.springframework.ai.ollama.api.OllamaApi;
 import org.springframework.ai.ollama.api.OllamaEmbeddingOptions;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.resttestclient.TestRestTemplate;
-import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Scope;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.web.servlet.client.EntityExchangeResult;
+import org.springframework.test.web.servlet.client.RestTestClient;
 import org.testcontainers.ollama.OllamaContainer;
 
 import java.io.IOException;
@@ -40,7 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @Slf4j
 @Disabled("For local testing only")
-@AutoConfigureTestRestTemplate
+@AutoConfigureRestTestClient
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         classes = {
@@ -83,7 +83,7 @@ class AiMemoryControllersIntegrationTest extends BaseUnitTest {
     }
 
     @Autowired
-    private TestRestTemplate testRestTemplate;
+    private RestTestClient restTestClient;
 
     @DynamicPropertySource
     static void ollamaProperties(DynamicPropertyRegistry registry) {
@@ -92,29 +92,42 @@ class AiMemoryControllersIntegrationTest extends BaseUnitTest {
 
     @Test
     void longTerm_ShouldReturnReply_WhenUserIdIsValid() {
-        ResponseEntity<String> response = testRestTemplate.getForEntity("/long-term?prompt={prompt}&userId={userId}", String.class, "Remember that my favourite colour is green.", "it-long-term-user");
+        EntityExchangeResult<String> response = restTestClient.get()
+                .uri("/long-term?prompt={prompt}&userId={userId}", "Remember that my favourite colour is green.", "it-long-term-user")
+                .exchange()
+                .returnResult(String.class);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).isNotBlank();
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getResponseBody()).isNotBlank();
     }
 
     @Test
     void longTerm_ShouldReturnBadRequest_WhenUserIdContainsInvalidCharacters() {
-        ResponseEntity<String> response = testRestTemplate.getForEntity("/long-term?prompt={prompt}&userId={userId}", String.class, "Hello", "../etc");
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        EntityExchangeResult<String> response = restTestClient.get()
+                .uri("/long-term?prompt={prompt}&userId={userId}", "Hello", "../etc")
+                .exchange()
+                .returnResult(String.class);
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
     @Test
     void vectorMemory_ShouldStoreAndSearchConversation_WhenChatIsCalled() {
         String userId = "it-vector-user";
 
-        ResponseEntity<String> chat = testRestTemplate.getForEntity("/vector-memory?prompt={prompt}&userId={userId}", String.class, "My name is Maya and I live in Istanbul.", userId);
-        assertThat(chat.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(chat.getBody()).isNotBlank();
+        EntityExchangeResult<String> chat = restTestClient.get()
+                .uri("/vector-memory?prompt={prompt}&userId={userId}", "My name is Maya and I live in Istanbul.", userId)
+                .exchange()
+                .returnResult(String.class);
+        assertThat(chat.getStatus()).isEqualTo(HttpStatus.OK);
+        assertThat(chat.getResponseBody()).isNotBlank();
 
-        ResponseEntity<String[]> search = testRestTemplate.getForEntity("/vector-memory/search?query={query}&userId={userId}", String[].class, "Where does the user live?", userId);
-        assertThat(search.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(search.getBody())
+        EntityExchangeResult<String[]> search = restTestClient.get()
+                .uri("/vector-memory/search?query={query}&userId={userId}", "Where does the user live?", userId)
+                .exchange()
+                .returnResult(String[].class);
+        assertThat(search.getStatus()).isEqualTo(HttpStatus.OK);
+        assertThat(search.getResponseBody())
                 .isNotNull()
                 .isNotEmpty()
                 .anySatisfy(entry -> assertThat(entry).contains("Istanbul"));
@@ -124,21 +137,32 @@ class AiMemoryControllersIntegrationTest extends BaseUnitTest {
     void shortTerm_ShouldKeepHistoryPerConversation_AndClearIt() {
         String conversationId = "it-short-term-conversation";
 
-        ResponseEntity<String> chat = testRestTemplate.getForEntity("/short-term?prompt={prompt}&conversationId={conversationId}", String.class, "My favourite fruit is mango.", conversationId);
-        assertThat(chat.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(chat.getBody()).isNotBlank();
+        EntityExchangeResult<String> chat = restTestClient.get()
+                .uri("/short-term?prompt={prompt}&conversationId={conversationId}", "My favourite fruit is mango.", conversationId)
+                .exchange()
+                .returnResult(String.class);
+        assertThat(chat.getStatus()).isEqualTo(HttpStatus.OK);
+        assertThat(chat.getResponseBody()).isNotBlank();
 
-        ResponseEntity<String[]> history = testRestTemplate.getForEntity("/short-history?conversationId={conversationId}", String[].class, conversationId);
-        assertThat(history.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(history.getBody())
+        EntityExchangeResult<String[]> history = restTestClient.get()
+                .uri("/short-history?conversationId={conversationId}", conversationId)
+                .exchange()
+                .returnResult(String[].class);
+        assertThat(history.getStatus()).isEqualTo(HttpStatus.OK);
+        assertThat(history.getResponseBody())
                 .isNotNull()
                 .anySatisfy(entry -> assertThat(entry).contains("mango"));
 
-        ResponseEntity<Void> clear = testRestTemplate.getForEntity("/clear?conversationId={conversationId}", Void.class, conversationId);
-        assertThat(clear.getStatusCode()).isEqualTo(HttpStatus.OK);
+        restTestClient.get()
+                .uri("/clear?conversationId={conversationId}", conversationId)
+                .exchange()
+                .expectStatus().isOk();
 
-        ResponseEntity<String[]> afterClear = testRestTemplate.getForEntity("/short-history?conversationId={conversationId}", String[].class, conversationId);
-        assertThat(afterClear.getBody()).isEmpty();
+        EntityExchangeResult<String[]> afterClear = restTestClient.get()
+                .uri("/short-history?conversationId={conversationId}", conversationId)
+                .exchange()
+                .returnResult(String[].class);
+        assertThat(afterClear.getResponseBody()).isEmpty();
     }
 
     /**

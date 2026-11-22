@@ -20,20 +20,17 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.resttestclient.TestRestTemplate;
-import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.client.RestTestClient;
 import tools.jackson.databind.JsonNode;
 
-import java.util.Collections;
 import java.util.List;
 
-@AutoConfigureTestRestTemplate
+@AutoConfigureRestTestClient
 @TestMethodOrder(OrderAnnotation.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = {TestSecurityConfig.class, RedisTestConfiguration.class, LgtmStackTestConfiguration.class})
 class UserControllerIntegrationTests extends BaseUnitTest {
@@ -41,7 +38,7 @@ class UserControllerIntegrationTests extends BaseUnitTest {
     private static ApiUserResponse apiUserResponse;
 
     @Autowired
-    private TestRestTemplate testRestTemplate;
+    private RestTestClient restTestClient;
 
     @Autowired
     private UserService userService;
@@ -59,10 +56,7 @@ class UserControllerIntegrationTests extends BaseUnitTest {
     @Test
     @Order(value = 2)
     void testGetUsers() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-
-        String response = testRestTemplate.exchange("/users/", HttpMethod.GET, new HttpEntity<>(headers), String.class).getBody();
+        String response = getUsers();
 
         Assertions.assertNotNull(response);
         Assertions.assertTrue(response.contains("content"));
@@ -76,16 +70,13 @@ class UserControllerIntegrationTests extends BaseUnitTest {
     @Test
     @Order(value = 2)
     void testGetUsers_ShouldReturnPagedResponse_WhenCalledWithParameterizedTypeReference() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-
-        var response = testRestTemplate.exchange(
-                "/users/?page=0&size=10",
-                HttpMethod.GET,
-                new HttpEntity<>(headers),
-                new ParameterizedTypeReference<RestPageImpl<ApiUserResponse>>() {
-                }
-        ).getBody();
+        var response = restTestClient.get()
+                .uri("/users/?page=0&size=10")
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .returnResult(new ParameterizedTypeReference<RestPageImpl<ApiUserResponse>>() {
+                })
+                .getResponseBody();
 
         Assertions.assertNotNull(response, "Response should not be null");
         List<ApiUserResponse> content = response.getContent();
@@ -100,10 +91,12 @@ class UserControllerIntegrationTests extends BaseUnitTest {
     @Test
     @Order(value = 2)
     void testGetUsers_ShouldReturnPagedResponse_WhenCalled() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-
-        var response = testRestTemplate.exchange("/users/?page=0&size=10", HttpMethod.GET, new HttpEntity<>(headers), JsonNode.class).getBody();
+        var response = restTestClient.get()
+                .uri("/users/?page=0&size=10")
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .returnResult(JsonNode.class)
+                .getResponseBody();
 
         Assertions.assertNotNull(response, "Response should not be null");
         Assertions.assertTrue(response.has("content"), "Response should have content");
@@ -119,10 +112,8 @@ class UserControllerIntegrationTests extends BaseUnitTest {
     @Order(value = 3)
     void testCreateUser() {
         ApiUserRequest apiUserRequest = getApiUserRequest();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
 
-        ApiUserResponse response = testRestTemplate.postForObject("/users/", new HttpEntity<>(apiUserRequest, headers), ApiUserResponse.class);
+        ApiUserResponse response = sendJson(HttpMethod.POST, "/users/", apiUserRequest, ApiUserResponse.class);
 
         Assertions.assertNotNull(response);
         Assertions.assertEquals(apiUserRequest.getFirstName(), response.getFirstName());
@@ -134,11 +125,9 @@ class UserControllerIntegrationTests extends BaseUnitTest {
     @Order(value = 4)
     void testCreateUser_ShouldFail_WhenPhoneNumberOrEmailIsAlreadyExists() {
         ApiUserRequest apiUserRequest = getApiUserRequest2();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
 
         // ErrorResponse or LocalizedExceptionResponse can be used here based on the implementation
-        ErrorResponse exception = testRestTemplate.postForObject("/users/", new HttpEntity<>(apiUserRequest, headers), ErrorResponse.class);
+        ErrorResponse exception = sendJson(HttpMethod.POST, "/users/", apiUserRequest, ErrorResponse.class);
 
         Assertions.assertNotNull(exception);
         Assertions.assertEquals(OAuth2AuthorizationServerServiceErrorCode.UNEXPECTED_ERROR.getCode(), exception.getErrorCode());
@@ -147,7 +136,7 @@ class UserControllerIntegrationTests extends BaseUnitTest {
     @Test
     @Order(value = 5)
     void testGetUserById() {
-        ApiUserResponse response = testRestTemplate.getForObject("/users/%d".formatted(apiUserResponse.getId()), ApiUserResponse.class);
+        ApiUserResponse response = get("/users/%d".formatted(apiUserResponse.getId()), ApiUserResponse.class);
 
         Assertions.assertNotNull(response);
         Assertions.assertNotNull(response.getId());
@@ -158,7 +147,7 @@ class UserControllerIntegrationTests extends BaseUnitTest {
     @Test
     @Order(value = 6)
     void testGetUserById_ShouldFail_WhenUserIsNotFound() {
-        LocalizedExceptionResponse exception = testRestTemplate.getForObject("/users/0", LocalizedExceptionResponse.class);
+        LocalizedExceptionResponse exception = get("/users/0", LocalizedExceptionResponse.class);
 
         Assertions.assertNotNull(exception);
         Assertions.assertEquals(OAuth2AuthorizationServerServiceErrorCode.USER_NOT_FOUND.getCode(), exception.getErrorCode());
@@ -168,10 +157,8 @@ class UserControllerIntegrationTests extends BaseUnitTest {
     @Order(value = 7)
     void testUpdateUserById() {
         ApiUserRequest apiUserRequest = getApiUserRequest3();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
 
-        ApiUserResponse response = testRestTemplate.exchange("/users/1", HttpMethod.PUT, new HttpEntity<>(apiUserRequest, headers), ApiUserResponse.class).getBody();
+        ApiUserResponse response = sendJson(HttpMethod.PUT, "/users/1", apiUserRequest, ApiUserResponse.class);
 
         Assertions.assertNotNull(response);
         Assertions.assertEquals(apiUserRequest.getEmail(), response.getEmail());
@@ -181,10 +168,8 @@ class UserControllerIntegrationTests extends BaseUnitTest {
     @Order(value = 8)
     void testUpdateUserById_ShouldFail_WhenUserIsNotFound() {
         ApiUserRequest apiUserRequest = getApiUserRequest();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
 
-        LocalizedExceptionResponse exception = testRestTemplate.exchange("/users/0", HttpMethod.PUT, new HttpEntity<>(apiUserRequest, headers), LocalizedExceptionResponse.class).getBody();
+        LocalizedExceptionResponse exception = sendJson(HttpMethod.PUT, "/users/0", apiUserRequest, LocalizedExceptionResponse.class);
 
         Assertions.assertNotNull(exception);
         Assertions.assertEquals(OAuth2AuthorizationServerServiceErrorCode.USER_NOT_FOUND.getCode(), exception.getErrorCode());
@@ -193,7 +178,7 @@ class UserControllerIntegrationTests extends BaseUnitTest {
     @Test
     @Order(value = 9)
     void testDeleteUserById() {
-        String response = testRestTemplate.exchange("/users/4", HttpMethod.DELETE, null, String.class).getBody();
+        String response = delete("/users/4", String.class);
 
         Assertions.assertEquals("User deleted successfully.", response);
     }
@@ -201,7 +186,7 @@ class UserControllerIntegrationTests extends BaseUnitTest {
     @Test
     @Order(value = 10)
     void testDeleteUserById_ShouldFail_WhenUserIsNotFound() {
-        LocalizedExceptionResponse exception = testRestTemplate.exchange("/users/0", HttpMethod.DELETE, null, LocalizedExceptionResponse.class).getBody();
+        LocalizedExceptionResponse exception = delete("/users/0", LocalizedExceptionResponse.class);
 
         Assertions.assertNotNull(exception);
         Assertions.assertEquals(OAuth2AuthorizationServerServiceErrorCode.USER_NOT_FOUND.getCode(), exception.getErrorCode());
@@ -217,10 +202,7 @@ class UserControllerIntegrationTests extends BaseUnitTest {
                 .set(Select.field(ApiUserRequest::getPassword), "password123")
                 .create();
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        ApiUserResponse response = testRestTemplate.exchange("/users/", HttpMethod.POST, new HttpEntity<>(apiUserRequest, headers), ApiUserResponse.class).getBody();
+        ApiUserResponse response = sendJson(HttpMethod.POST, "/users/", apiUserRequest, ApiUserResponse.class);
 
         Assertions.assertNotNull(response, "Response should not be null");
         Assertions.assertNotNull(response.getId(), "User ID should be generated");
@@ -244,10 +226,7 @@ class UserControllerIntegrationTests extends BaseUnitTest {
                 .set(Select.field(ApiUserRequest::getPassword), "password123")
                 .create();
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        ApiUserResponse response = testRestTemplate.exchange("/users/1", HttpMethod.PUT, new HttpEntity<>(apiUserRequest, headers), ApiUserResponse.class).getBody();
+        ApiUserResponse response = sendJson(HttpMethod.PUT, "/users/1", apiUserRequest, ApiUserResponse.class);
 
         Assertions.assertNotNull(response, "Response should not be null");
         Assertions.assertNotNull(response.getId(), "User ID should be present");
@@ -269,10 +248,7 @@ class UserControllerIntegrationTests extends BaseUnitTest {
                 .set(Select.field(ApiUserRequest::getPassword), "password123")
                 .create();
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        ApiUserResponse response = testRestTemplate.exchange("/users/", HttpMethod.POST, new HttpEntity<>(apiUserRequest, headers), ApiUserResponse.class).getBody();
+        ApiUserResponse response = sendJson(HttpMethod.POST, "/users/", apiUserRequest, ApiUserResponse.class);
 
         Assertions.assertNotNull(response, "Response should not be null");
         Assertions.assertNotNull(response.getId(), "User ID should be generated");
@@ -293,10 +269,7 @@ class UserControllerIntegrationTests extends BaseUnitTest {
                 .set(Select.field(ApiUserRequest::getPassword), "password123")
                 .create();
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        ApiUserResponse response = testRestTemplate.exchange("/users/", HttpMethod.POST, new HttpEntity<>(apiUserRequest, headers), ApiUserResponse.class).getBody();
+        ApiUserResponse response = sendJson(HttpMethod.POST, "/users/", apiUserRequest, ApiUserResponse.class);
 
         Assertions.assertNotNull(response, "Response should not be null");
         Assertions.assertNotNull(response.getId(), "User ID should be generated");
@@ -310,14 +283,11 @@ class UserControllerIntegrationTests extends BaseUnitTest {
     @Test
     @Order(value = 15)
     void testGetUsers_ShouldRecordMetrics_WhenEndpointIsCalled() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-
         // Act
-        testRestTemplate.exchange("/users/", HttpMethod.GET, new HttpEntity<>(headers), String.class);
+        getUsers();
 
         // Verify actuator metrics endpoint is accessible
-        String metricsResponse = testRestTemplate.getForObject("/actuator/metrics", String.class);
+        String metricsResponse = get("/actuator/metrics", String.class);
 
         Assertions.assertNotNull(metricsResponse, "Metrics endpoint should be accessible");
         Assertions.assertTrue(metricsResponse.contains("names"), "Metrics response should contain metric names");
@@ -327,14 +297,11 @@ class UserControllerIntegrationTests extends BaseUnitTest {
     @Test
     @Order(value = 16)
     void testGetUsers_ShouldRecordHttpServerRequestMetrics_WhenEndpointIsCalled() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-
         // Act
-        testRestTemplate.exchange("/users/", HttpMethod.GET, new HttpEntity<>(headers), String.class);
+        getUsers();
 
         // Verify http.server.requests metric exists
-        String metricsResponse = testRestTemplate.getForObject("/actuator/metrics/http.server.requests", String.class);
+        String metricsResponse = get("/actuator/metrics/http.server.requests", String.class);
 
         Assertions.assertNotNull(metricsResponse, "HTTP server requests metric should exist");
         Assertions.assertTrue(metricsResponse.contains("http.server.requests"), "Should contain http.server.requests metric");
@@ -351,14 +318,12 @@ class UserControllerIntegrationTests extends BaseUnitTest {
                 .set(Select.field(ApiUserRequest::getUsername), "metricTest17")
                 .set(Select.field(ApiUserRequest::getPassword), "password123")
                 .create();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
 
         // Act
-        testRestTemplate.postForObject("/users/", new HttpEntity<>(apiUserRequest, headers), ApiUserResponse.class);
+        sendJson(HttpMethod.POST, "/users/", apiUserRequest, ApiUserResponse.class);
 
         // Verify createUser observation metric exists
-        String metricsResponse = testRestTemplate.getForObject("/actuator/metrics", String.class);
+        String metricsResponse = get("/actuator/metrics", String.class);
 
         Assertions.assertNotNull(metricsResponse, "Metrics should be accessible");
         Assertions.assertTrue(metricsResponse.contains("createUser"), "Should contain createUser observation metric");
@@ -368,10 +333,10 @@ class UserControllerIntegrationTests extends BaseUnitTest {
     @Order(value = 18)
     void testGetUserById_ShouldRecordObservationMetrics_WhenEndpointIsCalled() {
         // Act
-        testRestTemplate.getForObject("/users/1", ApiUserResponse.class);
+        get("/users/1", ApiUserResponse.class);
 
         // Verify getUserById observation metric exists
-        String metricsResponse = testRestTemplate.getForObject("/actuator/metrics", String.class);
+        String metricsResponse = get("/actuator/metrics", String.class);
 
         Assertions.assertNotNull(metricsResponse, "Metrics should be accessible");
         Assertions.assertTrue(metricsResponse.contains("getUserById"), "Should contain getUserById observation metric");
@@ -385,14 +350,12 @@ class UserControllerIntegrationTests extends BaseUnitTest {
                 .set(Select.field(ApiUserRequest::getLastName), "User")
                 .set(Select.field(ApiUserRequest::getEmail), "metricupdate19@example.com")
                 .create();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
 
         // Act
-        testRestTemplate.exchange("/users/1", HttpMethod.PUT, new HttpEntity<>(apiUserRequest, headers), ApiUserResponse.class);
+        sendJson(HttpMethod.PUT, "/users/1", apiUserRequest, ApiUserResponse.class);
 
         // Verify updateUserById observation metric exists
-        String metricsResponse = testRestTemplate.getForObject("/actuator/metrics", String.class);
+        String metricsResponse = get("/actuator/metrics", String.class);
 
         Assertions.assertNotNull(metricsResponse, "Metrics should be accessible");
         Assertions.assertTrue(metricsResponse.contains("updateUserById"), "Should contain updateUserById observation metric");
@@ -410,16 +373,14 @@ class UserControllerIntegrationTests extends BaseUnitTest {
                 .set(Select.field(ApiUserRequest::getUsername), "metricDelete20")
                 .set(Select.field(ApiUserRequest::getPassword), "password123")
                 .create();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        ApiUserResponse createdUser = testRestTemplate.postForObject("/users/", new HttpEntity<>(apiUserRequest, headers), ApiUserResponse.class);
+        ApiUserResponse createdUser = sendJson(HttpMethod.POST, "/users/", apiUserRequest, ApiUserResponse.class);
 
         // Act
         Assertions.assertNotNull(createdUser, "Created user should not be null");
-        testRestTemplate.exchange("/users/" + createdUser.getId(), HttpMethod.DELETE, null, String.class);
+        delete("/users/" + createdUser.getId(), String.class);
 
         // Verify deleteUserById observation metric exists
-        String metricsResponse = testRestTemplate.getForObject("/actuator/metrics", String.class);
+        String metricsResponse = get("/actuator/metrics", String.class);
 
         Assertions.assertNotNull(metricsResponse, "Metrics should be accessible");
         Assertions.assertTrue(metricsResponse.contains("deleteUserById"), "Should contain deleteUserById observation metric");
@@ -428,14 +389,11 @@ class UserControllerIntegrationTests extends BaseUnitTest {
     @Test
     @Order(value = 21)
     void testObservation_ShouldRecordTimingMetrics_WhenRequestCompletes() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-
         // Act
-        testRestTemplate.exchange("/users/", HttpMethod.GET, new HttpEntity<>(headers), String.class);
+        getUsers();
 
         // Verify getUsers timer metric has measurements
-        String metricsResponse = testRestTemplate.getForObject("/actuator/metrics/getUsers", String.class);
+        String metricsResponse = get("/actuator/metrics/getUsers", String.class);
 
         Assertions.assertNotNull(metricsResponse, "getUsers metric should exist");
         Assertions.assertTrue(metricsResponse.contains("COUNT") || metricsResponse.contains("TOTAL_TIME"), "Should contain timing measurements");
@@ -444,16 +402,13 @@ class UserControllerIntegrationTests extends BaseUnitTest {
     @Test
     @Order(value = 22)
     void testObservation_ShouldIncrementCount_WhenMultipleRequestsMade() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-
         // Act - make multiple requests
         for (int i = 0; i < 3; i++) {
-            testRestTemplate.exchange("/users/", HttpMethod.GET, new HttpEntity<>(headers), String.class);
+            getUsers();
         }
 
         // Verify count exists in getUsers metric
-        String metricsResponse = testRestTemplate.getForObject("/actuator/metrics/getUsers", String.class);
+        String metricsResponse = get("/actuator/metrics/getUsers", String.class);
 
         Assertions.assertNotNull(metricsResponse, "getUsers metric should exist");
         Assertions.assertTrue(metricsResponse.contains("COUNT"), "Should contain COUNT measurement");
@@ -463,12 +418,40 @@ class UserControllerIntegrationTests extends BaseUnitTest {
     @Order(value = 23)
     void testMetrics_ShouldRecordErrorMetrics_WhenUserNotFound() {
         // Act - trigger a 404 error
-        testRestTemplate.getForObject("/users/0", LocalizedExceptionResponse.class);
+        get("/users/0", LocalizedExceptionResponse.class);
 
         // Verify getUserById metric exists (even for errors)
-        String metricsResponse = testRestTemplate.getForObject("/actuator/metrics/getUserById", String.class);
+        String metricsResponse = get("/actuator/metrics/getUserById", String.class);
 
         Assertions.assertNotNull(metricsResponse, "getUserById metric should exist");
         Assertions.assertTrue(metricsResponse.contains("COUNT"), "Should contain COUNT measurement");
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> T getUsers() {
+        return restTestClient.get()
+                .uri("/users/")
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .returnResult((Class<T>) String.class)
+                .getResponseBody();
+    }
+
+    private <T> T get(String uri, Class<T> responseType) {
+        return restTestClient.get().uri(uri).exchange().returnResult(responseType).getResponseBody();
+    }
+
+    private <T> T delete(String uri, Class<T> responseType) {
+        return restTestClient.delete().uri(uri).exchange().returnResult(responseType).getResponseBody();
+    }
+
+    private <T> T sendJson(HttpMethod method, String uri, Object body, Class<T> responseType) {
+        return restTestClient.method(method)
+                .uri(uri)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
+                .exchange()
+                .returnResult(responseType)
+                .getResponseBody();
     }
 }
