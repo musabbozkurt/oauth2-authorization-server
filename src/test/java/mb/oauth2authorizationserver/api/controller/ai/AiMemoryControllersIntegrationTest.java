@@ -83,7 +83,7 @@ class AiMemoryControllersIntegrationTest extends BaseUnitTest {
     }
 
     @Autowired
-    private final RestTestClient restTestClient;
+    private RestTestClient restTestClient;
 
     @DynamicPropertySource
     static void ollamaProperties(DynamicPropertyRegistry registry) {
